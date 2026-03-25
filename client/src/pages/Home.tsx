@@ -1,9 +1,12 @@
 import { useState, useMemo, useEffect } from "react";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { Button } from "@/components/ui/button";
-import { ChevronLeft, ChevronRight, Heart } from "lucide-react";
+import { ChevronLeft, ChevronRight, Heart, Settings } from "lucide-react";
 import { EventNotification } from "@/components/EventNotification";
 import { MatchAnalysisTabs } from "@/components/MatchAnalysisTabs";
+import { OddsPanel } from "@/components/OddsPanel";
+import { StatisticsDashboard } from "@/components/StatisticsDashboard";
+import { PersonalizedAlerts } from "@/components/PersonalizedAlerts";
 import { trpc } from "@/lib/trpc";
 
 export function Home() {
@@ -12,6 +15,8 @@ export function Home() {
   const [filterStatus, setFilterStatus] = useState<"all" | "live" | "finished" | "upcoming">("all");
   const [tickerIndex, setTickerIndex] = useState(0);
   const [currentDate, setCurrentDate] = useState(new Date().toISOString().split("T")[0]);
+  const [showAlerts, setShowAlerts] = useState(false);
+  const [activeTab, setActiveTab] = useState<"analysis" | "odds" | "stats">("analysis");
 
   // Buscar jogos ao vivo da API Football
   const { data: liveGames = [], isLoading: liveLoading } = trpc.matches.getLive.useQuery(undefined, {
@@ -255,9 +260,14 @@ export function Home() {
                         {getStatusText(selectedGame.status)} {selectedGame.minute > 0 && `${selectedGame.minute}'`}
                       </div>
                     </div>
-                    <button className="p-2 hover:bg-slate-800 rounded transition-colors">
-                      <Heart className="w-6 h-6 text-slate-400 hover:text-red-500" />
-                    </button>
+                    <div className="flex gap-2">
+                      <button className="p-2 hover:bg-slate-800 rounded transition-colors">
+                        <Heart className="w-6 h-6 text-slate-400 hover:text-red-500" />
+                      </button>
+                      <button onClick={() => setShowAlerts(true)} className="p-2 hover:bg-slate-800 rounded transition-colors">
+                        <Settings className="w-6 h-6 text-slate-400 hover:text-blue-500" />
+                      </button>
+                    </div>
                   </div>
 
                   {/* PLACAR */}
@@ -295,19 +305,78 @@ export function Home() {
                   </div>
                 </div>
 
-                {/* ABAS DE ANÁLISE */}
-                <div className="mb-4">
-                  <MatchAnalysisTabs
-                    homeTeam={selectedGame.homeTeam.name}
-                    awayTeam={selectedGame.awayTeam.name}
-                    homeScore={selectedGame.homeScore}
-                    awayScore={selectedGame.awayScore}
-                    possession={selectedGame.possession || { home: 50, away: 50 }}
-                    shots={selectedGame.shots || { home: 0, away: 0 }}
-                    corners={selectedGame.corners || { home: 0, away: 0 }}
-                    cards={selectedGame.cards || { home: 0, away: 0 }}
-                    minute={selectedGame.minute}
-                  />
+                {/* ABAS DE ANÁLISE, ODDS E ESTATÍSTICAS */}
+                <div className="mb-4 border-b border-slate-700">
+                  <div className="flex gap-2 mb-4">
+                    <button
+                      onClick={() => setActiveTab("analysis")}
+                      className={`px-4 py-2 rounded font-semibold text-sm transition-colors ${
+                        activeTab === "analysis"
+                          ? "bg-blue-600 text-white"
+                          : "bg-slate-800 text-slate-300 hover:bg-slate-700"
+                      }`}
+                    >
+                      📊 Análise
+                    </button>
+                    <button
+                      onClick={() => setActiveTab("odds")}
+                      className={`px-4 py-2 rounded font-semibold text-sm transition-colors ${
+                        activeTab === "odds"
+                          ? "bg-blue-600 text-white"
+                          : "bg-slate-800 text-slate-300 hover:bg-slate-700"
+                      }`}
+                    >
+                      💰 Odds
+                    </button>
+                    <button
+                      onClick={() => setActiveTab("stats")}
+                      className={`px-4 py-2 rounded font-semibold text-sm transition-colors ${
+                        activeTab === "stats"
+                          ? "bg-blue-600 text-white"
+                          : "bg-slate-800 text-slate-300 hover:bg-slate-700"
+                      }`}
+                    >
+                      📈 Estatísticas
+                    </button>
+                  </div>
+
+                  <div className="mb-4">
+                    {activeTab === "analysis" && (
+                      <MatchAnalysisTabs
+                        homeTeam={selectedGame.homeTeam.name}
+                        awayTeam={selectedGame.awayTeam.name}
+                        homeScore={selectedGame.homeScore}
+                        awayScore={selectedGame.awayScore}
+                        possession={selectedGame.possession || { home: 50, away: 50 }}
+                        shots={selectedGame.shots || { home: 0, away: 0 }}
+                        corners={selectedGame.corners || { home: 0, away: 0 }}
+                        cards={selectedGame.cards || { home: 0, away: 0 }}
+                        minute={selectedGame.minute}
+                      />
+                    )}
+                    {activeTab === "odds" && (
+                      <OddsPanel
+                        homeTeam={selectedGame.homeTeam.name}
+                        awayTeam={selectedGame.awayTeam.name}
+                        homeScore={selectedGame.homeScore}
+                        awayScore={selectedGame.awayScore}
+                        minute={selectedGame.minute}
+                      />
+                    )}
+                    {activeTab === "stats" && (
+                      <StatisticsDashboard
+                        homeTeam={selectedGame.homeTeam.name}
+                        awayTeam={selectedGame.awayTeam.name}
+                        homeScore={selectedGame.homeScore}
+                        awayScore={selectedGame.awayScore}
+                        possession={selectedGame.possession || { home: 50, away: 50 }}
+                        shots={selectedGame.shots || { home: 0, away: 0 }}
+                        corners={selectedGame.corners || { home: 0, away: 0 }}
+                        cards={selectedGame.cards || { home: 0, away: 0 }}
+                        minute={selectedGame.minute}
+                      />
+                    )}
+                  </div>
                 </div>
 
                 {/* ESTATÍSTICAS */}
@@ -406,6 +475,9 @@ export function Home() {
           </div>
         </div>
       </div>
+
+      {/* MODAL DE ALERTAS */}
+      {showAlerts && <PersonalizedAlerts onClose={() => setShowAlerts(false)} />}
 
       <style>{`
         @keyframes marquee {
