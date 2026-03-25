@@ -122,6 +122,7 @@ export default function Bots() {
   const [novoBot, setNovoBot] = useState({ nome: "", descricao: "", templateId: "", confiancaMinima: 75, limiteDiario: 10, canal: "painel" });
   const [novoFiltros, setNovoFiltros] = useState<FiltrosBot>(filtrosPadrao);
   const [mostrarFiltrosAvancados, setMostrarFiltrosAvancados] = useState(true);
+  const [abrirFiltroLigas, setAbrirFiltroLigas] = useState(false);
   const [filtroLigasSinais, setFiltroLigasSinais] = useState<number[]>([]);
   const [filtroCategoria, setFiltroCategoria] = useState("Todos");
   const [filtroTag, setFiltroTag] = useState("todos");
@@ -709,6 +710,7 @@ export default function Bots() {
                       </button>
                       <button
                         type="button"
+                        onClick={() => { setAbrirFiltroLigas(true); }}
                         className={`flex flex-col items-center gap-1.5 p-3 rounded-xl border-2 transition-all cursor-pointer ${
                           novoFiltros.ligasIds.length > 0
                             ? "border-primary bg-primary/10 text-primary"
@@ -725,7 +727,13 @@ export default function Bots() {
                         )}
                       </button>
                     </div>
-                    <FiltroLigas ligasSelecionadas={novoFiltros.ligasIds} onChange={v => setNovoFiltros(p => ({ ...p, ligasIds: v }))} placeholder="Buscar e adicionar ligas específicas..." />
+                    <FiltroLigas
+                      ligasSelecionadas={novoFiltros.ligasIds}
+                      onChange={v => setNovoFiltros(p => ({ ...p, ligasIds: v }))}
+                      placeholder="Buscar e adicionar ligas específicas..."
+                      forceOpen={abrirFiltroLigas}
+                      onForceOpenConsumed={() => setAbrirFiltroLigas(false)}
+                    />
                     <p className={`text-[11px] mt-1.5 flex items-center gap-1 ${
                       novoFiltros.ligasIds.length === 0 ? "text-green-400" : "text-primary"
                     }`}>

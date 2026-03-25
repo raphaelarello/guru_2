@@ -196,3 +196,9 @@
 - [x] Pitacos: botão Exportar relatório (.txt) com resumo geral + por liga
 - [x] Alertas: ao marcar green/red, cria palpite automático com mercados do template do bot
 - [x] Alertas: atualiza `taxaAcerto` e `historicoPerformance` do bot ao resolver alerta
+
+## Fase 22 — Correção UX Ligas Específicas
+- [x] Corrigir onClick do botão "Ligas Específicas" para ativar campo de busca
+- [x] Melhorar UX: campo de busca de ligas abre automaticamente ao clicar em "Ligas Específicas"
+- [x] FiltroLigas: prop forceOpen para abrir programaticamente
+- [x] Estado visual claro de qual modo está ativo (Todas / Específicas)

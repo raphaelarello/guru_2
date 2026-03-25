@@ -5,9 +5,11 @@ import { LIGAS, LIGAS_DESTAQUE, getLigasPorPais, type InfoLiga } from "@shared/l
 interface FiltroLigasProps {
   ligasSelecionadas: number[];
   onChange: (ids: number[]) => void;
-  ligasDisponiveis?: number[]; // IDs das ligas presentes nos dados atuais
+  ligasDisponiveis?: number[];
   placeholder?: string;
   className?: string;
+  forceOpen?: boolean;
+  onForceOpenConsumed?: () => void;
 }
 
 export function FiltroLigas({
@@ -16,10 +18,20 @@ export function FiltroLigas({
   ligasDisponiveis,
   placeholder = "Filtrar por liga...",
   className = "",
+  forceOpen,
+  onForceOpenConsumed,
 }: FiltroLigasProps) {
   const [aberto, setAberto] = useState(false);
   const [busca, setBusca] = useState("");
   const ref = useRef<HTMLDivElement>(null);
+
+  // Abrir programaticamente quando forceOpen for true
+  useEffect(() => {
+    if (forceOpen) {
+      setAberto(true);
+      onForceOpenConsumed?.();
+    }
+  }, [forceOpen]);
 
   // Fechar ao clicar fora
   useEffect(() => {
