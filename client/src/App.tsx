@@ -32,10 +32,9 @@ import MatchCenter from "./pages/MatchCenter";
 import UpgradePlanos from "./pages/UpgradePlanos";
 import DashboardNotificacoes from "./pages/DashboardNotificacoes";
 import RelatorioPerfomance from "./pages/RelatorioPerfomance";
-
 import AdminPanel from "./pages/AdminPanel";
+
 import NotificationCenter from "./components/NotificationCenter";
-import { AdminPanelSecret } from "./components/AdminPanel/AdminPanelSecret";
 
 function Router() {
   return (
@@ -85,8 +84,6 @@ function App() {
         <TooltipProvider>
           <Toaster richColors position="top-right" />
           <NotificationCenter />
-          <AdminPanel />
-          <AdminPanelSecret />
           <Router />
         </TooltipProvider>
       </ThemeProvider>

@@ -1,238 +1,314 @@
-
-import { useMemo, useState } from "react";
-import RaphaLayout from "@/components/RaphaLayout";
+import { useState, useMemo, useEffect } from "react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import { trpc } from "@/lib/trpc";
-import CompactMatchCard from "@/components/live/CompactMatchCard";
-import { Activity, BellRing, CalendarDays, Flame, Radar, Sparkles, TrendingUp, Trophy } from "lucide-react";
-
-type MiniEvento = { jogador: string; minuto: string; tipo?: string };
-
-function numeroStat(stats: any[] | undefined, teamIndex: number, type: string) {
-  const raw = stats?.[teamIndex]?.statistics?.find((s: any) => s.type === type)?.value;
-  if (raw === undefined || raw === null) return 0;
-  if (typeof raw === "string") return parseFloat(raw.replace("%", "")) || 0;
-  return typeof raw === "number" ? raw : 0;
-}
-
-function resumirEventos(fixture: any) {
-  const eventos = Array.isArray(fixture?.events) ? fixture.events : [];
-  const golsCasa: MiniEvento[] = [];
-  const golsFora: MiniEvento[] = [];
-  let amarelosCasa = 0;
-  let amarelosFora = 0;
-  let vermelhosCasa = 0;
-  let vermelhosFora = 0;
-
-  for (const evento of eventos) {
-    const ehCasa = evento.team?.id === fixture?.teams?.home?.id;
-    if (evento.type === "Goal") {
-      const payload = {
-        jogador: evento.player?.name || "Gol",
-        minuto: `${evento.time?.elapsed || 0}'`,
-        tipo: evento.detail || "Gol",
-      };
-      if (ehCasa) golsCasa.push(payload);
-      else golsFora.push(payload);
-    }
-    if (evento.type === "Card") {
-      const red = String(evento.detail || "").toLowerCase().includes("red");
-      if (ehCasa) red ? vermelhosCasa++ : amarelosCasa++;
-      else red ? vermelhosFora++ : amarelosFora++;
-    }
-  }
-
-  return { golsCasa, golsFora, amarelosCasa, amarelosFora, vermelhosCasa, vermelhosFora };
-}
-
-function resumirStats(fixture: any) {
-  const stats = fixture?.statistics || [];
-  const escanteiosCasa = numeroStat(stats, 0, "Corner Kicks");
-  const escanteiosFora = numeroStat(stats, 1, "Corner Kicks");
-  const posseCasa = numeroStat(stats, 0, "Ball Possession");
-  const posseFora = numeroStat(stats, 1, "Ball Possession");
-  const chutesGolCasa = numeroStat(stats, 0, "Shots on Goal");
-  const chutesGolFora = numeroStat(stats, 1, "Shots on Goal");
-  const ataquesCasa = numeroStat(stats, 0, "Dangerous Attacks");
-  const ataquesFora = numeroStat(stats, 1, "Dangerous Attacks");
-  return {
-    escanteiosCasa,
-    escanteiosFora,
-    posseCasa,
-    posseFora,
-    chutesGolCasa,
-    chutesGolFora,
-    pressaoCasa: ataquesCasa || chutesGolCasa * 8 || posseCasa,
-    pressaoFora: ataquesFora || chutesGolFora * 8 || posseFora,
-  };
-}
-
-function traduzirMercado(texto?: string) {
-  if (!texto) return "Sinal detectado";
-  return texto
-    .replace(/over/ig, "Mais de")
-    .replace(/under/ig, "Menos de")
-    .replace(/btts/ig, "Ambas marcam")
-    .replace(/corners/ig, "escanteios")
-    .replace(/cards/ig, "cartões");
-}
 
 export function Home() {
-  const [fixtureAtivo, setFixtureAtivo] = useState<number | null>(null);
-  const dashboard = trpc.football.dashboardAoVivo.useQuery(undefined, { refetchInterval: 15000 });
-  const alertas = trpc.football.centralAlertas.useQuery(undefined, { refetchInterval: 20000 });
-  const jogosHoje = trpc.football.jogosHoje.useQuery(undefined, { refetchInterval: 60000 });
-  const apiUsage = trpc.football.apiUsage.useQuery();
+  const [jogoSelecionado, setJogoSelecionado] = useState<any>(null);
+  const [filtroLiga, setFiltroLiga] = useState<string>("todas");
+  const [dataAtual, setDataAtual] = useState(new Date().toISOString().split("T")[0]);
+  const [indiceTicket, setIndiceTicket] = useState(0);
 
-  const liveGames = dashboard.data?.jogos || [];
-  const cards = useMemo(() => liveGames.slice(0, 8).map((jogo: any) => ({
-    id: jogo.fixture.fixture.id,
-    homeTeam: jogo.fixture.teams.home,
-    awayTeam: jogo.fixture.teams.away,
-    homeScore: jogo.fixture.goals.home,
-    awayScore: jogo.fixture.goals.away,
-    minute: jogo.fixture.fixture.status.elapsed,
-    status: jogo.fixture.fixture.status.short,
-    stadium: jogo.fixture.fixture.venue?.name || jogo.fixture.league?.name,
-    eventosResumo: resumirEventos(jogo.fixture),
-    estatisticasResumo: resumirStats(jogo.fixture),
-    oportunidadesResumo: (jogo.oportunidades || []).slice(0, 2).map((o: any) => ({
-      titulo: traduzirMercado(o.mercado),
-      confianca: o.confianca,
-      urgencia: o.urgencia,
-    })),
-  })), [liveGames]);
+  // Buscar jogos
+  const { data: jogosAoVivo = [] } = trpc.matches.getLive.useQuery(undefined, {
+    refetchInterval: 10000,
+  });
 
-  const heroMetrics = [
-    { titulo: "Ao vivo agora", valor: dashboard.data?.totalJogos ?? 0, icone: Activity, destaque: "text-emerald-300" },
-    { titulo: "Alertas ativos", valor: alertas.data?.length ?? 0, icone: BellRing, destaque: "text-cyan-300" },
-    { titulo: "Sinais do motor", valor: dashboard.data?.totalOportunidades ?? 0, icone: Sparkles, destaque: "text-fuchsia-300" },
-    { titulo: "Jogos do dia", valor: Array.isArray(jogosHoje.data) ? jogosHoje.data.length : 0, icone: CalendarDays, destaque: "text-amber-300" },
-  ];
+  const { data: jogosDia = [] } = trpc.matches.getByDate.useQuery(
+    { date: dataAtual },
+    { refetchInterval: 10000 }
+  );
 
-  const feedAlertas = (alertas.data || []).slice(0, 10);
-  const destaques = cards.slice(0, 4);
+  // Combinar jogos
+  const todosJogos = useMemo(() => {
+    const combinados = [...jogosAoVivo, ...jogosDia];
+    const vistos = new Set<number>();
+    return combinados
+      .filter((g) => {
+        if (vistos.has(g.id)) return false;
+        vistos.add(g.id);
+        return true;
+      })
+      .sort((a, b) => {
+        const statusOrdem = { "1H": 0, "2H": 0, "HT": 1, "NS": 2, "FT": 3 };
+        const ordemA = statusOrdem[a.status as keyof typeof statusOrdem] ?? 4;
+        const ordemB = statusOrdem[b.status as keyof typeof statusOrdem] ?? 4;
+        if (ordemA !== ordemB) return ordemA - ordemB;
+        return new Date(a.startTime || 0).getTime() - new Date(b.startTime || 0).getTime();
+      });
+  }, [jogosAoVivo, jogosDia]);
+
+  // Filtrar por liga
+  const jogosFiltrados = useMemo(() => {
+    if (filtroLiga === "todas") return todosJogos;
+    return todosJogos.filter((g) => g.league?.name === filtroLiga);
+  }, [todosJogos, filtroLiga]);
+
+  // Ligas disponíveis
+  const ligas = useMemo(() => {
+    const set = new Set(todosJogos.map((g) => g.league?.name).filter(Boolean));
+    return Array.from(set).sort();
+  }, [todosJogos]);
+
+  // Ticker rotativo
+  useEffect(() => {
+    if (jogosFiltrados.length === 0) return;
+    const intervalo = setInterval(() => {
+      setIndiceTicket((prev) => (prev + 1) % jogosFiltrados.length);
+    }, 5000);
+    return () => clearInterval(intervalo);
+  }, [jogosFiltrados.length]);
+
+  const jogoTicket = jogosFiltrados[indiceTicket];
+
+  const mudarData = (dias: number) => {
+    const novaData = new Date(dataAtual);
+    novaData.setDate(novaData.getDate() + dias);
+    setDataAtual(novaData.toISOString().split("T")[0]);
+  };
+
+  const statusTexto: Record<string, string> = {
+    "1H": "1º Tempo",
+    "2H": "2º Tempo",
+    "HT": "Intervalo",
+    "FT": "Finalizado",
+    "NS": "Não Iniciado",
+  };
 
   return (
-    <RaphaLayout
-      title="Painel"
-      subtitle="Visão rápida para decisão. Mais informação útil por tela, sem poluição."
-    >
-      <div className="grid gap-4 xl:grid-cols-[1.25fr_0.75fr]">
-        <section className="space-y-4">
-          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-            {heroMetrics.map((item) => {
-              const Icon = item.icone;
-              return (
-                <a
-                  key={item.titulo}
-                  href={
-                    item.titulo === "Ao vivo agora" ? "/ao-vivo" :
-                    item.titulo === "Jogos do dia" ? "/jogos-hoje" :
-                    item.titulo === "Sinais do motor" ? "/pitacos" : "/ao-vivo"
-                  }
-                  className="rounded-2xl border border-white/10 bg-white/[0.03] p-4 transition hover:border-emerald-400/25 hover:bg-white/[0.05]"
+    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 text-white">
+      {/* TICKER - TOPO */}
+      {jogoTicket && (
+        <div className="bg-red-600 border-b-4 border-red-700 px-4 py-3 overflow-hidden">
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 font-bold text-sm whitespace-nowrap">
+              <div className="w-3 h-3 bg-white rounded-full animate-pulse" />
+              AO VIVO
+            </div>
+            <div className="flex-1 overflow-hidden">
+              <div className="animate-marquee whitespace-nowrap text-sm">
+                ⚽ {jogoTicket.homeTeam?.name} {jogoTicket.homeScore} x {jogoTicket.awayScore} {jogoTicket.awayTeam?.name} - {jogoTicket.league?.name} | Minuto {jogoTicket.minute}'
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <div className="max-w-7xl mx-auto px-4 py-6">
+        {/* CONTROLES */}
+        <div className="flex flex-col md:flex-row items-center justify-between gap-4 bg-slate-800/50 rounded-lg p-4 border border-slate-700 mb-6">
+          {/* Data */}
+          <div className="flex items-center gap-2">
+            <button onClick={() => mudarData(-1)} className="p-2 hover:bg-slate-700 rounded transition">
+              <ChevronLeft className="w-5 h-5" />
+            </button>
+            <input
+              type="date"
+              value={dataAtual}
+              onChange={(e) => setDataAtual(e.target.value)}
+              className="bg-slate-700 border border-slate-600 rounded px-3 py-2 text-sm"
+            />
+            <button onClick={() => mudarData(1)} className="p-2 hover:bg-slate-700 rounded transition">
+              <ChevronRight className="w-5 h-5" />
+            </button>
+          </div>
+
+          {/* Filtro de Liga */}
+          <div className="flex gap-2 flex-wrap justify-center">
+            <button
+              onClick={() => setFiltroLiga("todas")}
+              className={`px-4 py-2 rounded font-semibold text-sm transition ${
+                filtroLiga === "todas"
+                  ? "bg-blue-600 text-white"
+                  : "bg-slate-700 text-slate-300 hover:bg-slate-600"
+              }`}
+            >
+              Todas
+            </button>
+            {ligas.slice(0, 5).map((liga) => (
+              <button
+                key={liga}
+                onClick={() => setFiltroLiga(liga)}
+                className={`px-4 py-2 rounded font-semibold text-sm transition ${
+                  filtroLiga === liga
+                    ? "bg-blue-600 text-white"
+                    : "bg-slate-700 text-slate-300 hover:bg-slate-600"
+                }`}
+              >
+                {liga?.substring(0, 15)}...
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* LAYOUT PRINCIPAL - SIDEBAR ESQUERDO + CARD DIREITO */}
+        <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
+          {/* SIDEBAR - JOGOS COMPACTOS (1/5 da tela) */}
+          <div className="lg:col-span-1 space-y-2 max-h-[700px] overflow-y-auto">
+            <h3 className="font-bold text-sm text-slate-400 mb-3">JOGOS ({jogosFiltrados.length})</h3>
+            {jogosFiltrados.length === 0 ? (
+              <div className="text-center py-8 text-slate-400 text-sm">Nenhum jogo</div>
+            ) : (
+              jogosFiltrados.map((jogo) => (
+                <button
+                  key={jogo.id}
+                  onClick={() => setJogoSelecionado(jogo)}
+                  className={`w-full text-left p-2 rounded border-2 transition text-xs ${
+                    jogoSelecionado?.id === jogo.id
+                      ? "bg-blue-900/50 border-blue-500"
+                      : "bg-slate-800/50 border-slate-700 hover:border-slate-600"
+                  }`}
                 >
-                  <div className="mb-3 flex items-center justify-between">
-                    <div className={`inline-flex h-10 w-10 items-center justify-center rounded-2xl bg-white/[0.05] ${item.destaque}`}>
-                      <Icon className="h-5 w-5" />
+                  <div className="text-xs text-slate-400 mb-1 truncate">{jogo.league?.name}</div>
+                  <div className="flex items-center justify-between gap-1 mb-1">
+                    <span className="truncate font-semibold text-xs">{jogo.homeTeam?.name}</span>
+                    <span className="font-bold text-sm">{jogo.homeScore}</span>
+                    <span className="text-xs text-slate-400">x</span>
+                    <span className="font-bold text-sm">{jogo.awayScore}</span>
+                    <span className="truncate font-semibold text-xs">{jogo.awayTeam?.name}</span>
+                  </div>
+                  <div className="flex items-center justify-between text-xs text-slate-400 mb-1">
+                    <span>{statusTexto[jogo.status] || jogo.status}</span>
+                    {["1H", "2H", "HT"].includes(jogo.status) && (
+                      <span className="text-yellow-400 font-bold">{jogo.minute}'</span>
+                    )}
+                  </div>
+                  <div className="flex gap-1 text-xs">
+                    <span>🟨 0</span>
+                    <span>🚩 0</span>
+                    <span>🎯 0</span>
+                  </div>
+                </button>
+              ))
+            )}
+          </div>
+
+          {/* CARD PRINCIPAL - DIREITO (4/5 da tela) */}
+          <div className="lg:col-span-4">
+            {jogoSelecionado ? (
+              <div className="bg-slate-800/50 border border-slate-700 rounded-lg p-6 space-y-6">
+                {/* HEADER */}
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <div className="text-xs text-slate-400 mb-1">{jogoSelecionado.league?.name}</div>
+                      <div className="text-sm text-slate-300">{statusTexto[jogoSelecionado.status]}</div>
                     </div>
-                    <TrendingUp className="h-4 w-4 text-slate-500" />
+                    <div className="text-right">
+                      <div className="text-xs text-slate-400 mb-1">Minuto</div>
+                      <div className="text-3xl font-bold text-yellow-400">{jogoSelecionado.minute}'</div>
+                    </div>
                   </div>
-                  <div className="text-3xl font-black text-white">{item.valor}</div>
-                  <div className="mt-1 text-sm text-slate-400">{item.titulo}</div>
-                </a>
-              );
-            })}
-          </div>
 
-          <div className="rounded-[28px] border border-emerald-400/15 bg-[linear-gradient(135deg,rgba(16,185,129,0.08),rgba(8,16,28,0.75),rgba(14,165,233,0.08))] p-4 md:p-5">
-            <div className="mb-4 flex items-center justify-between">
-              <div>
-                <div className="flex items-center gap-2 text-[11px] uppercase tracking-[0.32em] text-emerald-300">
-                  <Flame className="h-3.5 w-3.5" /> Radar principal
+                  {/* PLACAR GRANDE */}
+                  <div className="grid grid-cols-3 gap-4 text-center">
+                    <div>
+                      <div className="text-sm text-slate-400 mb-2 flex items-center justify-center gap-2">
+                        {jogoSelecionado.homeTeam?.logo && (
+                          <img src={jogoSelecionado.homeTeam.logo} alt="" className="w-6 h-6" />
+                        )}
+                        {jogoSelecionado.homeTeam?.name}
+                      </div>
+                      <div className="text-6xl font-bold text-blue-400">{jogoSelecionado.homeScore || 0}</div>
+                    </div>
+                    <div className="flex items-center justify-center">
+                      <span className="text-4xl text-slate-500">x</span>
+                    </div>
+                    <div>
+                      <div className="text-sm text-slate-400 mb-2 flex items-center justify-center gap-2">
+                        {jogoSelecionado.awayTeam?.logo && (
+                          <img src={jogoSelecionado.awayTeam.logo} alt="" className="w-6 h-6" />
+                        )}
+                        {jogoSelecionado.awayTeam?.name}
+                      </div>
+                      <div className="text-6xl font-bold text-red-400">{jogoSelecionado.awayScore || 0}</div>
+                    </div>
+                  </div>
+
+                  {/* INFO JOGO */}
+                  <div className="grid grid-cols-3 gap-3 text-center text-sm">
+                    <div className="bg-slate-700/50 rounded p-3">
+                      <div className="text-slate-400 mb-1">Estádio</div>
+                      <div className="font-semibold text-xs">{jogoSelecionado.stadium || "-"}</div>
+                    </div>
+                    <div className="bg-slate-700/50 rounded p-3">
+                      <div className="text-slate-400 mb-1">Hora</div>
+                      <div className="font-semibold text-xs">
+                        {jogoSelecionado.startTime
+                          ? new Date(jogoSelecionado.startTime).toLocaleTimeString("pt-BR", {
+                              hour: "2-digit",
+                              minute: "2-digit",
+                            })
+                          : "-"}
+                      </div>
+                    </div>
+                    <div className="bg-slate-700/50 rounded p-3">
+                      <div className="text-slate-400 mb-1">Público</div>
+                      <div className="font-semibold text-xs">-</div>
+                    </div>
+                  </div>
                 </div>
-                <h2 className="mt-2 text-xl font-black text-white md:text-2xl">Jogos quentes e atalhos operacionais</h2>
-              </div>
-              <a href="/ao-vivo" className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-2 text-sm font-semibold text-slate-200 hover:bg-white/[0.08]">
-                Abrir Ao Vivo
-              </a>
-            </div>
 
-            <div className="grid gap-3 lg:grid-cols-2">
-              {destaques.map((match) => (
-                <CompactMatchCard
-                  key={match.id}
-                  match={match}
-                  ativo={fixtureAtivo === match.id}
-                  onClick={() => setFixtureAtivo(match.id)}
-                />
-              ))}
-            </div>
-          </div>
+                {/* ESTATÍSTICAS */}
+                <div className="border-t border-slate-700 pt-4 space-y-4">
+                  <h4 className="font-bold">📊 Estatísticas</h4>
+                  
+                  {/* GOLS */}
+                  {jogoSelecionado.events?.filter((e: any) => e.type === "Goal").length > 0 && (
+                    <div className="bg-slate-700/30 rounded-lg p-4">
+                      <h5 className="font-bold mb-3">⚽ Gols Marcados</h5>
+                      <div className="space-y-2">
+                        {jogoSelecionado.events
+                          ?.filter((e: any) => e.type === "Goal")
+                          .map((gol: any, idx: number) => (
+                            <div key={idx} className="flex items-center justify-between text-sm">
+                              <span>{gol.player}</span>
+                              <span className="text-xs text-slate-400">Minuto {gol.minute}'</span>
+                            </div>
+                          ))}
+                      </div>
+                    </div>
+                  )}
 
-          <div className="rounded-[28px] border border-white/10 bg-white/[0.03] p-4 md:p-5">
-            <div className="mb-4 flex items-center justify-between">
-              <div>
-                <div className="text-[11px] uppercase tracking-[0.32em] text-cyan-300">Monitor ao vivo</div>
-                <h3 className="mt-2 text-lg font-black text-white">Mais jogos na tela inicial</h3>
-              </div>
-              <a href="/jogos-hoje" className="text-sm font-semibold text-slate-300 hover:text-white">Ver todos</a>
-            </div>
-            <div className="grid gap-3 xl:grid-cols-2">
-              {cards.slice(0, 6).map((match) => (
-                <CompactMatchCard
-                  key={match.id}
-                  match={match}
-                  compact
-                  ativo={fixtureAtivo === match.id}
-                  onClick={() => setFixtureAtivo(match.id)}
-                />
-              ))}
-            </div>
-          </div>
-        </section>
-
-        <aside className="space-y-4">
-          <div className="rounded-[28px] border border-white/10 bg-white/[0.03] p-4 md:p-5">
-            <div className="mb-4 flex items-center gap-2 text-[11px] uppercase tracking-[0.32em] text-amber-300">
-              <Radar className="h-3.5 w-3.5" /> Central de Alertas
-            </div>
-            <div className="space-y-2">
-              {feedAlertas.length > 0 ? feedAlertas.map((alerta: any, idx: number) => (
-                <a
-                  key={`${alerta.fixtureId}-${idx}`}
-                  href={alerta.fixtureId ? `/ao-vivo?jogo=${alerta.fixtureId}` : "/ao-vivo"}
-                  className="block rounded-2xl border border-white/8 bg-white/[0.03] p-3 transition hover:bg-white/[0.06]"
-                >
-                  <div className="flex items-center justify-between gap-2">
-                    <div className="text-sm font-semibold text-white">{alerta.titulo}</div>
-                    <div className="text-xs text-slate-400">{alerta.minuto ? `${alerta.minuto}'` : "agora"}</div>
+                  {/* GRID DE STATS */}
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="bg-slate-700/30 rounded-lg p-3 text-center">
+                      <div className="text-xs text-slate-400 mb-1">Posse</div>
+                      <div className="text-lg font-bold">50% x 50%</div>
+                    </div>
+                    <div className="bg-slate-700/30 rounded-lg p-3 text-center">
+                      <div className="text-xs text-slate-400 mb-1">Chutes</div>
+                      <div className="text-lg font-bold">0 x 0</div>
+                    </div>
+                    <div className="bg-slate-700/30 rounded-lg p-3 text-center">
+                      <div className="text-xs text-slate-400 mb-1">Escanteios</div>
+                      <div className="text-lg font-bold">0 x 0</div>
+                    </div>
+                    <div className="bg-slate-700/30 rounded-lg p-3 text-center">
+                      <div className="text-xs text-slate-400 mb-1">Cartões</div>
+                      <div className="text-lg font-bold">0 x 0</div>
+                    </div>
                   </div>
-                  <div className="mt-1 text-sm text-slate-300">{alerta.resumo}</div>
-                </a>
-              )) : <div className="rounded-2xl border border-dashed border-white/10 p-4 text-sm text-slate-400">Sem alertas críticos neste momento.</div>}
-            </div>
-          </div>
-
-          <div className="rounded-[28px] border border-white/10 bg-white/[0.03] p-4 md:p-5">
-            <div className="mb-4 flex items-center gap-2 text-[11px] uppercase tracking-[0.32em] text-fuchsia-300">
-              <Trophy className="h-3.5 w-3.5" /> Uso inteligente da API
-            </div>
-            <div className="rounded-2xl border border-white/8 bg-white/[0.03] p-4">
-              <div className="mb-2 flex items-center justify-between text-sm">
-                <span className="text-slate-400">Requisições usadas hoje</span>
-                <span className="font-semibold text-white">{apiUsage.data?.count ?? 0} / {apiUsage.data?.limit ?? 75000}</span>
+                </div>
               </div>
-              <div className="h-2 overflow-hidden rounded-full bg-white/8">
-                <div className="h-full bg-[linear-gradient(90deg,#22c55e,#22d3ee)]" style={{ width: `${Math.min(apiUsage.data?.percent ?? 0, 100)}%` }} />
+            ) : (
+              <div className="bg-slate-800/50 border border-slate-700 rounded-lg p-12 text-center">
+                <div className="text-6xl mb-4">⚽</div>
+                <p className="text-slate-400">Selecione um jogo para ver detalhes completos</p>
               </div>
-              <p className="mt-3 text-sm text-slate-300">
-                Espaço suficiente para experiência em tempo real agressiva, alertas contínuos e radar ao vivo sem comprometer a cota.
-              </p>
-            </div>
+            )}
           </div>
-        </aside>
+        </div>
       </div>
-    </RaphaLayout>
+
+      <style>{`
+        @keyframes marquee {
+          0% { transform: translateX(100%); }
+          100% { transform: translateX(-100%); }
+        }
+        .animate-marquee {
+          animation: marquee 15s linear infinite;
+        }
+      `}</style>
+    </div>
   );
 }

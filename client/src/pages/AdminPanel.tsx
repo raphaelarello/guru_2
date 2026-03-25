@@ -1,328 +1,334 @@
-import { useState, useEffect } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Lock, LogOut, Eye, EyeOff, Shield, AlertCircle, CheckCircle } from 'lucide-react';
-import { toast } from 'sonner';
 
-interface AdminSession {
-  id: string;
-  token: string;
-  twoFactorVerified: boolean;
-}
+import { useMemo, useState } from "react";
+import { Shield, Lock, KeyRound, AlertTriangle, CheckCircle2, RefreshCw, LogOut } from "lucide-react";
+import { trpc } from "@/lib/trpc";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { toast } from "sonner";
 
-interface AuditLog {
-  id: string;
-  acao: string;
-  descricao: string;
-  timestamp: number;
-  status: 'sucesso' | 'falha';
-  motivo_falha?: string;
-}
+type LogStatus = "sucesso" | "falha";
 
 export default function AdminPanel() {
-  const [session, setSession] = useState<AdminSession | null>(null);
-  const [senha, setSenha] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
-  const [codigoTwoFa, setCodigoTwoFa] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
-  const [showAdminPanel, setShowAdminPanel] = useState(false);
+  const [senha, setSenha] = useState("");
+  const [codigo, setCodigo] = useState("");
+  const [sessionId, setSessionId] = useState<string | null>(null);
+  const [statusFiltro, setStatusFiltro] = useState<LogStatus | "todos">("todos");
 
-  // Atalho secreto: Ctrl+Shift+A
-  useEffect(() => {
-    const handleKeyPress = (e: KeyboardEvent) => {
-      if (e.ctrlKey && e.shiftKey && e.key === 'A') {
-        e.preventDefault();
-        setShowAdminPanel(!showAdminPanel);
-        if (!showAdminPanel) {
-          toast.info('Painel ADM ativado');
-        }
+  const meQuery = trpc.superadmin.me.useQuery(undefined, {
+    refetchOnWindowFocus: true,
+    staleTime: 10_000,
+  });
+
+  const logsQuery = trpc.superadmin.logs.useQuery(
+    {
+      limite: 100,
+      status: statusFiltro === "todos" ? undefined : statusFiltro,
+    },
+    {
+      enabled: !!meQuery.data?.autenticado,
+      refetchInterval: 15_000,
+    },
+  );
+
+  const loginMutation = trpc.superadmin.login.useMutation({
+    onSuccess: (data) => {
+      if (!data.sucesso || !data.sessionId) {
+        toast.error(data.mensagem);
+        return;
       }
-    };
+      setSessionId(data.sessionId);
+      toast.success("Senha validada. Digite o código 2FA.");
+      if (data.bootstrapHint) {
+        toast.info(`Código bootstrap atual: ${data.bootstrapHint}`);
+      }
+    },
+    onError: (error) => toast.error(error.message),
+  });
 
-    window.addEventListener('keydown', handleKeyPress);
-    return () => window.removeEventListener('keydown', handleKeyPress);
-  }, [showAdminPanel]);
+  const verifyMutation = trpc.superadmin.verify2FA.useMutation({
+    onSuccess: async (data) => {
+      if (!data.sucesso) {
+        toast.error(data.mensagem);
+        return;
+      }
+      toast.success("Superadmin autenticado com sucesso.");
+      setCodigo("");
+      await meQuery.refetch();
+      await logsQuery.refetch();
+    },
+    onError: (error) => toast.error(error.message),
+  });
+
+  const logoutMutation = trpc.superadmin.logout.useMutation({
+    onSuccess: async () => {
+      setSenha("");
+      setCodigo("");
+      setSessionId(null);
+      await meQuery.refetch();
+      toast.success("Sessão superadmin encerrada.");
+    },
+    onError: (error) => toast.error(error.message),
+  });
+
+  const autenticado = meQuery.data?.autenticado ?? false;
+  const stats = meQuery.data?.stats ?? null;
+
+  const logs = useMemo(() => logsQuery.data ?? [], [logsQuery.data]);
 
   const handleLogin = async () => {
-    if (!senha) {
-      toast.error('Digite a senha SuperAdmin');
+    if (!senha.trim()) {
+      toast.error("Informe a senha do superadmin.");
       return;
     }
-
-    setLoading(true);
-    try {
-      // Simular autenticação
-      const sessionId = `session-${Date.now()}`;
-      const token = Math.random().toString(36).substr(2);
-
-      setSession({
-        id: sessionId,
-        token,
-        twoFactorVerified: false,
-      });
-
-      toast.success('Código 2FA enviado');
-    } catch (error) {
-      toast.error('Erro ao autenticar');
-    } finally {
-      setLoading(false);
-    }
+    await loginMutation.mutateAsync({ senha });
   };
 
-  const handleVerify2FA = async () => {
-    if (!codigoTwoFa || codigoTwoFa.length !== 6) {
-      toast.error('Digite um código 2FA válido');
+  const handleVerify = async () => {
+    if (!sessionId) {
+      toast.error("Sessão de login não encontrada. Recomece o login.");
       return;
     }
-
-    setLoading(true);
-    try {
-      // Simular verificação 2FA
-      setSession(prev => prev ? { ...prev, twoFactorVerified: true } : null);
-      toast.success('Autenticação bem-sucedida');
-
-      // Simular carregamento de logs
-      setAuditLogs([
-        {
-          id: '1',
-          acao: 'superadmin-login',
-          descricao: 'Login SuperAdmin',
-          timestamp: Date.now(),
-          status: 'sucesso',
-        },
-        {
-          id: '2',
-          acao: 'usuario-criado',
-          descricao: 'Novo usuário criado',
-          timestamp: Date.now() - 3600000,
-          status: 'sucesso',
-        },
-      ]);
-    } catch (error) {
-      toast.error('Código 2FA inválido');
-    } finally {
-      setLoading(false);
+    if (codigo.trim().length !== 6) {
+      toast.error("Informe um código 2FA com 6 dígitos.");
+      return;
     }
+    await verifyMutation.mutateAsync({ sessionId, codigo: codigo.trim() });
   };
 
-  const handleLogout = () => {
-    setSession(null);
-    setSenha('');
-    setCodigoTwoFa('');
-    setShowAdminPanel(false);
-    toast.success('Logout realizado');
+  const handleLogout = async () => {
+    await logoutMutation.mutateAsync();
   };
-
-  if (!showAdminPanel) {
-    return null;
-  }
-
-  if (!session?.twoFactorVerified) {
-    return (
-      <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50">
-        <Card className="w-full max-w-md bg-slate-950 border-amber-500/50">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-amber-400">
-              <Shield className="w-5 h-5" />
-              Painel SuperAdmin
-            </CardTitle>
-            <CardDescription>Acesso restrito - Autenticação de dois fatores</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {!session ? (
-              <>
-                <div>
-                  <label className="text-sm font-medium text-slate-300">Senha SuperAdmin</label>
-                  <div className="relative mt-2">
-                    <Input
-                      type={showPassword ? 'text' : 'password'}
-                      value={senha}
-                      onChange={e => setSenha(e.target.value)}
-                      placeholder="Digite a senha"
-                      className="bg-slate-900 border-slate-700 pr-10"
-                      onKeyPress={e => e.key === 'Enter' && handleLogin()}
-                    />
-                    <button
-                      onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400"
-                    >
-                      {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                    </button>
-                  </div>
-                </div>
-                <Button onClick={handleLogin} disabled={loading} className="w-full bg-amber-600 hover:bg-amber-700">
-                  {loading ? 'Autenticando...' : 'Autenticar'}
-                </Button>
-              </>
-            ) : (
-              <>
-                <div className="bg-slate-900 p-3 rounded border border-amber-500/30">
-                  <p className="text-sm text-slate-300 mb-2">Código 2FA enviado para seu email</p>
-                  <Input
-                    type="text"
-                    value={codigoTwoFa}
-                    onChange={e => setCodigoTwoFa(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                    placeholder="000000"
-                    maxLength={6}
-                    className="bg-slate-800 border-slate-700 text-center font-mono text-lg tracking-widest"
-                    onKeyPress={e => e.key === 'Enter' && handleVerify2FA()}
-                  />
-                </div>
-                <Button onClick={handleVerify2FA} disabled={loading} className="w-full bg-amber-600 hover:bg-amber-700">
-                  {loading ? 'Verificando...' : 'Verificar Código'}
-                </Button>
-                <Button onClick={() => setSession(null)} variant="outline" className="w-full">
-                  Voltar
-                </Button>
-              </>
-            )}
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
 
   return (
-    <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 overflow-auto p-4">
-      <Card className="w-full max-w-4xl bg-slate-950 border-amber-500/50">
-        <CardHeader className="flex flex-row items-center justify-between">
+    <div className="min-h-screen bg-background text-foreground px-4 py-8">
+      <div className="mx-auto max-w-7xl space-y-6">
+        <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
           <div>
-            <CardTitle className="flex items-center gap-2 text-amber-400">
-              <Shield className="w-5 h-5" />
-              Painel de Controle SuperAdmin
-            </CardTitle>
-            <CardDescription>Área restrita - Apenas SuperAdmin</CardDescription>
+            <div className="inline-flex items-center gap-2 rounded-full border border-amber-500/30 bg-amber-500/10 px-3 py-1 text-xs font-medium text-amber-300">
+              <Shield className="h-4 w-4" />
+              Área crítica do sistema
+            </div>
+            <h1 className="mt-3 text-3xl font-bold tracking-tight">Superadmin</h1>
+            <p className="text-muted-foreground">
+              Autenticação real no backend, sessão persistida por cookie seguro e trilha de auditoria.
+            </p>
           </div>
-          <Button onClick={handleLogout} variant="destructive" size="sm">
-            <LogOut className="w-4 h-4 mr-2" />
-            Logout
-          </Button>
-        </CardHeader>
-        <CardContent>
-          <Tabs defaultValue="usuarios" className="w-full">
-            <TabsList className="grid w-full grid-cols-4 bg-slate-900">
-              <TabsTrigger value="usuarios">Usuários</TabsTrigger>
-              <TabsTrigger value="pagamentos">Pagamentos</TabsTrigger>
-              <TabsTrigger value="planos">Planos</TabsTrigger>
+
+          {autenticado ? (
+            <Button variant="outline" onClick={handleLogout} disabled={logoutMutation.isPending}>
+              <LogOut className="mr-2 h-4 w-4" />
+              Sair
+            </Button>
+          ) : null}
+        </div>
+
+        {!autenticado ? (
+          <div className="grid gap-6 lg:grid-cols-[420px,1fr]">
+            <Card className="border-amber-500/30 bg-slate-950/80">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-amber-300">
+                  <Lock className="h-5 w-5" />
+                  Login seguro
+                </CardTitle>
+                <CardDescription>
+                  O acesso agora é validado no servidor. Nada de senha hardcoded no frontend.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Senha do superadmin</label>
+                  <Input
+                    type="password"
+                    value={senha}
+                    onChange={(e) => setSenha(e.target.value)}
+                    placeholder="Digite a senha"
+                    autoComplete="current-password"
+                  />
+                </div>
+
+                {!sessionId ? (
+                  <Button className="w-full" onClick={handleLogin} disabled={loginMutation.isPending}>
+                    {loginMutation.isPending ? "Validando senha..." : "Validar senha"}
+                  </Button>
+                ) : (
+                  <div className="space-y-3 rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-4">
+                    <div className="flex items-center gap-2 text-sm text-emerald-300">
+                      <CheckCircle2 className="h-4 w-4" />
+                      Senha aprovada. Falta concluir o 2FA.
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium">Código 2FA</label>
+                      <Input
+                        value={codigo}
+                        onChange={(e) => setCodigo(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                        placeholder="000000"
+                        inputMode="numeric"
+                        maxLength={6}
+                      />
+                    </div>
+                    <Button className="w-full" onClick={handleVerify} disabled={verifyMutation.isPending}>
+                      <KeyRound className="mr-2 h-4 w-4" />
+                      {verifyMutation.isPending ? "Verificando..." : "Concluir autenticação"}
+                    </Button>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            <Card className="bg-slate-950/60">
+              <CardHeader>
+                <CardTitle>Correções aplicadas nesta versão</CardTitle>
+                <CardDescription>
+                  Esta área substitui a antiga implementação insegura do superadmin.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="grid gap-4 md:grid-cols-2">
+                <div className="rounded-xl border border-white/10 bg-white/5 p-4">
+                  <h3 className="font-medium">Antes</h3>
+                  <ul className="mt-3 space-y-2 text-sm text-muted-foreground">
+                    <li>Senha exposta no bundle do frontend.</li>
+                    <li>2FA apenas simulado no React.</li>
+                    <li>Duas áreas admin concorrendo ao mesmo tempo.</li>
+                    <li>Sessão perdida ao recarregar a página.</li>
+                  </ul>
+                </div>
+                <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-4">
+                  <h3 className="font-medium text-emerald-300">Agora</h3>
+                  <ul className="mt-3 space-y-2 text-sm text-emerald-100/90">
+                    <li>Senha verificada no backend.</li>
+                    <li>2FA validado no servidor.</li>
+                    <li>Cookie seguro e persistente por 30 minutos.</li>
+                    <li>Logs de auditoria disponíveis na própria tela.</li>
+                  </ul>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        ) : (
+          <Tabs defaultValue="visao-geral" className="space-y-6">
+            <TabsList>
+              <TabsTrigger value="visao-geral">Visão geral</TabsTrigger>
               <TabsTrigger value="auditoria">Auditoria</TabsTrigger>
             </TabsList>
 
-            <TabsContent value="usuarios" className="space-y-4">
-              <Card className="bg-slate-900 border-slate-800">
-                <CardHeader>
-                  <CardTitle className="text-lg">Gestão de Usuários</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  <div className="grid grid-cols-3 gap-4">
-                    <Card className="bg-slate-800 border-slate-700">
-                      <CardContent className="pt-6">
-                        <div className="text-3xl font-bold text-green-400">1,234</div>
-                        <p className="text-sm text-slate-400">Usuários Ativos</p>
-                      </CardContent>
-                    </Card>
-                    <Card className="bg-slate-800 border-slate-700">
-                      <CardContent className="pt-6">
-                        <div className="text-3xl font-bold text-red-400">45</div>
-                        <p className="text-sm text-slate-400">Inadimplentes</p>
-                      </CardContent>
-                    </Card>
-                    <Card className="bg-slate-800 border-slate-700">
-                      <CardContent className="pt-6">
-                        <div className="text-3xl font-bold text-yellow-400">89</div>
-                        <p className="text-sm text-slate-400">Testes Expirados</p>
-                      </CardContent>
-                    </Card>
-                  </div>
-                  <Button className="w-full bg-amber-600 hover:bg-amber-700">Gerenciar Usuários</Button>
-                </CardContent>
-              </Card>
-            </TabsContent>
+            <TabsContent value="visao-geral" className="space-y-6">
+              <div className="grid gap-4 md:grid-cols-3">
+                <Card className="bg-slate-950/60">
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-sm text-muted-foreground">Sessões ativas</CardTitle>
+                  </CardHeader>
+                  <CardContent className="text-3xl font-bold">{stats?.sessoes_ativas ?? 0}</CardContent>
+                </Card>
+                <Card className="bg-slate-950/60">
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-sm text-muted-foreground">Falhas de login</CardTitle>
+                  </CardHeader>
+                  <CardContent className="text-3xl font-bold">{stats?.tentativas_login_falhadas ?? 0}</CardContent>
+                </Card>
+                <Card className="bg-slate-950/60">
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-sm text-muted-foreground">Logs registrados</CardTitle>
+                  </CardHeader>
+                  <CardContent className="text-3xl font-bold">{stats?.logs_auditoria ?? 0}</CardContent>
+                </Card>
+              </div>
 
-            <TabsContent value="pagamentos" className="space-y-4">
-              <Card className="bg-slate-900 border-slate-800">
+              <Card className="bg-slate-950/60">
                 <CardHeader>
-                  <CardTitle className="text-lg">Gestão de Pagamentos</CardTitle>
+                  <CardTitle>Últimas ações</CardTitle>
+                  <CardDescription>
+                    Visão rápida da atividade crítica do superadmin.
+                  </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-3">
-                  <div className="grid grid-cols-3 gap-4">
-                    <Card className="bg-slate-800 border-slate-700">
-                      <CardContent className="pt-6">
-                        <div className="text-3xl font-bold text-green-400">R$ 45.230</div>
-                        <p className="text-sm text-slate-400">MRR</p>
-                      </CardContent>
-                    </Card>
-                    <Card className="bg-slate-800 border-slate-700">
-                      <CardContent className="pt-6">
-                        <div className="text-3xl font-bold text-blue-400">234</div>
-                        <p className="text-sm text-slate-400">Transações Confirmadas</p>
-                      </CardContent>
-                    </Card>
-                    <Card className="bg-slate-800 border-slate-700">
-                      <CardContent className="pt-6">
-                        <div className="text-3xl font-bold text-orange-400">12</div>
-                        <p className="text-sm text-slate-400">Pendentes</p>
-                      </CardContent>
-                    </Card>
-                  </div>
-                  <Button className="w-full bg-amber-600 hover:bg-amber-700">Gerenciar Pagamentos</Button>
-                </CardContent>
-              </Card>
-            </TabsContent>
-
-            <TabsContent value="planos" className="space-y-4">
-              <Card className="bg-slate-900 border-slate-800">
-                <CardHeader>
-                  <CardTitle className="text-lg">Gestão de Planos</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  <div className="space-y-2">
-                    {['Free', 'Pro', 'Elite'].map(plano => (
-                      <div key={plano} className="flex items-center justify-between p-3 bg-slate-800 rounded border border-slate-700">
-                        <span className="font-medium">{plano}</span>
-                        <Button variant="outline" size="sm">
-                          Editar
-                        </Button>
+                  {(stats?.ultimas_acoes ?? []).map((log) => (
+                    <div key={log.id} className="flex items-start justify-between gap-4 rounded-xl border border-white/10 bg-white/5 px-4 py-3">
+                      <div>
+                        <p className="font-medium">{log.descricao}</p>
+                        <p className="text-sm text-muted-foreground">{log.acao}</p>
                       </div>
-                    ))}
-                  </div>
-                  <Button className="w-full bg-amber-600 hover:bg-amber-700">Criar Novo Plano</Button>
+                      <span className={log.status === "sucesso" ? "text-emerald-400" : "text-red-400"}>
+                        {log.status}
+                      </span>
+                    </div>
+                  ))}
                 </CardContent>
               </Card>
             </TabsContent>
 
             <TabsContent value="auditoria" className="space-y-4">
-              <Card className="bg-slate-900 border-slate-800">
+              <div className="flex flex-wrap items-center gap-3">
+                <Button
+                  variant={statusFiltro === "todos" ? "default" : "outline"}
+                  onClick={() => setStatusFiltro("todos")}
+                >
+                  Todos
+                </Button>
+                <Button
+                  variant={statusFiltro === "sucesso" ? "default" : "outline"}
+                  onClick={() => setStatusFiltro("sucesso")}
+                >
+                  Sucesso
+                </Button>
+                <Button
+                  variant={statusFiltro === "falha" ? "default" : "outline"}
+                  onClick={() => setStatusFiltro("falha")}
+                >
+                  Falha
+                </Button>
+                <Button variant="outline" onClick={() => logsQuery.refetch()} disabled={logsQuery.isFetching}>
+                  <RefreshCw className="mr-2 h-4 w-4" />
+                  Atualizar
+                </Button>
+              </div>
+
+              <Card className="bg-slate-950/60">
                 <CardHeader>
-                  <CardTitle className="text-lg">Logs de Auditoria</CardTitle>
+                  <CardTitle>Trilha de auditoria</CardTitle>
+                  <CardDescription>
+                    Toda ação crítica do superadmin fica registrada para investigação e rastreabilidade.
+                  </CardDescription>
                 </CardHeader>
-                <CardContent>
-                  <div className="space-y-2 max-h-96 overflow-y-auto">
-                    {auditLogs.map(log => (
-                      <div key={log.id} className="flex items-start gap-3 p-3 bg-slate-800 rounded border border-slate-700">
-                        {log.status === 'sucesso' ? (
-                          <CheckCircle className="w-5 h-5 text-green-400 mt-0.5 flex-shrink-0" />
-                        ) : (
-                          <AlertCircle className="w-5 h-5 text-red-400 mt-0.5 flex-shrink-0" />
-                        )}
-                        <div className="flex-1 min-w-0">
-                          <p className="font-medium text-sm">{log.acao}</p>
-                          <p className="text-xs text-slate-400">{log.descricao}</p>
-                          <p className="text-xs text-slate-500 mt-1">
-                            {new Date(log.timestamp).toLocaleString('pt-BR')}
-                          </p>
+                <CardContent className="space-y-3">
+                  {logs.length === 0 ? (
+                    <div className="rounded-xl border border-dashed border-white/15 p-6 text-sm text-muted-foreground">
+                      Nenhum log encontrado para o filtro atual.
+                    </div>
+                  ) : (
+                    logs.map((log) => (
+                      <div key={log.id} className="rounded-xl border border-white/10 bg-white/5 p-4">
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <div className="flex items-center gap-2">
+                            {log.status === "sucesso" ? (
+                              <CheckCircle2 className="h-4 w-4 text-emerald-400" />
+                            ) : (
+                              <AlertTriangle className="h-4 w-4 text-red-400" />
+                            )}
+                            <span className="font-medium">{log.acao}</span>
+                          </div>
+                          <span className="text-xs text-muted-foreground">
+                            {new Date(log.timestamp).toLocaleString("pt-BR")}
+                          </span>
+                        </div>
+                        <p className="mt-2 text-sm text-muted-foreground">{log.descricao}</p>
+                        {log.motivo_falha ? (
+                          <p className="mt-2 text-sm text-red-300">Motivo da falha: {log.motivo_falha}</p>
+                        ) : null}
+                        <div className="mt-3 flex flex-wrap gap-2 text-xs text-muted-foreground">
+                          <span className="rounded-full border border-white/10 px-2 py-1">{log.tabela_afetada}</span>
+                          <span className="rounded-full border border-white/10 px-2 py-1">{log.ip_address}</span>
                         </div>
                       </div>
-                    ))}
-                  </div>
+                    ))
+                  )}
                 </CardContent>
               </Card>
             </TabsContent>
           </Tabs>
-        </CardContent>
-      </Card>
+        )}
+      </div>
     </div>
   );
 }

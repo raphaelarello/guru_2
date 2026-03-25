@@ -168,23 +168,3 @@
   50% { opacity: 0.7; box-shadow: 0 0 15px oklch(0.72 0.22 145 / 0.9); }
 }
 .pulse-live { animation: pulse-neon 2s ease-in-out infinite; }
-
-@keyframes alertaMarquee {
-  0% { transform: translateX(0); }
-  100% { transform: translateX(-50%); }
-}
-
-.alerta-marquee-track {
-  min-width: max-content;
-  animation: alertaMarquee 34s linear infinite;
-}
-
-.alerta-marquee:hover .alerta-marquee-track {
-  animation-play-state: paused;
-}
-
-@media (max-width: 768px) {
-  .alerta-marquee-track {
-    animation-duration: 24s;
-  }
-}

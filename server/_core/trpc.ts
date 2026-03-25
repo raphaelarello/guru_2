@@ -43,3 +43,21 @@ export const adminProcedure = t.procedure.use(
     });
   }),
 );
+
+
+export const superAdminProcedure = t.procedure.use(
+  t.middleware(async opts => {
+    const { ctx, next } = opts;
+
+    if (!ctx.user || (ctx.user.role !== 'admin' && ctx.user.role !== 'superadmin')) {
+      throw new TRPCError({ code: "FORBIDDEN", message: "Acesso restrito ao superadmin." });
+    }
+
+    return next({
+      ctx: {
+        ...ctx,
+        user: ctx.user,
+      },
+    });
+  }),
+);

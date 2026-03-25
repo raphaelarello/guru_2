@@ -16,6 +16,8 @@ import { getDb } from "./db";
 import { liveGameHistory } from "../drizzle/schema";
 import { eq, and, gte, sql } from "drizzle-orm";
 import { statusCron, executarAgora, iniciarCron, pararCron, enviarAlertaCanais } from "./cronService";
+import { parse as parseCookieHeader } from "cookie";
+import { superAdminAuth, SUPERADMIN_COOKIE_NAME } from "./services/superAdminAuth";
 import {
   getLiveFixtures,
   getLiveFixturesByLeagues,
@@ -50,19 +52,118 @@ import {
 } from "./football";
 import { getArtilheirosAvancado } from "./artilheiros-premium";
 import { matchesRouter } from "./routers/matches";
-import { gerarAlertasCentral, resumirRadar } from "./services/motorCentral";
+
+
+function getClientIp(req: { headers: Record<string, unknown>; socket?: { remoteAddress?: string | undefined } }) {
+  const forwarded = req.headers["x-forwarded-for"];
+  if (typeof forwarded === "string" && forwarded.length > 0) {
+    return forwarded.split(",")[0].trim();
+  }
+  return req.socket?.remoteAddress || "0.0.0.0";
+}
+
+function getSuperAdminCookie(req: { headers: Record<string, unknown> }) {
+  const rawCookie = typeof req.headers.cookie === "string" ? req.headers.cookie : "";
+  const parsed = parseCookieHeader(rawCookie);
+  return parsed[SUPERADMIN_COOKIE_NAME] || null;
+}
+
 
 export const appRouter = router({
   system: systemRouter,
   matches: matchesRouter,
-  auth: router({
-    me: publicProcedure.query(opts => opts.ctx.user),
-    logout: publicProcedure.mutation(({ ctx }) => {
-      const cookieOptions = getSessionCookieOptions(ctx.req);
-      ctx.res.clearCookie(COOKIE_NAME, { ...cookieOptions, maxAge: -1 });
-      return { success: true } as const;
-    }),
+
+auth: router({
+  me: publicProcedure.query(opts => opts.ctx.user),
+  logout: publicProcedure.mutation(({ ctx }) => {
+    const cookieOptions = getSessionCookieOptions(ctx.req);
+    ctx.res.clearCookie(COOKIE_NAME, { ...cookieOptions, maxAge: -1 });
+    return { success: true } as const;
   }),
+}),
+
+superadmin: router({
+  me: publicProcedure.query(({ ctx }) => {
+    const parsed = superAdminAuth.parseSessionCookieValue(getSuperAdminCookie(ctx.req));
+    if (!parsed) {
+      return { autenticado: false, sessionId: null, stats: null } as const;
+    }
+    const validacao = superAdminAuth.validarSessao(parsed.sessionId, parsed.token);
+    if (!validacao.valida) {
+      ctx.res.clearCookie(SUPERADMIN_COOKIE_NAME, { ...getSessionCookieOptions(ctx.req), maxAge: -1 });
+      return { autenticado: false, sessionId: null, stats: null } as const;
+    }
+    return {
+      autenticado: true,
+      sessionId: parsed.sessionId,
+      stats: superAdminAuth.obterEstatisticas(),
+    } as const;
+  }),
+
+  login: publicProcedure
+    .input(z.object({ senha: z.string().min(1) }))
+    .mutation(({ input, ctx }) => {
+      return superAdminAuth.autenticar(
+        input.senha,
+        getClientIp(ctx.req as unknown as { headers: Record<string, unknown>; socket?: { remoteAddress?: string } }),
+        String(ctx.req.headers["user-agent"] || "unknown"),
+      );
+    }),
+
+  verify2FA: publicProcedure
+    .input(z.object({ sessionId: z.string().min(1), codigo: z.string().min(6).max(6) }))
+    .mutation(({ input, ctx }) => {
+      const resultado = superAdminAuth.verificarDoisFatores(input.sessionId, input.codigo);
+      if (!resultado.sucesso || !resultado.token) return resultado;
+
+      const cookieValue = superAdminAuth.getSessionCookieValue(input.sessionId, resultado.token);
+      ctx.res.cookie(SUPERADMIN_COOKIE_NAME, cookieValue, {
+        ...getSessionCookieOptions(ctx.req),
+        maxAge: 1000 * 60 * 30,
+      });
+
+      return { ...resultado, token: undefined };
+    }),
+
+  logout: publicProcedure.mutation(({ ctx }) => {
+    const parsed = superAdminAuth.parseSessionCookieValue(getSuperAdminCookie(ctx.req));
+    if (parsed) {
+      superAdminAuth.logout(parsed.sessionId);
+    }
+    ctx.res.clearCookie(SUPERADMIN_COOKIE_NAME, { ...getSessionCookieOptions(ctx.req), maxAge: -1 });
+    return { sucesso: true } as const;
+  }),
+
+  logs: publicProcedure
+    .input(z.object({
+      acao: z.string().optional(),
+      status: z.enum(["sucesso", "falha"]).optional(),
+      limite: z.number().int().min(1).max(500).optional(),
+    }).optional())
+    .query(({ input, ctx }) => {
+      const parsed = superAdminAuth.parseSessionCookieValue(getSuperAdminCookie(ctx.req));
+      if (!parsed) {
+        throw new TRPCError({ code: "UNAUTHORIZED", message: "Sessão superadmin não encontrada." });
+      }
+      const validacao = superAdminAuth.validarSessao(parsed.sessionId, parsed.token);
+      if (!validacao.valida) {
+        throw new TRPCError({ code: "UNAUTHORIZED", message: validacao.mensagem });
+      }
+      return superAdminAuth.obterAuditLogs(input);
+    }),
+
+  estatisticas: publicProcedure.query(({ ctx }) => {
+    const parsed = superAdminAuth.parseSessionCookieValue(getSuperAdminCookie(ctx.req));
+    if (!parsed) {
+      throw new TRPCError({ code: "UNAUTHORIZED", message: "Sessão superadmin não encontrada." });
+    }
+    const validacao = superAdminAuth.validarSessao(parsed.sessionId, parsed.token);
+    if (!validacao.valida) {
+      throw new TRPCError({ code: "UNAUTHORIZED", message: validacao.mensagem });
+    }
+    return superAdminAuth.obterEstatisticas();
+  }),
+}),
 
   // ═══════════════════════════════════════════════════════════════════════
   //  FOOTBALL — API Football (Dados em Tempo Real)
@@ -313,37 +414,6 @@ export const appRouter = router({
         timestamp: Date.now(),
       };
     }),
-
-
-/** Central de alertas em tempo real */
-centralAlertas: publicProcedure.query(async () => {
-  const fixtures = await getLiveFixtures();
-  return gerarAlertasCentral(fixtures);
-}),
-
-/** Radar resumido por partida para o motor de pitacos */
-radarJogo: publicProcedure
-  .input(z.object({ fixtureId: z.number() }))
-  .query(async ({ input }) => {
-    const [fixture, stats, odds, prediction] = await Promise.allSettled([
-      getFixtureById(input.fixtureId),
-      getFixtureStatistics(input.fixtureId),
-      getLiveOdds(input.fixtureId),
-      getFixturePredictions(input.fixtureId),
-    ]);
-
-    const f = fixture.status === "fulfilled" ? fixture.value : null;
-    const s = stats.status === "fulfilled" ? stats.value : [];
-    const o = odds.status === "fulfilled" ? odds.value : null;
-    const p = prediction.status === "fulfilled" ? prediction.value : null;
-
-    if (!f) return { fixture: null, radar: [] };
-
-    const oportunidades = analisarOportunidades(f, s, o, p);
-    const radar = resumirRadar(f, s, oportunidades);
-    return { fixture: f, radar, oportunidades };
-  }),
-
   }),
 
   // ═══════════════════════════════════════════════════════════════════════
