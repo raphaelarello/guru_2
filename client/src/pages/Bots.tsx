@@ -121,7 +121,7 @@ export default function Bots() {
   const [botEditando, setBotEditando] = useState<any>(null);
   const [novoBot, setNovoBot] = useState({ nome: "", descricao: "", templateId: "", confiancaMinima: 75, limiteDiario: 10, canal: "painel" });
   const [novoFiltros, setNovoFiltros] = useState<FiltrosBot>(filtrosPadrao);
-  const [mostrarFiltrosAvancados, setMostrarFiltrosAvancados] = useState(false);
+  const [mostrarFiltrosAvancados, setMostrarFiltrosAvancados] = useState(true);
   const [filtroLigasSinais, setFiltroLigasSinais] = useState<number[]>([]);
   const [filtroCategoria, setFiltroCategoria] = useState("Todos");
   const [filtroTag, setFiltroTag] = useState("todos");
@@ -214,7 +214,7 @@ export default function Bots() {
               <Zap className={`w-4 h-4 mr-2 ${processarBots.isPending ? "animate-spin" : ""}`} />
               {processarBots.isPending ? "Processando..." : "Processar Agora"}
             </Button>
-            <Button size="sm" className="bg-primary text-primary-foreground" onClick={() => { setNovoBot({ nome: "", descricao: "", templateId: "", confiancaMinima: 75, limiteDiario: 10, canal: "painel" }); setNovoFiltros(filtrosPadrao); setMostrarFiltrosAvancados(false); setModalNovo(true); }}>
+            <Button size="sm" className="bg-primary text-primary-foreground" onClick={() => { setNovoBot({ nome: "", descricao: "", templateId: "", confiancaMinima: 75, limiteDiario: 10, canal: "painel" }); setNovoFiltros(filtrosPadrao); setMostrarFiltrosAvancados(true); setModalNovo(true); }}>
               <Plus className="w-4 h-4 mr-2" />
               Novo Bot
             </Button>
@@ -305,12 +305,13 @@ export default function Bots() {
             <div className="space-y-6">
               {/* ─── RANKING DE PERFORMANCE ─────────────────────────────────────────────── */}
               {(() => {
-                const comSinais = bots.filter(b => b.totalSinais > 0).sort((a, b) => {
-                  const taxaA = a.totalSinais > 0 ? (a.totalAcertos / a.totalSinais) * 100 : 0;
-                  const taxaB = b.totalSinais > 0 ? (b.totalAcertos / b.totalSinais) * 100 : 0;
+                // Mostrar todos os bots no ranking (com ou sem sinais)
+                const comSinais = [...bots].sort((a, b) => {
+                  const taxaA = a.totalSinais > 0 ? (a.totalAcertos / a.totalSinais) * 100 : -1;
+                  const taxaB = b.totalSinais > 0 ? (b.totalAcertos / b.totalSinais) * 100 : -1;
                   return taxaB - taxaA;
                 });
-                if (comSinais.length === 0) return null;
+                // Sempre mostrar o ranking quando há bots
                 const top3 = comSinais.slice(0, 3);
                 const medalhas = [
                   { emoji: "🥇", label: "1º Lugar", bg: "from-yellow-500/20 to-amber-500/10", border: "border-yellow-500/50", text: "text-yellow-400", stroke: "#eab308" },
@@ -325,8 +326,17 @@ export default function Bots() {
                         <h3 className="font-bold text-foreground text-sm">Ranking de Performance</h3>
                         <p className="text-[11px] text-muted-foreground">Atualizado automaticamente com cada resultado</p>
                       </div>
-                      <span className="ml-auto text-[10px] text-muted-foreground bg-muted/50 px-2 py-1 rounded-full">{comSinais.length} bot(s) com dados</span>
+                      <span className="ml-auto text-[10px] text-muted-foreground bg-muted/50 px-2 py-1 rounded-full">{bots.filter(b => b.totalSinais > 0).length}/{bots.length} com dados</span>
                     </div>
+
+                    {/* Estado vazio — sem sinais ainda */}
+                    {comSinais.every(b => b.totalSinais === 0) && (
+                      <div className="px-5 py-6 text-center border-b border-border bg-muted/10">
+                        <Trophy className="w-8 h-8 text-yellow-400/40 mx-auto mb-2" />
+                        <p className="text-sm font-semibold text-foreground mb-1">Ranking em construção</p>
+                        <p className="text-xs text-muted-foreground">Ative os bots e processe sinais para ver o ranking de performance atualizado automaticamente a cada resultado.</p>
+                      </div>
+                    )}
 
                     {/* Pódio Top 3 */}
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 p-4">
