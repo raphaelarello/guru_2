@@ -505,3 +505,13 @@
 - [x] Implementar animações de pulsação nos badges
 - [x] Conectar com dados reais do backend (jogos ao vivo, alertas, novos palpites)
 - [x] Testar notificações no navegador
+
+
+### Fase 37 — Redesenho Página Destaques com Artilheiros e Indisciplinados
+- [x] Redesenhar layout com cards compactos e proporções melhores (menos altura, mais elegância)
+- [x] Implementar seção de Artilheiros com cards premium (foto, nome, gols, média, forma, percentil)
+- [x] Implementar seção de Indisciplinados com cards premium (foto, nome, cartões, tipo cartão, forma)
+- [x] Adicionar animações de movimento: hover scale, glow, slide-in, fade-in
+- [x] Melhorar interatividade com efeitos visuais modernos (gradientes dinâmicos, transições suaves)
+- [x] Otimizar responsividade para mobile (cards menores, layout adaptável)
+- [x] Testar navegabilidade e interatividade no navegador
