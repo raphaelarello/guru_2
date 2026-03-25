@@ -5,12 +5,14 @@ import { getLoginUrl } from "@/const";
 import {
   LayoutDashboard, Radio, Bot, TrendingUp, History,
   MessageSquare, ChevronLeft, ChevronRight, LogOut,
-  User, Zap, Shield, Menu, X, Bell, Calendar
+  User, Zap, Shield, Menu, X, Bell, Calendar, Users,
+  BellRing, CheckCheck, Trash2, Wifi, WifiOff
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { trpc } from "@/lib/trpc";
+import { useSSE } from "@/hooks/useSSE";
 
 const navItems = [
   { path: "/pitacos", label: "Pitacos", icon: MessageSquare, badge: null },
@@ -20,6 +22,7 @@ const navItems = [
   { path: "/bots", label: "RAPHA Bots", icon: Bot, badge: "PRO", badgeClass: "bg-primary/20 text-primary border border-primary/30 text-[10px] px-1.5 py-0.5 rounded-full font-bold" },
   { path: "/kelly", label: "Kelly Tracker", icon: TrendingUp, badge: null },
   { path: "/auditoria", label: "Auditoria", icon: History, badge: null },
+  { path: "/times", label: "Estatísticas Times", icon: Users, badge: null },
 ];
 
 interface RaphaLayoutProps {
@@ -35,6 +38,8 @@ export default function RaphaLayout({ children, title }: RaphaLayoutProps) {
 
   const alertasQuery = trpc.alertas.list.useQuery(undefined, { enabled: isAuthenticated });
   const alertasPendentes = alertasQuery.data?.filter(a => a.resultado === "pendente").length ?? 0;
+  const [painelNotif, setPainelNotif] = useState(false);
+  const { notifications, connected, naoLidas, marcarTodasLidas, limpar } = useSSE({ enabled: isAuthenticated });
 
   if (!isAuthenticated) {
     return (
@@ -203,14 +208,99 @@ export default function RaphaLayout({ children, title }: RaphaLayoutProps) {
             )}
           </div>
           <div className="flex items-center gap-2">
-            <Button variant="ghost" size="icon" className="relative">
-              <Bell className="w-5 h-5" />
-              {alertasPendentes > 0 && (
-                <span className="absolute -top-0.5 -right-0.5 w-4 h-4 bg-primary text-primary-foreground text-[9px] rounded-full flex items-center justify-center font-bold">
-                  {alertasPendentes > 9 ? "9+" : alertasPendentes}
-                </span>
+            {/* Sino de notificações SSE */}
+            <div className="relative">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="relative"
+                onClick={() => setPainelNotif(p => !p)}
+              >
+                {naoLidas > 0 ? (
+                  <BellRing className="w-5 h-5 text-primary animate-bounce" />
+                ) : (
+                  <Bell className="w-5 h-5" />
+                )}
+                {naoLidas > 0 && (
+                  <span className="absolute -top-0.5 -right-0.5 w-4 h-4 bg-red-500 text-white text-[9px] rounded-full flex items-center justify-center font-bold">
+                    {naoLidas > 9 ? "9+" : naoLidas}
+                  </span>
+                )}
+              </Button>
+
+              {/* Painel de notificações */}
+              {painelNotif && (
+                <div className="absolute right-0 top-10 w-80 bg-card border border-border rounded-xl shadow-2xl z-50 overflow-hidden">
+                  {/* Header */}
+                  <div className="flex items-center justify-between px-4 py-3 border-b border-border">
+                    <div className="flex items-center gap-2">
+                      <BellRing className="w-4 h-4 text-primary" />
+                      <span className="font-semibold text-sm">Notificações</span>
+                      {connected ? (
+                        <span className="flex items-center gap-1 text-[10px] text-green-400">
+                          <Wifi className="w-3 h-3" /> Ao vivo
+                        </span>
+                      ) : (
+                        <span className="flex items-center gap-1 text-[10px] text-red-400">
+                          <WifiOff className="w-3 h-3" /> Offline
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-1">
+                      {notifications.length > 0 && (
+                        <>
+                          <Button variant="ghost" size="icon" className="w-7 h-7" onClick={marcarTodasLidas} title="Marcar todas como lidas">
+                            <CheckCheck className="w-3.5 h-3.5" />
+                          </Button>
+                          <Button variant="ghost" size="icon" className="w-7 h-7" onClick={limpar} title="Limpar tudo">
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </Button>
+                        </>
+                      )}
+                      <Button variant="ghost" size="icon" className="w-7 h-7" onClick={() => setPainelNotif(false)}>
+                        <X className="w-3.5 h-3.5" />
+                      </Button>
+                    </div>
+                  </div>
+
+                  {/* Lista */}
+                  <div className="max-h-80 overflow-y-auto">
+                    {notifications.length === 0 ? (
+                      <div className="py-8 text-center text-muted-foreground">
+                        <Bell className="w-8 h-8 mx-auto mb-2 opacity-30" />
+                        <p className="text-sm">Nenhuma notificação</p>
+                        <p className="text-xs mt-1 opacity-60">Alertas de bots aparecem aqui em tempo real</p>
+                      </div>
+                    ) : (
+                      notifications.map(n => (
+                        <div
+                          key={n.id}
+                          className={`px-4 py-3 border-b border-border/50 last:border-0 transition-colors ${
+                            n.lida ? "opacity-60" : "bg-primary/5"
+                          }`}
+                        >
+                          <div className="flex items-start gap-2">
+                            <span className="text-base flex-shrink-0">
+                              {n.type === "bot_sinal" ? "🤖" :
+                               n.type === "resultado" ? (n.message.includes("🟢") ? "🟢" : "🔴") :
+                               n.type === "alerta" ? "⚡" : "ℹ️"}
+                            </span>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-xs font-semibold truncate">{n.title}</p>
+                              <p className="text-[11px] text-muted-foreground mt-0.5 line-clamp-2">{n.message}</p>
+                              <p className="text-[10px] text-muted-foreground/60 mt-1">
+                                {new Date(n.timestamp).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
+                              </p>
+                            </div>
+                            {!n.lida && <div className="w-2 h-2 rounded-full bg-primary flex-shrink-0 mt-1" />}
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
               )}
-            </Button>
+            </div>
             <div className="flex items-center gap-2 text-sm">
               <Shield className="w-4 h-4 text-primary" />
               <span className="text-muted-foreground hidden sm:block">

@@ -385,6 +385,16 @@ async function processarTodosBots(): Promise<void> {
             await db.update(bots)
               .set({ totalSinais: sql`${bots.totalSinais} + 1` })
               .where(eq(bots.id, bot.id));
+            // Notificar via SSE em tempo real
+            try {
+              const { notifyUser } = await import("./sse");
+              notifyUser(String(userId), {
+                type: "bot_sinal",
+                title: `⚡ Novo Sinal: ${op.mercado}`,
+                message: `${jogoNome} | Odd: ${op.odd.toFixed(2)} | EV: +${op.ev.toFixed(2)}% | ${op.confianca}% confiança`,
+                data: { botId: bot.id, jogo: jogoNome, liga: fixture.league.name },
+              });
+            } catch { /* SSE opcional */ }
             // Enviar para canais
             await enviarAlertaCanais(userId, {
               jogo: jogoNome,

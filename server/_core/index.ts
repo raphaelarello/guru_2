@@ -8,6 +8,7 @@ import { appRouter } from "../routers";
 import { createContext } from "./context";
 import { serveStatic, setupVite } from "./vite";
 import { iniciarCron } from "../cronService";
+import { registerSSEClient } from "../sse";
 
 function isPortAvailable(port: number): Promise<boolean> {
   return new Promise(resolve => {
@@ -36,6 +37,21 @@ async function startServer() {
   app.use(express.urlencoded({ limit: "50mb", extended: true }));
   // OAuth callback under /api/oauth/callback
   registerOAuthRoutes(app);
+
+  // Server-Sent Events — notificações em tempo real
+  app.get("/api/sse", async (req, res) => {
+    try {
+      const ctx = await createContext({ req, res } as any);
+      if (!ctx.user) {
+        res.status(401).json({ error: "Unauthorized" });
+        return;
+      }
+      registerSSEClient(req, res, String(ctx.user.id));
+    } catch {
+      res.status(500).json({ error: "SSE error" });
+    }
+  });
+
   // tRPC API
   app.use(
     "/api/trpc",

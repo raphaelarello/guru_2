@@ -202,3 +202,24 @@
 - [x] Melhorar UX: campo de busca de ligas abre automaticamente ao clicar em "Ligas Específicas"
 - [x] FiltroLigas: prop forceOpen para abrir programaticamente
 - [x] Estado visual claro de qual modo está ativo (Todas / Específicas)
+
+## Fase 23 — Estatísticas de Times + Notificações SSE + PDF
+- [x] Página Estatísticas de Times: busca por nome de time
+- [x] Estatísticas de Times: forma recente (últimos 10 jogos) com resultado, placar, adversário
+- [x] Estatísticas de Times: gols marcados/sofridos, clean sheets, média de gols
+- [x] Estatísticas de Times: confronto direto H2H entre dois times
+- [x] Estatísticas de Times: gráfico de desempenho (linha do tempo de resultados)
+- [x] Estatísticas de Times: estatísticas da liga atual (posição, pontos, saldo de gols)
+- [x] Rota /times na navegação sidebar
+- [x] SSE: endpoint /api/sse no servidor para push de eventos em tempo real
+- [x] SSE: hook useSSE no frontend para escutar eventos
+- [x] SSE: badge de notificação no sino do header com contagem não lida
+- [x] SSE: painel de notificações com lista de alertas recentes
+- [x] SSE: som de notificação ao receber novo alerta
+- [x] SSE: toast automático ao receber novo sinal de bot
+- [x] PDF: botão "Exportar PDF" na página de Pitacos com loading state
+- [x] PDF: relatório com header RAPHA GURU, data, resumo geral
+- [x] PDF: tabela de performance por mercado com taxa de acerto e score médio
+- [x] PDF: tabela de performance por liga com greens/reds
+- [x] PDF: lista dos últimos 20 palpites com score individual
+- [x] PDF: gerado via html2canvas + jsPDF no frontend

@@ -34,6 +34,7 @@ import {
   getFixtureInjuries,
   getTeamInjuries,
   getStandings,
+  getTeamStandings,
   getTeamSeasonStats,
   getApiStatus,
   analisarOportunidades,
@@ -779,6 +780,121 @@ export const appRouter = router({
         .filter(l => l.total >= 1)
         .sort((a, b) => b.taxaAcerto - a.taxaAcerto);
     }),
+  }),
+
+  // ═══════════════════════════════════════════════════════════════════════
+  //  TIMES — Estatísticas, H2H, Forma Recente
+  // ═══════════════════════════════════════════════════════════════════════
+  times: router({
+    /** Buscar time por nome */
+    buscar: protectedProcedure
+      .input(z.object({ nome: z.string().min(2) }))
+      .query(async ({ input }) => {
+        const res = await fetch(
+          `https://v3.football.api-sports.io/teams?search=${encodeURIComponent(input.nome)}`,
+          { headers: { "x-apisports-key": process.env.API_FOOTBALL_KEY || "" } }
+        );
+        const json = await res.json() as any;
+        return (json.response || []).slice(0, 10).map((t: any) => ({
+          id: t.team.id,
+          nome: t.team.name,
+          logo: t.team.logo,
+          pais: t.team.country,
+          fundado: t.team.founded,
+          estadio: t.venue?.name,
+          capacidade: t.venue?.capacity,
+        }));
+      }),
+
+    /** Forma recente do time (últimos N jogos) */
+    formaRecente: protectedProcedure
+      .input(z.object({ teamId: z.number(), last: z.number().default(10) }))
+      .query(async ({ input }) => {
+        const res = await fetch(
+          `https://v3.football.api-sports.io/fixtures?team=${input.teamId}&last=${input.last}&timezone=America/Sao_Paulo`,
+          { headers: { "x-apisports-key": process.env.API_FOOTBALL_KEY || "" } }
+        );
+        const json = await res.json() as any;
+        const fixtures = (json.response || []) as any[];
+        return fixtures.map((f: any) => {
+          const isHome = f.teams.home.id === input.teamId;
+          const goalsFor = isHome ? (f.goals.home ?? 0) : (f.goals.away ?? 0);
+          const goalsAgainst = isHome ? (f.goals.away ?? 0) : (f.goals.home ?? 0);
+          let resultado: "V" | "E" | "D" = "E";
+          if (goalsFor > goalsAgainst) resultado = "V";
+          else if (goalsFor < goalsAgainst) resultado = "D";
+          return {
+            fixtureId: f.fixture.id,
+            data: f.fixture.date,
+            adversario: isHome ? f.teams.away.name : f.teams.home.name,
+            adversarioLogo: isHome ? f.teams.away.logo : f.teams.home.logo,
+            local: isHome ? "Casa" : "Fora" as "Casa" | "Fora",
+            placar: `${goalsFor}-${goalsAgainst}`,
+            resultado,
+            liga: f.league.name,
+            ligaLogo: f.league.logo,
+            rodada: f.league.round,
+            status: f.fixture.status.short,
+          };
+        });
+      }),
+
+    /** Estatísticas da temporada do time em uma liga */
+    estatisticas: protectedProcedure
+      .input(z.object({ teamId: z.number(), leagueId: z.number(), season: z.number().default(2024) }))
+      .query(async ({ input }) => getTeamSeasonStats(input.teamId, input.leagueId, input.season)),
+
+    /** Classificação do time */
+    classificacao: protectedProcedure
+      .input(z.object({ teamId: z.number(), season: z.number().default(2024) }))
+      .query(async ({ input }) => getTeamStandings(input.teamId, input.season)),
+
+    /** Confronto direto H2H entre dois times */
+    h2h: protectedProcedure
+      .input(z.object({ team1Id: z.number(), team2Id: z.number(), last: z.number().default(10) }))
+      .query(async ({ input }) => {
+        const fixtures = await getHeadToHead(input.team1Id, input.team2Id, input.last);
+        const stats = { vitorias1: 0, vitorias2: 0, empates: 0, golsTime1: 0, golsTime2: 0 };
+        const jogos = (fixtures as any[]).map((f: any) => {
+          const g1 = f.goals.home ?? 0;
+          const g2 = f.goals.away ?? 0;
+          if (g1 > g2) stats.vitorias1++;
+          else if (g2 > g1) stats.vitorias2++;
+          else stats.empates++;
+          stats.golsTime1 += g1;
+          stats.golsTime2 += g2;
+          return {
+            fixtureId: f.fixture.id,
+            data: f.fixture.date,
+            timeCasa: f.teams.home.name,
+            timeCasaLogo: f.teams.home.logo,
+            timeVisitante: f.teams.away.name,
+            timeVisitanteLogo: f.teams.away.logo,
+            placar: `${g1}-${g2}`,
+            liga: f.league.name,
+            temporada: f.league.season,
+          };
+        });
+        return { jogos, stats };
+      }),
+
+    /** Ligas em que o time participa */
+    ligas: protectedProcedure
+      .input(z.object({ teamId: z.number(), season: z.number().default(2024) }))
+      .query(async ({ input }) => {
+        const res = await fetch(
+          `https://v3.football.api-sports.io/leagues?team=${input.teamId}&season=${input.season}`,
+          { headers: { "x-apisports-key": process.env.API_FOOTBALL_KEY || "" } }
+        );
+        const json = await res.json() as any;
+        return (json.response || []).map((l: any) => ({
+          id: l.league.id,
+          nome: l.league.name,
+          logo: l.league.logo,
+          pais: l.country.name,
+          temporada: l.seasons?.[0]?.year,
+        }));
+      }),
   }),
 });
 function detectarTipoMercado(mercado: string): string {

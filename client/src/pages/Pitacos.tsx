@@ -1,4 +1,5 @@
 import { useState, useMemo } from "react";
+import { useRelatorioPDF } from "@/hooks/useRelatorioPDF";
 import RaphaLayout from "@/components/RaphaLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -48,6 +49,7 @@ const LABEL_TIPO: Record<string, string> = {
 };
 
 export default function Pitacos() {
+  const { gerarPDF, gerando } = useRelatorioPDF();
   const [modalNovo, setModalNovo] = useState(false);
   const [modalResultados, setModalResultados] = useState<any>(null);
   const [busca, setBusca] = useState("");
@@ -180,40 +182,49 @@ export default function Pitacos() {
             variant="outline"
             size="sm"
             className="border-border"
-            onClick={() => {
-              const stats = statsQuery.data;
+            disabled={gerando}
+            onClick={async () => {
+              const statsData = statsQuery.data;
               const byLiga = statsByLigaQuery.data ?? [];
-              const linhas = [
-                "RELATÓRIO DE PRECISÃO — RAPHA GURU",
-                `Gerado em: ${new Date().toLocaleDateString("pt-BR")}`,
-                "",
-                "=== RESUMO GERAL ===",
-                `Total de Palpites: ${stats?.totalPalpites ?? 0}`,
-                `Greens: ${stats?.greens ?? 0} | Reds: ${stats?.reds ?? 0}`,
-                `Taxa de Acerto: ${stats?.taxaAcerto?.toFixed(1) ?? 0}%`,
-                `Score Médio de Precisão: ${stats?.scoreMedio?.toFixed(1) ?? 0}/100`,
-                "",
-                "=== RANKING DE MERCADOS ===",
-                ...(stats?.rankingMercados ?? []).map((m: any, i: number) =>
-                  `${i + 1}. ${m.label}: ${m.acertos}/${m.total} acertos (${m.taxa.toFixed(1)}%)`
-                ),
-                "",
-                "=== PERFORMANCE POR LIGA ===",
-                ...byLiga.map((l: any, i: number) =>
-                  `${i + 1}. ${l.liga}: ${l.greens}/${l.total} greens (${l.taxaAcerto.toFixed(1)}%) | Score Médio: ${l.scoreMedio.toFixed(1)}`
-                ),
-              ];
-              const blob = new Blob([linhas.join("\n")], { type: "text/plain;charset=utf-8" });
-              const url = URL.createObjectURL(blob);
-              const a = document.createElement("a");
-              a.href = url;
-              a.download = `relatorio-precisao-${new Date().toISOString().slice(0, 10)}.txt`;
-              a.click();
-              URL.revokeObjectURL(url);
-              toast.success("Relatório exportado!");
+              const mercados = (statsData?.rankingMercados ?? []).map((m: any) => ({
+                tipo: m.label,
+                total: m.total,
+                acertos: m.acertos,
+                taxa: m.taxa,
+                scoreMedio: m.scoreMedio ?? 0,
+              }));
+              const ligas = byLiga.map((l: any) => ({
+                liga: l.liga,
+                total: l.total,
+                greens: l.greens,
+                reds: l.reds,
+                taxaAcerto: l.taxaAcerto,
+                scoreMedio: l.scoreMedio,
+                oddMedia: l.oddMedia,
+              }));
+              await gerarPDF({
+                periodo: "Todos os períodos",
+                totalPalpites: statsData?.totalPalpites ?? 0,
+                greens: statsData?.greens ?? 0,
+                reds: statsData?.reds ?? 0,
+                taxaAcerto: statsData?.taxaAcerto ?? 0,
+                scoreMedio: statsData?.scoreMedio ?? 0,
+                oddMedia: 0,
+                mercados,
+                ligas,
+                evolucaoScore: (statsData?.historicoScore ?? []).map((h: any, i: number) => ({
+                  data: `#${i + 1}`,
+                  score: Math.round(h.score),
+                })),
+              }, "analise-precisao-grafico");
+              toast.success("📄 Relatório PDF gerado com sucesso!");
             }}
           >
-            <Download className="w-4 h-4 mr-2" />Exportar
+            {gerando ? (
+              <><RefreshCw className="w-4 h-4 mr-2 animate-spin" />Gerando PDF...</>
+            ) : (
+              <><Download className="w-4 h-4 mr-2" />Exportar PDF</>
+            )}
           </Button>
           <Button className="bg-primary text-primary-foreground" onClick={() => setModalNovo(true)}>
             <Plus className="w-4 h-4 mr-2" />Novo Palpite Multi-Mercado
