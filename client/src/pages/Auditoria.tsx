@@ -20,8 +20,10 @@ const MERCADOS_OPCOES = [
 const PERIODOS = [
   { value: "todos", label: "Todo o período" },
   { value: "hoje", label: "Hoje" },
+  { value: "ontem", label: "Ontem" },
   { value: "7dias", label: "Últimos 7 dias" },
   { value: "30dias", label: "Últimos 30 dias" },
+  { value: "data", label: "Data específica" },
 ];
 
 export default function Auditoria() {
@@ -31,6 +33,7 @@ export default function Auditoria() {
   const [filtroPeriodo, setFiltroPeriodo] = useState("todos");
   const [filtroLigas, setFiltroLigas] = useState<number[]>([]);
   const [alertaSelecionado, setAlertaSelecionado] = useState<any>(null);
+  const [dataEspecifica, setDataEspecifica] = useState("");
 
   const alertasQuery = trpc.alertas.list.useQuery(undefined, { refetchInterval: 30_000 });
   const utils = trpc.useUtils();
@@ -55,8 +58,15 @@ export default function Auditoria() {
         const diffMs = agora.getTime() - data.getTime();
         const diffDias = diffMs / (1000 * 60 * 60 * 24);
         if (filtroPeriodo === "hoje") matchPeriodo = diffDias < 1;
+        else if (filtroPeriodo === "ontem") matchPeriodo = diffDias >= 1 && diffDias < 2;
         else if (filtroPeriodo === "7dias") matchPeriodo = diffDias <= 7;
         else if (filtroPeriodo === "30dias") matchPeriodo = diffDias <= 30;
+        else if (filtroPeriodo === "data" && dataEspecifica) {
+          const dAlerta = data.toLocaleDateString("pt-BR");
+          const [y, m, d] = dataEspecifica.split("-");
+          const dFiltro = new Date(parseInt(y), parseInt(m) - 1, parseInt(d)).toLocaleDateString("pt-BR");
+          matchPeriodo = dAlerta === dFiltro;
+        }
       }
 
       // Filtro por liga: como não temos ID da liga no alerta, filtramos por nome
@@ -96,10 +106,10 @@ export default function Auditoria() {
 
   const limparFiltros = () => {
     setBusca(""); setFiltroResultado("todos"); setFiltroMercado("Todos");
-    setFiltroPeriodo("todos"); setFiltroLigas([]);
+    setFiltroPeriodo("todos"); setFiltroLigas([]); setDataEspecifica("");
   };
 
-  const temFiltros = busca !== "" || filtroResultado !== "todos" || filtroMercado !== "Todos" || filtroPeriodo !== "todos" || filtroLigas.length > 0;
+  const temFiltros = busca !== "" || filtroResultado !== "todos" || filtroMercado !== "Todos" || filtroPeriodo !== "todos" || filtroLigas.length > 0 || dataEspecifica !== "";
 
   return (
     <RaphaLayout title="Auditoria de Alertas">
@@ -140,7 +150,7 @@ export default function Auditoria() {
               <SelectItem value="void">⚪ Void</SelectItem>
             </SelectContent>
           </Select>
-          <Select value={filtroPeriodo} onValueChange={setFiltroPeriodo}>
+          <Select value={filtroPeriodo} onValueChange={(v) => { setFiltroPeriodo(v); if (v !== "data") setDataEspecifica(""); }}>
             <SelectTrigger className="w-full sm:w-44 bg-card border-border">
               <SelectValue placeholder="Período" />
             </SelectTrigger>
@@ -148,6 +158,14 @@ export default function Auditoria() {
               {PERIODOS.map(p => <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>)}
             </SelectContent>
           </Select>
+          {filtroPeriodo === "data" && (
+            <input
+              type="date"
+              value={dataEspecifica}
+              onChange={e => setDataEspecifica(e.target.value)}
+              className="w-full sm:w-40 h-9 px-3 rounded-md bg-card border border-border text-foreground text-sm focus:outline-none focus:ring-1 focus:ring-primary"
+            />
+          )}
         </div>
 
         {/* Linha 2: mercado + ligas + ações */}

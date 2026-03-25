@@ -14,6 +14,32 @@ import type { PreMatchOdd } from "../../../server/football";
 import { FiltroAvancado, FILTROS_PADRAO, type FiltrosState } from "@/components/FiltroAvancado";
 import { getInfoLiga } from "@shared/ligas";
 
+// ─── Helpers de data ─────────────────────────────────────────────────────────
+function hojeISO() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+function formatDataBR(iso: string) {
+  const [y, m, d] = iso.split("-");
+  const nomes = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
+  const dt = new Date(parseInt(y), parseInt(m) - 1, parseInt(d));
+  const hoje = hojeISO();
+  if (iso === hoje) return "Hoje";
+  const amanha = new Date(); amanha.setDate(amanha.getDate() + 1);
+  const amanhaISO = `${amanha.getFullYear()}-${String(amanha.getMonth() + 1).padStart(2, "0")}-${String(amanha.getDate()).padStart(2, "0")}`;
+  if (iso === amanhaISO) return "Amanhã";
+  return `${nomes[dt.getDay()]} ${d}/${m}`;
+}
+function gerarDatas(): string[] {
+  const datas: string[] = [];
+  for (let i = -2; i <= 5; i++) {
+    const d = new Date();
+    d.setDate(d.getDate() + i);
+    datas.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`);
+  }
+  return datas;
+}
+
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 function formatHora(dateStr: string) {
@@ -306,34 +332,52 @@ export default function JogosHoje() {
   const [filtros, setFiltros] = useState<FiltrosState>(FILTROS_PADRAO);
   const [ligasExpandidas, setLigasExpandidas] = useState<Set<number>>(new Set());
   const [jogoSelecionado, setJogoSelecionado] = useState<{ id: number; titulo: string } | null>(null);
+  const [dataSelecionada, setDataSelecionada] = useState(hojeISO);
+  const [abaVista, setAbaVista] = useState<"todos" | "aovivo" | "proximos">("todos");
 
   const { data, isLoading, error, refetch, isFetching } = trpc.football.jogosHoje.useQuery(
-    undefined,
+    { date: dataSelecionada },
     { staleTime: 5 * 60 * 1000 }
   );
 
   const todasLigas = data?.ligas ?? [];
-
-  // IDs de ligas disponíveis
   const ligasDisponiveis = useMemo(() => todasLigas.map(l => l.liga.id), [todasLigas]);
 
-  // Filtrar ligas com base nos filtros avançados
+  const totalAoVivo = useMemo(() =>
+    todasLigas.reduce((acc, l) => acc + l.jogos.filter(j => ["1H","2H","HT","ET","P"].includes(j.fixture.status.short)).length, 0),
+  [todasLigas]);
+  const totalProximos = useMemo(() =>
+    todasLigas.reduce((acc, l) => acc + l.jogos.filter(j => j.fixture.status.short === "NS").length, 0),
+  [todasLigas]);
+
   const ligasFiltradas = useMemo(() => {
-    return todasLigas.filter(({ liga, jogos }) => {
-      if (filtros.ligas.length > 0 && !filtros.ligas.includes(liga.id)) return false;
-      // Filtro de odds mínimas
-      if (filtros.oddsMin > 1.0 || filtros.oddsMax < 50.0) {
-        const temOdd = jogos.some(j => {
-          const odds = data?.oddsMap?.[j.fixture.id];
-          if (!odds) return false;
-          const home = parseFloat(getOddPrincipal(odds, "Match Winner", "Home"));
-          return !isNaN(home) && home >= filtros.oddsMin && home <= filtros.oddsMax;
-        });
-        if (!temOdd) return false;
-      }
-      return true;
-    });
-  }, [todasLigas, filtros, data?.oddsMap]);
+    return todasLigas
+      .map(({ liga, jogos }) => {
+        let jogosFiltradosAba = jogos;
+        if (abaVista === "aovivo") {
+          jogosFiltradosAba = jogos.filter(j => ["1H", "2H", "HT", "ET", "P"].includes(j.fixture.status.short));
+        } else if (abaVista === "proximos") {
+          jogosFiltradosAba = [...jogos]
+            .filter(j => j.fixture.status.short === "NS")
+            .sort((a, b) => new Date(a.fixture.date).getTime() - new Date(b.fixture.date).getTime());
+        }
+        return { liga, jogos: jogosFiltradosAba };
+      })
+      .filter(({ liga, jogos }) => {
+        if (jogos.length === 0) return false;
+        if (filtros.ligas.length > 0 && !filtros.ligas.includes(liga.id)) return false;
+        if (filtros.oddsMin > 1.0 || filtros.oddsMax < 50.0) {
+          const temOdd = jogos.some(j => {
+            const odds = data?.oddsMap?.[j.fixture.id];
+            if (!odds) return false;
+            const home = parseFloat(getOddPrincipal(odds, "Match Winner", "Home"));
+            return !isNaN(home) && home >= filtros.oddsMin && home <= filtros.oddsMax;
+          });
+          if (!temOdd) return false;
+        }
+        return true;
+      });
+  }, [todasLigas, filtros, data?.oddsMap, abaVista]);
 
   const toggleLiga = (id: number) => {
     setLigasExpandidas((prev) => {
@@ -347,14 +391,14 @@ export default function JogosHoje() {
   return (
     <RaphaLayout title="Jogos de Hoje">
       {/* Header */}
-      <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
+      <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
         <div>
           <h1 className="text-2xl font-bold text-white flex items-center gap-2">
             <Calendar className="w-6 h-6 text-[#00ff88]" />
-            Jogos de Hoje
+            Jogos — {formatDataBR(dataSelecionada)}
           </h1>
           <p className="text-gray-400 text-sm mt-1">
-            {data ? `${data.total} jogos encontrados` : "Carregando partidas do dia..."}
+            {data ? `${data.total} jogos encontrados` : "Carregando partidas..."}
             {data?.timestamp && (
               <span className="ml-2 text-gray-600">
                 · Atualizado às {new Date(data.timestamp).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
@@ -362,18 +406,64 @@ export default function JogosHoje() {
             )}
           </p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2">
           <Button
             variant="outline"
             size="sm"
             onClick={() => refetch()}
             disabled={isFetching}
-            className="border-[#2a3040] text-gray-400 hover:text-[#00ff88] hover:border-[#00ff88]"
+            className="border-[#2a3040] text-gray-400 hover:text-[#00ff88] hover:border-[#00ff88] h-8"
           >
-            <RefreshCw className={`w-4 h-4 mr-2 ${isFetching ? "animate-spin" : ""}`} />
+            <RefreshCw className={`w-3.5 h-3.5 mr-1.5 ${isFetching ? "animate-spin" : ""}`} />
             Atualizar
           </Button>
         </div>
+      </div>
+
+      {/* Seletor de datas */}
+      <div className="flex gap-1.5 overflow-x-auto pb-2 mb-4">
+        {gerarDatas().map(d => (
+          <button
+            key={d}
+            onClick={() => { setDataSelecionada(d); setLigasExpandidas(new Set()); }}
+            className={`flex-shrink-0 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+              dataSelecionada === d
+                ? "bg-[#00ff88] text-black font-bold shadow-lg shadow-[#00ff88]/20"
+                : "bg-[#1a1f2e] text-gray-400 hover:text-white border border-[#2a3040] hover:border-[#00ff88]/40"
+            }`}
+          >
+            {formatDataBR(d)}
+          </button>
+        ))}
+      </div>
+
+      {/* Botões de navegação rápida */}
+      <div className="flex gap-2 mb-4 flex-wrap">
+        {[
+          { key: "todos", label: "Todos", count: data?.total ?? 0, icon: "📅" },
+          { key: "aovivo", label: "Ao Vivo", count: totalAoVivo, icon: "🔴" },
+          { key: "proximos", label: "Próximos (por horário)", count: totalProximos, icon: "⏰" },
+        ].map(({ key, label, count, icon }) => (
+          <button
+            key={key}
+            onClick={() => setAbaVista(key as any)}
+            className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold transition-all border ${
+              abaVista === key
+                ? key === "aovivo"
+                  ? "bg-green-500/20 text-green-400 border-green-500/40"
+                  : key === "proximos"
+                  ? "bg-blue-500/20 text-blue-400 border-blue-500/40"
+                  : "bg-[#00ff88]/20 text-[#00ff88] border-[#00ff88]/40"
+                : "bg-[#1a1f2e] text-gray-400 border-[#2a3040] hover:text-white"
+            }`}
+          >
+            <span>{icon}</span>
+            <span>{label}</span>
+            {count > 0 && (
+              <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-gray-700 text-gray-300`}>{count}</span>
+            )}
+          </button>
+        ))}
       </div>
 
       {/* Filtros Avançados */}
@@ -435,8 +525,8 @@ export default function JogosHoje() {
       {!isLoading && !error && ligasFiltradas.length === 0 && (
         <div className="text-center py-20 text-gray-500">
           <Calendar className="w-12 h-12 mx-auto mb-3 opacity-30" />
-          <p className="text-lg">Nenhum jogo encontrado para hoje</p>
-          <p className="text-sm mt-1">Tente atualizar ou verificar outra data</p>
+          <p className="text-lg">Nenhum jogo encontrado</p>
+          <p className="text-sm mt-1">Tente outra data ou remova os filtros</p>
         </div>
       )}
 

@@ -285,3 +285,16 @@
 - [x] Artilheiros com pódio visual (🥇🥈🥉) e foto do jogador
 - [x] Próximos jogos e últimos resultados clicáveis → navega para /ao-vivo
 - [x] Times na tabela clicáveis → navega para /times com ID do time
+
+## Fase 25 - Interatividade Total (concluida)
+- [x] Tela Ao Vivo: cards clicaveis com modal ultra-detalhado
+- [x] Termometro de calor por partida (score 0-100, niveis: gelado/morno/quente/vulcao)
+- [x] Gols com nomes dos jogadores e minuto na timeline
+- [x] Cartoes com cor (amarelo/vermelho) e contador interativo
+- [x] Escanteios com contador e barra visual
+- [x] Auto-refresh a cada 30s com indicador visual
+- [x] Ordenacao por calor, gols, minuto, escanteios
+- [x] Filtro de datas em JogosHoje (menos 2 a mais 5 dias)
+- [x] Botoes Ao Vivo / Proximos Jogos (ordenados por horario) em JogosHoje
+- [x] Filtro de data especifica + Ontem na Auditoria
+- [x] Filtro de periodo + data especifica no Kelly Tracker

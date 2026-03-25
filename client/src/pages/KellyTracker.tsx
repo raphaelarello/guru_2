@@ -27,6 +27,8 @@ export default function KellyTracker() {
   const [modalAposta, setModalAposta] = useState(false);
   const [buscaAposta, setBuscaAposta] = useState("");
   const [filtroResultadoAposta, setFiltroResultadoAposta] = useState("todos");
+  const [filtroPeriodoAposta, setFiltroPeriodoAposta] = useState("todos");
+  const [dataEspecificaAposta, setDataEspecificaAposta] = useState("");
 
   // Calculadora
   const [calcOdd, setCalcOdd] = useState("2.00");
@@ -62,12 +64,28 @@ export default function KellyTracker() {
   const apostas = apostasQuery.data ?? [];
 
   const apostasFiltradas = useMemo(() => {
+    const agora = new Date();
     return apostas.filter(a => {
       const matchBusca = buscaAposta === "" || a.jogo.toLowerCase().includes(buscaAposta.toLowerCase()) || (a.mercado ?? "").toLowerCase().includes(buscaAposta.toLowerCase());
       const matchResultado = filtroResultadoAposta === "todos" || a.resultado === filtroResultadoAposta;
-      return matchBusca && matchResultado;
+      let matchPeriodo = true;
+      if (filtroPeriodoAposta !== "todos") {
+        const dataAposta = new Date(a.createdAt);
+        const diffDias = (agora.getTime() - dataAposta.getTime()) / (1000 * 60 * 60 * 24);
+        if (filtroPeriodoAposta === "hoje") matchPeriodo = diffDias < 1;
+        else if (filtroPeriodoAposta === "ontem") matchPeriodo = diffDias >= 1 && diffDias < 2;
+        else if (filtroPeriodoAposta === "7dias") matchPeriodo = diffDias <= 7;
+        else if (filtroPeriodoAposta === "30dias") matchPeriodo = diffDias <= 30;
+        else if (filtroPeriodoAposta === "data" && dataEspecificaAposta) {
+          const dAposta = dataAposta.toLocaleDateString("pt-BR");
+          const [y, m, d] = dataEspecificaAposta.split("-");
+          const dFiltro = new Date(parseInt(y), parseInt(m) - 1, parseInt(d)).toLocaleDateString("pt-BR");
+          matchPeriodo = dAposta === dFiltro;
+        }
+      }
+      return matchBusca && matchResultado && matchPeriodo;
     });
-  }, [apostas, buscaAposta, filtroResultadoAposta]);
+  }, [apostas, buscaAposta, filtroResultadoAposta, filtroPeriodoAposta, dataEspecificaAposta]);
 
   // Cálculo Kelly
   const kellyResult = useMemo(() => {
@@ -288,13 +306,13 @@ export default function KellyTracker() {
           </div>
 
           {/* Filtros */}
-          <div className="flex flex-col sm:flex-row gap-2 mb-4">
-            <div className="relative flex-1">
+          <div className="flex flex-col sm:flex-row gap-2 mb-4 flex-wrap">
+            <div className="relative flex-1 min-w-[180px]">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <Input placeholder="Buscar jogo ou mercado..." value={buscaAposta} onChange={e => setBuscaAposta(e.target.value)} className="pl-9 bg-card border-border" />
             </div>
             <Select value={filtroResultadoAposta} onValueChange={setFiltroResultadoAposta}>
-              <SelectTrigger className="w-full sm:w-44 bg-card border-border">
+              <SelectTrigger className="w-full sm:w-40 bg-card border-border">
                 <SelectValue placeholder="Resultado" />
               </SelectTrigger>
               <SelectContent>
@@ -305,6 +323,27 @@ export default function KellyTracker() {
                 <SelectItem value="void">⚪ Void</SelectItem>
               </SelectContent>
             </Select>
+            <Select value={filtroPeriodoAposta} onValueChange={(v) => { setFiltroPeriodoAposta(v); if (v !== "data") setDataEspecificaAposta(""); }}>
+              <SelectTrigger className="w-full sm:w-44 bg-card border-border">
+                <SelectValue placeholder="Período" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="todos">Todo o período</SelectItem>
+                <SelectItem value="hoje">Hoje</SelectItem>
+                <SelectItem value="ontem">Ontem</SelectItem>
+                <SelectItem value="7dias">Últimos 7 dias</SelectItem>
+                <SelectItem value="30dias">Últimos 30 dias</SelectItem>
+                <SelectItem value="data">Data específica</SelectItem>
+              </SelectContent>
+            </Select>
+            {filtroPeriodoAposta === "data" && (
+              <input
+                type="date"
+                value={dataEspecificaAposta}
+                onChange={e => setDataEspecificaAposta(e.target.value)}
+                className="w-full sm:w-40 h-9 px-3 rounded-md bg-card border border-border text-foreground text-sm focus:outline-none focus:ring-1 focus:ring-primary"
+              />
+            )}
             <Button variant="outline" className="border-border" onClick={() => {
               const header = "Jogo,Mercado,Odd,Stake,Lucro,ROI,Resultado,Data";
               const linhas = apostasFiltradas.map(a => `"${a.jogo}","${a.mercado ?? ""}","${a.odd ?? ""}","${a.stake ?? ""}","${a.lucro ?? ""}","${a.roi ?? ""}","${a.resultado ?? "pendente"}","${new Date(a.createdAt).toLocaleString("pt-BR")}"`);
