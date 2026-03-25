@@ -29,6 +29,9 @@ import RankingRecordes from "./pages/RankingRecordes";
 import ModoJogo from "./pages/ModoJogo";
 import LeaderboardGlobal from "./pages/LeaderboardGlobal";
 import MatchCenter from "./pages/MatchCenter";
+import UpgradePlanos from "./pages/UpgradePlanos";
+import DashboardNotificacoes from "./pages/DashboardNotificacoes";
+import RelatorioPerfomance from "./pages/RelatorioPerfomance";
 import NotificationCenter from "./components/NotificationCenter";
 
 function Router() {
@@ -59,6 +62,9 @@ function Router() {
       <Route path="/modo-jogo" component={ModoJogo} />
       <Route path="/leaderboard-global" component={LeaderboardGlobal} />
       <Route path="/match-center" component={MatchCenter} />
+      <Route path="/upgrade-planos" component={UpgradePlanos} />
+      <Route path="/notificacoes" component={DashboardNotificacoes} />
+      <Route path="/relatorio-performance" component={RelatorioPerfomance} />
       <Route path="/historico-ao-vivo" component={HistoricoAoVivo} />
       <Route path="/configuracoes" component={Configuracoes} />
       <Route path="/404" component={NotFound} />
