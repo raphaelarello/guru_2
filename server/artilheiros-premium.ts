@@ -327,13 +327,19 @@ export async function getArtilheirosAvancado(data: string): Promise<ArtilheirosP
       // Se encontrou dados reais, retornar
       if (topGols.length > 0) {
         console.log(`[Artilheiros] Retornando ${topGols.length} artilheiros reais`);
+        // Ordenar por diferentes critérios
+        const topAssistencias = [...topGols].sort((a, b) => b.assistencias - a.assistencias);
+        const topEficiencia = [...topGols].sort((a, b) => b.eficiencia - a.eficiencia);
+        const topConsistencia = [...topGols].sort((a, b) => b.consistencia - a.consistencia);
+        const topForma = [...topGols].sort((a, b) => (b.gols + b.assistencias) - (a.gols + a.assistencias));
+        
         return {
-          topGols: topGols.slice(0, 5),
-          topAssistencias: [],
-          topCartoes: topCartoes.slice(0, 2),
-          topEficiencia: [],
-          topConsistencia: [],
-          topForma: []
+          topGols: topGols.slice(0, 20),
+          topAssistencias: topAssistencias.slice(0, 20),
+          topCartoes: topCartoes.slice(0, 20),
+          topEficiencia: topEficiencia.slice(0, 20),
+          topConsistencia: topConsistencia.slice(0, 20),
+          topForma: topForma.slice(0, 20)
         };
       }
     }
@@ -343,5 +349,33 @@ export async function getArtilheirosAvancado(data: string): Promise<ArtilheirosP
 
   // Fallback: retornar dados simulados premium
   console.log("[Artilheiros] Retornando dados simulados premium para demonstração");
-  return DADOS_SIMULADOS;
+  // Garantir que todos os arrays têm dados
+  const simulados = { ...DADOS_SIMULADOS };
+  // Se algum array está vazio, preencher com dados simulados
+  if (!simulados.topAssistencias || simulados.topAssistencias.length === 0) {
+    simulados.topAssistencias = simulados.topGols.slice(0, 10).map(p => ({
+      ...p,
+      assistencias: Math.floor(Math.random() * 10) + 1,
+      gols: Math.floor(Math.random() * 5)
+    }));
+  }
+  if (!simulados.topEficiencia || simulados.topEficiencia.length === 0) {
+    simulados.topEficiencia = simulados.topGols.slice(0, 10).map(p => ({
+      ...p,
+      eficiencia: Math.floor(Math.random() * 100)
+    }));
+  }
+  if (!simulados.topConsistencia || simulados.topConsistencia.length === 0) {
+    simulados.topConsistencia = simulados.topGols.slice(0, 10).map(p => ({
+      ...p,
+      consistencia: Math.floor(Math.random() * 100)
+    }));
+  }
+  if (!simulados.topForma || simulados.topForma.length === 0) {
+    simulados.topForma = simulados.topGols.slice(0, 10).map(p => ({
+      ...p,
+      forma: ['W', 'D', 'L'][Math.floor(Math.random() * 3)]
+    }));
+  }
+  return simulados;
 }
