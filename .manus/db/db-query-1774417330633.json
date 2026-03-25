@@ -1,0 +1,24 @@
+{
+  "query": "SELECT id, openId, name, email, role FROM users LIMIT 10;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway04.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 4DvrGJ7kXdW1S45.5219ebf4754a --database Ci5EaS6GWVCe4LzTsEazXL --execute SELECT id, openId, name, email, role FROM users LIMIT 10;",
+  "rows": [
+    {
+      "id": "1",
+      "openId": "Y7mKMojfaAhYQX2Qbg9YeK",
+      "name": "Luiz arello junior",
+      "email": "raphael.arello@consulth.com.br",
+      "role": "admin"
+    },
+    {
+      "id": "1974",
+      "openId": "C3FqkPbXCW3mMyr6pFkYwa",
+      "name": "raphael.arello",
+      "email": "raphael.arello@sisth.com.br",
+      "role": "user"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\topenId\tname\temail\trole\n1\tY7mKMojfaAhYQX2Qbg9YeK\tLuiz arello junior\traphael.arello@consulth.com.br\tadmin\n1974\tC3FqkPbXCW3mMyr6pFkYwa\traphael.arello\traphael.arello@sisth.com.br\tuser\n",
+  "stderr": "",
+  "execution_time_ms": 99
+}

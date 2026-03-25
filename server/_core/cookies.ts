@@ -9,16 +9,27 @@ function isIpAddress(host: string) {
 }
 
 function isSecureRequest(req: Request) {
+  // Check if the request is over HTTPS
   if (req.protocol === "https") return true;
 
+  // Check the x-forwarded-proto header (set by reverse proxies like Nginx, Manus)
   const forwardedProto = req.headers["x-forwarded-proto"];
-  if (!forwardedProto) return false;
+  if (forwardedProto) {
+    const protoList = Array.isArray(forwardedProto)
+      ? forwardedProto
+      : forwardedProto.split(",");
+    if (protoList.some(proto => proto.trim().toLowerCase() === "https")) {
+      return true;
+    }
+  }
 
-  const protoList = Array.isArray(forwardedProto)
-    ? forwardedProto
-    : forwardedProto.split(",");
+  // In production (NODE_ENV !== 'development'), assume HTTPS for security
+  // This is important for cookie security in cloud deployments
+  if (process.env.NODE_ENV !== "development") {
+    return true;
+  }
 
-  return protoList.some(proto => proto.trim().toLowerCase() === "https");
+  return false;
 }
 
 export function getSessionCookieOptions(
@@ -39,10 +50,15 @@ export function getSessionCookieOptions(
   //       ? hostname
   //       : undefined;
 
+  const secure = isSecureRequest(req);
+  const isDevelopment = process.env.NODE_ENV === "development";
+
   return {
     httpOnly: true,
     path: "/",
-    sameSite: "none",
-    secure: isSecureRequest(req),
+    // In development, use sameSite: "none" for cross-site testing
+    // In production, use sameSite: "lax" for better browser compatibility
+    sameSite: isDevelopment ? "none" : "lax",
+    secure,
   };
 }

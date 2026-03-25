@@ -363,6 +363,11 @@
 - [ ] Corrigir textos internos Kelly Tracker → Apostas
 - [ ] Badge de notificações no sino do header
 
+## Fase 32 — Correção de Autenticação
+- [x] Corrigir cookie de sessão com sameSite: lax em produção
+- [x] Remover badge "EM BREVE" do botão Destaques
+- [ ] Publicar site para aplicar mudanças em produção
+
 ## Fase 31 — Visual Premium da Página Destaques
 - [x] Reescrever página Destaques com design premium superior ao scoretabs.com.br
 - [x] Cards premium com gradientes e shadows melhorados
