@@ -751,7 +751,7 @@ export function analisarOportunidades(
       const ev = calcEV(confianca / 100, oddOver);
       if (ev > 0) {
         oportunidades.push({
-          mercado: "Over 0.5 FT",
+          mercado: "Acima 0.5 Gols (FT)",
           odd: oddOver,
           ev,
           confianca,
@@ -777,7 +777,7 @@ export function analisarOportunidades(
       const ev = calcEV(confianca / 100, oddOver);
       if (ev > 0) {
         oportunidades.push({
-          mercado: "Over 1.5 FT",
+          mercado: "Acima 1.5 Gols (FT)",
           odd: oddOver,
           ev,
           confianca,
@@ -785,7 +785,7 @@ export function analisarOportunidades(
             `${pressao} chutes no gol`,
             `Placar atual: ${goalsHome}-${goalsAway}`,
             `${totalShotsHome + totalShotsAway} chutes totais`,
-            prediction ? `Predição: ${prediction.predictions.advice}` : "Alta pressão ofensiva",
+            prediction ? `Conselho: ${prediction.predictions.advice}` : "Alta pressão ofensiva",
           ],
           tipo: "over",
           urgencia: confianca > 75 ? "alta" : "media",
@@ -801,7 +801,7 @@ export function analisarOportunidades(
     const ev = calcEV(confianca / 100, oddOver);
     if (ev > 0) {
       oportunidades.push({
-        mercado: "Over 2.5 FT",
+          mercado: "Acima 2.5 Gols (FT)",
         odd: oddOver,
         ev,
         confianca,
@@ -809,7 +809,7 @@ export function analisarOportunidades(
           `Já ${totalGoals} gols marcados`,
           `${shotsOnGoalHome + shotsOnGoalAway} chutes no gol`,
           "Jogo aberto com alta taxa de gols",
-          prediction ? `Predição Under/Over: ${prediction.predictions.under_over}` : "Tendência de gols",
+            prediction ? `Tendência: ${prediction.predictions.under_over}` : "Tendência de gols",
         ],
         tipo: "over",
         urgencia: "alta",
@@ -825,7 +825,7 @@ export function analisarOportunidades(
       const ev = calcEV(confianca / 100, oddBTTS);
       if (ev > 0) {
         oportunidades.push({
-          mercado: "BTTS — Sim",
+          mercado: "Ambas Marcam — Sim",
           odd: oddBTTS,
           ev,
           confianca,
@@ -853,7 +853,7 @@ export function analisarOportunidades(
       const ev = calcEV(confianca / 100, oddGoleada);
       if (ev > 0) {
         oportunidades.push({
-          mercado: "Over 3.5 FT (Goleada)",
+          mercado: "Acima 3.5 Gols (Goleada)",
           odd: oddGoleada,
           ev,
           confianca,
@@ -879,7 +879,7 @@ export function analisarOportunidades(
       const ev = calcEV(confianca / 100, oddCorners);
       if (ev > 0) {
         oportunidades.push({
-          mercado: `Over ${Math.floor(ritmoEscanteios) - 1}.5 Escanteios`,
+          mercado: `Acima ${Math.floor(ritmoEscanteios) - 1}.5 Escanteios`,
           odd: oddCorners,
           ev,
           confianca,
@@ -905,7 +905,7 @@ export function analisarOportunidades(
       const ev = calcEV(confianca / 100, oddCards);
       if (ev > 0) {
         oportunidades.push({
-          mercado: `Over ${totalYellow + 1}.5 Cartões`,
+          mercado: `Acima ${totalYellow + 1}.5 Cartões`,
           odd: oddCards,
           ev,
           confianca,

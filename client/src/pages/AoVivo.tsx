@@ -68,7 +68,36 @@ function EventoBadge({ ev }: { ev: { type: string; detail: string; time: { elaps
   );
 }
 
-// ─── Barra de estatística ─────────────────────────────────────────────────────
+// ─── Traduções de eventos e comparação ─────────────────────────────────────────────────────────────────────────────
+const DETALHES_PT: Record<string, string> = {
+  "Normal Goal": "Gol Normal",
+  "Own Goal": "Gol Contra",
+  "Penalty": "Pênalti",
+  "Missed Penalty": "Pênalti Perdido",
+  "Yellow Card": "Cartão Amarelo",
+  "Red Card": "Cartão Vermelho",
+  "Yellow Red Card": "Segundo Amarelo",
+  "Substitution 1": "Substituição", "Substitution 2": "Substituição",
+  "Substitution 3": "Substituição", "Substitution 4": "Substituição", "Substitution 5": "Substituição",
+  "VAR - Goal cancelled": "VAR - Gol Anulado",
+  "VAR - Penalty confirmed": "VAR - Pênalti Confirmado",
+  "VAR - Penalty cancelled": "VAR - Pênalti Anulado",
+  "VAR - Red card": "VAR - Cartão Vermelho",
+  "Goal cancelled": "Gol Anulado",
+};
+function traduzirDetalheEvento(detail: string): string {
+  return DETALHES_PT[detail] ?? detail;
+}
+const COMPARACAO_PT: Record<string, string> = {
+  form: "Forma Recente", att: "Ataque", def: "Defesa",
+  poisson_distribution: "Distribuição Poisson", h2h: "Confronto Direto",
+  goals: "Gols", total: "Total",
+};
+function traduzirChaveComparacao(key: string): string {
+  return COMPARACAO_PT[key] ?? key.replace(/_/g, " ");
+}
+
+// ─── Barra de estatística ─────────────────────────────────────────────────────────────────────────────
 function StatBar({ label, home, away }: { label: string; home: string | number | null; away: string | number | null }) {
   const h = typeof home === "string" ? parseFloat(home) || 0 : home || 0;
   const a = typeof away === "string" ? parseFloat(away) || 0 : away || 0;
@@ -93,7 +122,7 @@ function StatBar({ label, home, away }: { label: string; home: string | number |
 function ModalJogo({ fixtureId, open, onClose }: { fixtureId: number | null; open: boolean; onClose: () => void }) {
   const { data, isLoading } = trpc.football.analisarJogo.useQuery(
     { fixtureId: fixtureId! },
-    { enabled: !!fixtureId && open, refetchInterval: 30_000 }
+    { enabled: !!fixtureId && open, refetchInterval: 10_000 }
   );
 
   if (!open || !fixtureId) return null;
@@ -191,9 +220,27 @@ function ModalJogo({ fixtureId, open, onClose }: { fixtureId: number | null; ope
                   <span className="font-semibold text-green-400">{fixture.teams.home.name}</span>
                   <span className="font-semibold text-blue-400">{fixture.teams.away.name}</span>
                 </div>
-                {["Ball Possession","Total Shots","Shots on Goal","Shots off Goal","Corner Kicks","Fouls","Yellow Cards","Red Cards","Offsides","Total passes","Passes accurate","Goalkeeper Saves"].map(type => (
-                  <StatBar key={type} label={type} home={getStat(statsH, type)} away={getStat(statsA, type)} />
-                ))}
+                {statsH.length === 0 && statsA.length === 0 ? (
+                  <p className="text-gray-400 text-center py-8 text-sm">Estatísticas não disponíveis para esta partida.</p>
+                ) : (
+                  [
+                    { api: "Ball Possession", pt: "Posse de Bola" },
+                    { api: "Total Shots", pt: "Chutes Totais" },
+                    { api: "Shots on Goal", pt: "Chutes no Gol" },
+                    { api: "Shots off Goal", pt: "Chutes Fora" },
+                    { api: "Corner Kicks", pt: "Escanteios" },
+                    { api: "Fouls", pt: "Faltas" },
+                    { api: "Yellow Cards", pt: "Cartões Amarelos" },
+                    { api: "Red Cards", pt: "Cartões Vermelhos" },
+                    { api: "Offsides", pt: "Impedimentos" },
+                    { api: "Total passes", pt: "Passes Totais" },
+                    { api: "Passes accurate", pt: "Passes Certos" },
+                    { api: "Goalkeeper Saves", pt: "Defesas do Goleiro" },
+                    { api: "Ball Safe", pt: "Bolas Seguras" },
+                  ].map(({ api, pt }) => (
+                    <StatBar key={api} label={pt} home={getStat(statsH, api)} away={getStat(statsA, api)} />
+                  ))
+                )}
               </TabsContent>
 
               <TabsContent value="eventos" className="mt-3">
@@ -204,7 +251,7 @@ function ModalJogo({ fixtureId, open, onClose }: { fixtureId: number | null; ope
                     {[...fixture.events].reverse().map((ev, i) => (
                       <div key={i} className="flex items-center gap-2 text-xs">
                         <EventoBadge ev={ev} />
-                        <span className="text-gray-400 text-[10px]">{ev.detail}</span>
+                        <span className="text-gray-400 text-[10px]">{traduzirDetalheEvento(ev.detail)}</span>
                         {ev.assist?.name && <span className="text-gray-500 text-[10px]">(assist: {ev.assist.name})</span>}
                       </div>
                     ))}
@@ -234,13 +281,13 @@ function ModalJogo({ fixtureId, open, onClose }: { fixtureId: number | null; ope
                     </div>
                     <div className="grid grid-cols-2 gap-2">
                       {Object.entries(pred.comparison).map(([key, val]) => (
-                        <div key={key} className="bg-gray-800 rounded p-2 text-xs">
-                          <div className="text-gray-400 capitalize mb-1">{key.replace(/_/g, " ")}</div>
-                          <div className="flex justify-between">
-                            <span className="text-green-400 font-semibold">{(val as { home: string }).home}</span>
-                            <span className="text-blue-400 font-semibold">{(val as { away: string }).away}</span>
-                          </div>
+                      <div key={key} className="bg-gray-800 rounded p-2 text-xs">
+                        <div className="text-gray-400 capitalize mb-1">{traduzirChaveComparacao(key)}</div>
+                        <div className="flex justify-between">
+                          <span className="text-green-400 font-semibold">{(val as { home: string }).home}</span>
+                          <span className="text-blue-400 font-semibold">{(val as { away: string }).away}</span>
                         </div>
+                      </div>
                       ))}
                     </div>
                     <div className="grid grid-cols-2 gap-2 text-xs">
@@ -275,7 +322,7 @@ export default function AoVivo() {
   const [ultimaAtt, setUltimaAtt] = useState(new Date());
 
   const { data: dashboard, isLoading, refetch, error } = trpc.football.dashboardAoVivo.useQuery(undefined, {
-    refetchInterval: autoRefresh ? 30_000 : false,
+    refetchInterval: autoRefresh ? 10_000 : false,
   });
 
   // Atualizar timestamp quando novos dados chegam
@@ -313,7 +360,7 @@ export default function AoVivo() {
               </Badge>
             )}
           </h1>
-          <p className="text-gray-400 text-xs mt-0.5">API Football — dados reais, atualização automática a cada 30s</p>
+          <p className="text-gray-400 text-xs mt-0.5">API Football — dados reais, atualização automática a cada 10s</p>
         </div>
         <div className="flex items-center gap-2">
           {blockStatus?.blocked && (

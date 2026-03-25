@@ -99,3 +99,9 @@
 - [x] Formatação rica das mensagens de alerta (emoji, mercado, odd, EV, motivos, horário Brasília)
 - [x] Botão Testar canal com feedback visual (sucesso/falha)
 - [x] Endpoints cronIniciar, cronParar, cronExecutarAgora, cronStatus no router
+
+## Bugs Fase 17
+- [ ] Estatísticas em inglês no modal Ao Vivo (Ball Possession, Total Shots, etc.)
+- [ ] Estatísticas zeradas para ligas menores (Amapaense, etc.)
+- [ ] Mercados em inglês (Over, Under, BTTS, etc.) em todo o sistema
+- [ ] Atualização ao vivo muito lenta (30s) — reduzir para 10s
