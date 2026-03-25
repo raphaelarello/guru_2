@@ -223,3 +223,65 @@
 - [x] PDF: tabela de performance por liga com greens/reds
 - [x] PDF: lista dos últimos 20 palpites com score individual
 - [x] PDF: gerado via html2canvas + jsPDF no frontend
+
+## Fase 24 — Interatividade Máxima + PWA + Ligas Mundiais
+
+### Cards do Painel Clicáveis
+- [ ] Card "Bots Ativos" → navega para /bots
+- [ ] Card "Jogos Ao Vivo" → navega para /ao-vivo
+- [ ] Card "Alertas Hoje" → navega para /auditoria
+- [ ] Card "Taxa de Acerto" → navega para /pitacos (aba análise)
+- [ ] Card "Banca Atual" → navega para /kelly
+- [ ] Card "Lucro Total" → navega para /kelly
+- [ ] Comparativo Bots vs Manual no Painel (gráfico de barras lado a lado)
+- [ ] Seção "Desempenho por Estratégia" com taxa, ROI e total de cada tipo
+
+### PWA + Web Push Notifications
+- [ ] manifest.json com ícones e configuração PWA
+- [ ] service worker (sw.js) com push handler
+- [ ] Geração de VAPID keys e configuração no servidor
+- [ ] Endpoint /api/push/subscribe para salvar subscriptions
+- [ ] Endpoint /api/push/send para enviar notificações
+- [ ] Tabela push_subscriptions no banco de dados
+- [ ] Botão "Ativar Notificações" no header/painel
+- [ ] cronService envia push ao criar novo alerta
+- [ ] Notificação com título, ícone e link direto para o alerta
+
+### Dicionário de Ligas Mundiais (500+)
+- [ ] Ligas da Europa: todas as ligas principais e secundárias (50+ países)
+- [ ] Ligas das Américas: Brasil (todas as divisões), Argentina, México, EUA, Chile, Colômbia, etc.
+- [ ] Ligas da Ásia: Japão, Coreia, China, Índia, Arábia Saudita, Qatar, UAE, etc.
+- [ ] Ligas da África: Nigéria, Egito, África do Sul, Marrocos, etc.
+- [ ] Ligas da Oceania: Austrália, Nova Zelândia, etc.
+- [ ] Competições internacionais: Champions, Europa League, Copa Libertadores, Copa do Mundo, etc.
+- [ ] IDs reais da API Football para cada liga (para filtros funcionarem)
+
+### Página de Ligas
+- [ ] Rota /ligas na sidebar
+- [ ] Lista de todas as ligas com bandeira, país e temporada atual
+- [ ] Tabela de classificação da liga selecionada
+- [ ] Artilheiros da liga selecionada
+- [ ] Próximas rodadas da liga selecionada
+- [ ] Filtro por continente/país
+
+### Interatividade Máxima em Todas as Telas
+- [ ] Bots: cards clicáveis → modal de detalhes/edição
+- [ ] Bots: números de sinais clicáveis → vai para Auditoria filtrada por bot
+- [ ] Jogos de Hoje: cards clicáveis → modal de detalhes expandido
+- [ ] Ao Vivo: cards clicáveis → modal de análise completa
+- [ ] Auditoria: linhas clicáveis → modal de detalhes do alerta
+- [ ] Kelly Tracker: linhas clicáveis → modal de detalhes da aposta
+- [ ] Painel: seção "Últimos Palpites" com link direto para cada palpite
+
+## Fase 24 — Progresso (concluído)
+- [x] Página /ligas criada com tabela de classificação, artilheiros, próximos jogos e últimos resultados
+- [x] Rota /ligas adicionada ao App.tsx e sidebar (ícone Trophy)
+- [x] Filtros de continente corrigidos (América do Sul, América do Norte, Europa, Ásia, África, Oceania, Mundial)
+- [x] Card "Jogos Ao Vivo" no Painel agora usa dados dinâmicos (trpc.football.liveFixtures, atualiza a cada 60s)
+- [x] Comparativo Bots vs Manual adicionado ao Painel
+- [x] Cards do Painel todos clicáveis com navegação para telas relevantes
+- [x] Estatísticas rápidas da liga (total de times, gols na temporada, média gols/jogo)
+- [x] Tabela de classificação com cores por posição (campeões/rebaixamento) e forma recente
+- [x] Artilheiros com pódio visual (🥇🥈🥉) e foto do jogador
+- [x] Próximos jogos e últimos resultados clicáveis → navega para /ao-vivo
+- [x] Times na tabela clicáveis → navega para /times com ID do time

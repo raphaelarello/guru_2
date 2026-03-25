@@ -12,6 +12,7 @@ import Auditoria from "./pages/Auditoria";
 import Pitacos from "./pages/Pitacos";
 import JogosHoje from "./pages/JogosHoje";
 import Times from "./pages/Times";
+import Ligas from "./pages/Ligas";
 
 function Router() {
   return (
@@ -25,6 +26,7 @@ function Router() {
       <Route path="/pitacos" component={Pitacos} />
       <Route path="/jogos-hoje" component={JogosHoje} />
       <Route path="/times" component={Times} />
+      <Route path="/ligas" component={Ligas} />
       <Route path="/404" component={NotFound} />
       <Route component={NotFound} />
     </Switch>

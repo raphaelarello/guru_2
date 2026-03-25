@@ -896,6 +896,78 @@ export const appRouter = router({
         }));
       }),
   }),
+
+  // ── LIGAS ────────────────────────────────────────────────────────────────
+  ligasRouter: router({
+    /** Tabela de classificação de uma liga */
+    standings: publicProcedure
+      .input(z.object({ ligaId: z.number(), season: z.number().default(2025) }))
+      .query(async ({ input }) => getStandings(input.ligaId, input.season)),
+
+    /** Próximos jogos de uma liga */
+    proximosJogos: publicProcedure
+      .input(z.object({ ligaId: z.number(), season: z.number().default(2025), count: z.number().default(10) }))
+      .query(async ({ input }) => {
+        const res = await fetch(
+          `https://v3.football.api-sports.io/fixtures?league=${input.ligaId}&season=${input.season}&next=${input.count}`,
+          { headers: { "x-apisports-key": process.env.API_FOOTBALL_KEY || "" } }
+        );
+        const json = await res.json() as any;
+        return (json.response || []).map((f: any) => ({
+          id: f.fixture.id,
+          data: f.fixture.date,
+          status: f.fixture.status.short,
+          timeCasa: f.teams.home.name,
+          timeCasaLogo: f.teams.home.logo,
+          timeVisitante: f.teams.away.name,
+          timeVisitanteLogo: f.teams.away.logo,
+          rodada: f.league.round,
+        }));
+      }),
+
+    /** Artilheiros de uma liga */
+    artilheiros: publicProcedure
+      .input(z.object({ ligaId: z.number(), season: z.number().default(2025) }))
+      .query(async ({ input }) => {
+        const res = await fetch(
+          `https://v3.football.api-sports.io/players/topscorers?league=${input.ligaId}&season=${input.season}`,
+          { headers: { "x-apisports-key": process.env.API_FOOTBALL_KEY || "" } }
+        );
+        const json = await res.json() as any;
+        return (json.response || []).slice(0, 10).map((p: any) => ({
+          id: p.player.id,
+          nome: p.player.name,
+          foto: p.player.photo,
+          time: p.statistics[0]?.team?.name ?? "",
+          timeLogo: p.statistics[0]?.team?.logo ?? "",
+          gols: p.statistics[0]?.goals?.total ?? 0,
+          assistencias: p.statistics[0]?.goals?.assists ?? 0,
+          jogos: p.statistics[0]?.games?.appearences ?? 0,
+        }));
+      }),
+
+    /** Últimos resultados de uma liga */
+    ultimosResultados: publicProcedure
+      .input(z.object({ ligaId: z.number(), season: z.number().default(2025), count: z.number().default(10) }))
+      .query(async ({ input }) => {
+        const res = await fetch(
+          `https://v3.football.api-sports.io/fixtures?league=${input.ligaId}&season=${input.season}&last=${input.count}&status=FT`,
+          { headers: { "x-apisports-key": process.env.API_FOOTBALL_KEY || "" } }
+        );
+        const json = await res.json() as any;
+        return (json.response || []).map((f: any) => ({
+          id: f.fixture.id,
+          data: f.fixture.date,
+          timeCasa: f.teams.home.name,
+          timeCasaLogo: f.teams.home.logo,
+          timeVisitante: f.teams.away.name,
+          timeVisitanteLogo: f.teams.away.logo,
+          golsCasa: f.goals.home ?? 0,
+          golsVisitante: f.goals.away ?? 0,
+          rodada: f.league.round,
+        }));
+      }),
+  }),
 });
 function detectarTipoMercado(mercado: string): string {
   const m = mercado.toLowerCase();

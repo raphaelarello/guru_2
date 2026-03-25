@@ -1,4 +1,5 @@
 import { useMemo } from "react";
+import { Users, Cpu } from "lucide-react";
 import RaphaLayout from "@/components/RaphaLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -25,6 +26,7 @@ export default function Painel() {
   const apostasQuery = trpc.apostas.list.useQuery();
   const pitacosStatsQuery = trpc.pitacos.stats.useQuery();
   const pitacosQuery = trpc.pitacos.list.useQuery();
+  const liveQuery = trpc.football.liveFixtures.useQuery(undefined, { refetchInterval: 60000 });
 
   const bots = botsQuery.data ?? [];
   const alertas = alertasQuery.data ?? [];
@@ -74,7 +76,7 @@ export default function Painel() {
 
   const cards = [
     { titulo: "Bots Ativos", valor: `${botsAtivos}/${bots.length}`, icone: Bot, cor: "text-primary", bg: "bg-primary/10", link: "/bots", desc: "Bots automáticos" },
-    { titulo: "Jogos Ao Vivo", valor: "20", icone: Radio, cor: "text-red-400", bg: "bg-red-500/10", link: "/ao-vivo", desc: "Oportunidades detectadas" },
+    { titulo: "Jogos Ao Vivo", valor: liveQuery.data ? `${liveQuery.data.length}` : "—", icone: Radio, cor: "text-red-400", bg: "bg-red-500/10", link: "/ao-vivo", desc: "Jogos em andamento agora" },
     { titulo: "Alertas Hoje", valor: alertasHoje, icone: Target, cor: "text-green-400", bg: "bg-green-500/10", link: "/auditoria", desc: "Sinais gerados" },
     { titulo: "Taxa de Acerto", valor: `${taxa}%`, icone: CheckCircle, cor: "text-yellow-400", bg: "bg-yellow-500/10", link: "/kelly", desc: "Performance geral" },
     { titulo: "Banca Atual", valor: banca ? `R$ ${parseFloat(banca.valorAtual ?? "0").toLocaleString("pt-BR", { minimumFractionDigits: 2 })}` : "—", icone: DollarSign, cor: "text-blue-400", bg: "bg-blue-500/10", link: "/kelly", desc: "Kelly Tracker" },
@@ -100,13 +102,16 @@ export default function Painel() {
       <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-5">
         {cards.map((card, i) => (
           <Link key={i} href={card.link}>
-            <Card className="bg-card border-border hover:border-primary/30 transition-all cursor-pointer group h-full">
+            <Card className="bg-card border-border hover:border-primary/50 hover:shadow-lg hover:shadow-primary/10 hover:-translate-y-0.5 transition-all duration-200 cursor-pointer group h-full active:scale-95">
               <CardContent className="p-4">
                 <div className="flex items-start justify-between mb-3">
-                  <div className={`w-9 h-9 rounded-xl ${card.bg} flex items-center justify-center`}>
+                  <div className={`w-9 h-9 rounded-xl ${card.bg} flex items-center justify-center group-hover:scale-110 transition-transform duration-200`}>
                     <card.icone className={`w-4 h-4 ${card.cor}`} />
                   </div>
-                  <ArrowRight className="w-3.5 h-3.5 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+                  <div className="flex items-center gap-0.5 bg-primary/10 rounded-full px-1.5 py-0.5">
+                    <span className="text-[8px] text-primary font-medium">ir</span>
+                    <ArrowRight className="w-2.5 h-2.5 text-primary group-hover:translate-x-0.5 transition-transform" />
+                  </div>
                 </div>
                 <p className={`text-xl font-bold ${card.cor}`}>{card.valor}</p>
                 <p className="text-xs font-medium text-foreground">{card.titulo}</p>
@@ -301,6 +306,9 @@ export default function Painel() {
         </div>
       </div>
 
+      {/* Comparativo Bots vs Manual */}
+      <ComparativoBotVsManual bots={bots} alertas={alertas} apostas={apostas} />
+
       {/* Últimas apostas */}
       <Card className="bg-card border-border">
         <CardHeader className="pb-2">
@@ -335,5 +343,95 @@ export default function Painel() {
         </CardContent>
       </Card>
     </RaphaLayout>
+  );
+}
+
+function ComparativoBotVsManual({ bots, alertas, apostas }: {
+  bots: any[];
+  alertas: any[];
+  apostas: any[];
+}) {
+  // Alertas gerados por bots (com botId)
+  const alertasBots = alertas.filter(a => a.botId);
+  const alertasBotsGreen = alertasBots.filter(a => a.resultado === "green").length;
+  const alertasBotsFin = alertasBots.filter(a => a.resultado === "green" || a.resultado === "red").length;
+  const taxaBots = alertasBotsFin > 0 ? Math.round((alertasBotsGreen / alertasBotsFin) * 100) : 0;
+
+  // Apostas manuais (sem botId)
+  const apostasManual = apostas.filter(a => !a.botId);
+  const apostasManualGreen = apostasManual.filter(a => a.resultado === "green").length;
+  const apostasManualFin = apostasManual.filter(a => a.resultado === "green" || a.resultado === "red").length;
+  const taxaManual = apostasManualFin > 0 ? Math.round((apostasManualGreen / apostasManualFin) * 100) : 0;
+
+  const totalBots = alertasBots.length;
+  const totalManual = apostasManual.length;
+  const temDados = totalBots > 0 || totalManual > 0;
+
+  const vencedor = taxaBots > taxaManual ? "bots" : taxaManual > taxaBots ? "manual" : "empate";
+
+  return (
+    <Card className="bg-card border-border mb-5">
+      <CardHeader className="pb-2">
+        <div className="flex items-center justify-between">
+          <CardTitle className="text-foreground text-sm flex items-center gap-2">
+            <Cpu className="w-4 h-4 text-primary" />
+            Bots vs Análise Manual
+          </CardTitle>
+          {temDados && vencedor !== "empate" && (
+            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+              vencedor === "bots" ? "bg-primary/20 text-primary" : "bg-blue-500/20 text-blue-400"
+            }`}>
+              {vencedor === "bots" ? "🤖 Bots lideram" : "👤 Manual lidera"}
+            </span>
+          )}
+        </div>
+      </CardHeader>
+      <CardContent>
+        {!temDados ? (
+          <div className="py-4 text-center">
+            <p className="text-xs text-muted-foreground">Ative bots e registre apostas para ver o comparativo</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 gap-4">
+            {/* Bots */}
+            <div className={`rounded-xl p-4 border ${
+              vencedor === "bots" ? "border-primary/40 bg-primary/5" : "border-border bg-muted/20"
+            }`}>
+              <div className="flex items-center gap-2 mb-3">
+                <div className="w-7 h-7 rounded-lg bg-primary/20 flex items-center justify-center">
+                  <Cpu className="w-3.5 h-3.5 text-primary" />
+                </div>
+                <span className="text-xs font-bold text-foreground">Bots IA</span>
+                {vencedor === "bots" && <span className="text-[9px] text-primary">★</span>}
+              </div>
+              <p className="text-2xl font-black text-primary mb-1">{taxaBots}%</p>
+              <p className="text-[10px] text-muted-foreground">{alertasBotsGreen}G / {alertasBotsFin - alertasBotsGreen}R</p>
+              <p className="text-[10px] text-muted-foreground">{totalBots} sinais gerados</p>
+              <div className="mt-2 h-1.5 rounded-full bg-muted overflow-hidden">
+                <div className="h-full rounded-full bg-primary transition-all" style={{ width: `${taxaBots}%` }} />
+              </div>
+            </div>
+            {/* Manual */}
+            <div className={`rounded-xl p-4 border ${
+              vencedor === "manual" ? "border-blue-500/40 bg-blue-500/5" : "border-border bg-muted/20"
+            }`}>
+              <div className="flex items-center gap-2 mb-3">
+                <div className="w-7 h-7 rounded-lg bg-blue-500/20 flex items-center justify-center">
+                  <Users className="w-3.5 h-3.5 text-blue-400" />
+                </div>
+                <span className="text-xs font-bold text-foreground">Manual</span>
+                {vencedor === "manual" && <span className="text-[9px] text-blue-400">★</span>}
+              </div>
+              <p className="text-2xl font-black text-blue-400 mb-1">{taxaManual}%</p>
+              <p className="text-[10px] text-muted-foreground">{apostasManualGreen}G / {apostasManualFin - apostasManualGreen}R</p>
+              <p className="text-[10px] text-muted-foreground">{totalManual} apostas registradas</p>
+              <div className="mt-2 h-1.5 rounded-full bg-muted overflow-hidden">
+                <div className="h-full rounded-full bg-blue-400 transition-all" style={{ width: `${taxaManual}%` }} />
+              </div>
+            </div>
+          </div>
+        )}
+      </CardContent>
+    </Card>
   );
 }

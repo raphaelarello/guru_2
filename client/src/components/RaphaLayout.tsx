@@ -5,7 +5,7 @@ import { getLoginUrl } from "@/const";
 import {
   LayoutDashboard, Radio, Bot, TrendingUp, History,
   MessageSquare, ChevronLeft, ChevronRight, LogOut,
-  User, Zap, Shield, Menu, X, Bell, Calendar, Users,
+  User, Zap, Shield, Menu, X, Bell, Calendar, Users, Trophy,
   BellRing, CheckCheck, Trash2, Wifi, WifiOff
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -23,6 +23,7 @@ const navItems = [
   { path: "/kelly", label: "Kelly Tracker", icon: TrendingUp, badge: null },
   { path: "/auditoria", label: "Auditoria", icon: History, badge: null },
   { path: "/times", label: "Estatísticas Times", icon: Users, badge: null },
+  { path: "/ligas", label: "Ligas", icon: Trophy, badge: null },
 ];
 
 interface RaphaLayoutProps {
