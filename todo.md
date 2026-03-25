@@ -486,3 +486,14 @@
 - [x] Criar cards com indicadores, forma, média de gols
 - [x] Implementar modal de análise detalhada
 - [x] Testar página Destaques — FUNCIONANDO PERFEITAMENTE
+
+
+## Fase 41 — Publicação em Produção + Melhoria de Artilheiros
+- [x] Publicar site em produção (raphaguru-ci5eas6g.manus.space)
+- [x] Criar arquivo artilheiros-premium.ts com análise avançada
+- [x] Implementar busca de artilheiros com histórico recente (últimos 5 jogos)
+- [x] Adicionar comparações com média da liga e percentil
+- [x] Implementar ranking dinâmico (Gols, Assistências, Cartões, Eficiência, Consistência, Forma)
+- [x] Adicionar indicadores avançados (Eficiência, Consistência, Forma)
+- [x] Adicionar endpoint /destaques/premium no tRPC
+- [x] Página Destaques com visual premium — FUNCIONANDO PERFEITAMENTE

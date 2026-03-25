@@ -48,8 +48,7 @@ import {
   getApiUsage,
   getDestaquesHoje,
 } from "./football";
-import { getArtilheirosAvancado, type ResultadoArtilheiros } from "./artilheiros-avancado";
-import { getDestaquesAvancado } from "./palpites-avancado";
+import { getArtilheirosAvancado } from "./artilheiros-premium";
 
 export const appRouter = router({
   system: systemRouter,
@@ -986,16 +985,17 @@ export const appRouter = router({
     hoje: publicProcedure
       .input(z.object({ date: z.string().optional() }).optional())
       .query(({ input }) => getDestaquesHoje(input?.date)),
-    /** Palpites avancados com analise estatistica */
-    avancado: publicProcedure
-      .input(z.object({ date: z.string().optional() }).optional())
-      .query(({ input }) => getDestaquesAvancado(input?.date)),
     /** Artilheiros avancados com analise completa */
     artilheiros: publicProcedure
       .input(z.object({ date: z.string().optional() }).optional())
       .query(async ({ input }) => {
-        const fixtures = await getTodayFixtures(input?.date);
-        return getArtilheirosAvancado(fixtures);
+        return getArtilheirosAvancado(input?.date || new Date().toISOString().split('T')[0]);
+      }),
+    /** Artilheiros premium com histórico, comparações e gráficos */
+    premium: publicProcedure
+      .input(z.object({ date: z.string().optional() }).optional())
+      .query(async ({ input }) => {
+        return getArtilheirosAvancado(input?.date || new Date().toISOString().split('T')[0]);
       }),
   }),
 
