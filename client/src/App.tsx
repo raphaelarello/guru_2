@@ -23,6 +23,8 @@ import Recomendacoes from "./pages/Recomendacoes";
 import Monitoramento from "./pages/Monitoramento";
 import SimuladorGols from "./pages/SimuladorGols";
 import LeaderboardAnimado from "./pages/LeaderboardAnimado";
+import DashboardVitorias from "./pages/DashboardVitorias";
+import CelebracaoEpica from "./pages/CelebracaoEpica";
 import NotificationCenter from "./components/NotificationCenter";
 
 function Router() {
@@ -47,6 +49,8 @@ function Router() {
       <Route path="/monitoramento" component={Monitoramento} />
       <Route path="/simulador-gols" component={SimuladorGols} />
       <Route path="/leaderboard" component={LeaderboardAnimado} />
+      <Route path="/dashboard-vitorias" component={DashboardVitorias} />
+      <Route path="/celebracao-epica" component={CelebracaoEpica} />
       <Route path="/historico-ao-vivo" component={HistoricoAoVivo} />
       <Route path="/configuracoes" component={Configuracoes} />
       <Route path="/404" component={NotFound} />
