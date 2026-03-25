@@ -46,7 +46,7 @@ export function gerarAlertasCentral(fixtures: LiveFixture[]): AlertaCentral[] {
           tipo: "gol",
           prioridade: "alta",
           minuto: event.time?.elapsed ?? minute,
-          liga: league,
+          liga: fixture.league?.name || "Desconhecida",
           time: event.team?.name || null,
         });
       }
@@ -59,7 +59,7 @@ export function gerarAlertasCentral(fixtures: LiveFixture[]): AlertaCentral[] {
           tipo: "expulsao",
           prioridade: "critica",
           minuto: event.time?.elapsed ?? minute,
-          liga: league,
+          liga: fixture.league?.name || "Desconhecida",
           time: event.team?.name || null,
         });
       }
@@ -75,7 +75,7 @@ export function gerarAlertasCentral(fixtures: LiveFixture[]): AlertaCentral[] {
         tipo: "momento",
         prioridade: "alta",
         minuto: minute,
-        liga: league,
+        liga: fixture.league?.name || "Desconhecida",
       });
     }
 
@@ -88,7 +88,7 @@ export function gerarAlertasCentral(fixtures: LiveFixture[]): AlertaCentral[] {
         tipo: "alerta",
         prioridade: "media",
         minuto: minute,
-        liga: league,
+        liga: fixture.league?.name || "Desconhecida",
       });
     }
   }

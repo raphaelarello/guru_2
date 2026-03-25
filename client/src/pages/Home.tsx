@@ -106,7 +106,7 @@ export function Home() {
     { titulo: "Ao vivo agora", valor: dashboard.data?.totalJogos ?? 0, icone: Activity, destaque: "text-emerald-300" },
     { titulo: "Alertas ativos", valor: alertas.data?.length ?? 0, icone: BellRing, destaque: "text-cyan-300" },
     { titulo: "Sinais do motor", valor: dashboard.data?.totalOportunidades ?? 0, icone: Sparkles, destaque: "text-fuchsia-300" },
-    { titulo: "Jogos do dia", valor: jogosHoje.data?.ligas?.reduce((acc, l) => acc + l.jogos.length, 0) ?? 0, icone: CalendarDays, destaque: "text-amber-300" },
+    { titulo: "Jogos do dia", valor: Array.isArray(jogosHoje.data) ? jogosHoje.data.length : 0, icone: CalendarDays, destaque: "text-amber-300" },
   ];
 
   const feedAlertas = (alertas.data || []).slice(0, 10);
