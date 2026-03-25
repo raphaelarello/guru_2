@@ -3,7 +3,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Search, Filter, Star, AlertCircle, Zap } from "lucide-react";
+import { Search, Filter, Star, TrendingUp, AlertCircle, Zap } from "lucide-react";
 
 interface Jogo {
   id: string;
@@ -86,7 +86,7 @@ const jogos: Jogo[] = [
   },
 ];
 
-export default function Painel() {
+export default function PainelProfissional() {
   const [filtroStatus, setFiltroStatus] = useState<"todos" | "ao-vivo" | "finalizado" | "proximo">("todos");
   const [busca, setBusca] = useState("");
   const [favoritos, setFavoritos] = useState<string[]>([]);
