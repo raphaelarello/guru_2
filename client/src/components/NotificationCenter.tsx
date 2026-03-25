@@ -13,7 +13,16 @@ interface Notification {
 }
 
 export default function NotificationCenter() {
-  const { isConnected, lastMessage } = useWebSocket(['artilheiros', 'indisciplinados', 'pitacos']);
+  const { isConnected } = useWebSocket();
+  const [lastMessage, setLastMessage] = React.useState<any>(null);
+
+  React.useEffect(() => {
+    // Simular notificações para demo
+    const timer = setInterval(() => {
+      setLastMessage({ type: 'notificacao', data: { type: 'artilheiro_novo', title: 'Novo Artilheiro', message: 'Atualização em tempo real' } });
+    }, 30000);
+    return () => clearInterval(timer);
+  }, []);
 
   useEffect(() => {
     if (!lastMessage || lastMessage.type !== 'notificacao') return;

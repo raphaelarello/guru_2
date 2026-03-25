@@ -37,25 +37,33 @@ class WebSocketManager {
         subscriptions: new Set(),
       });
 
-      socket.on("subscribe:artilheiros", () => {
+      socket.on("subscribe:artilheiros", async () => {
         const clientData = clients.get(socket.id);
         if (clientData) {
           clientData.subscriptions.add("artilheiros");
           socket.join("artilheiros");
           console.log(`[WebSocket] Cliente ${socket.id} inscrito em artilheiros`);
-          const artilheiros = getArtilheirosAvancado();
-          socket.emit("artilheiros:update", artilheiros);
+          try {
+            const artilheiros = await getArtilheirosAvancado(new Date().toISOString().split('T')[0]);
+            socket.emit("artilheiros:update", artilheiros);
+          } catch (error) {
+            console.error("[WebSocket] Erro ao buscar artilheiros:", error);
+          }
         }
       });
 
-      socket.on("subscribe:leaderboard", () => {
+      socket.on("subscribe:leaderboard", async () => {
         const clientData = clients.get(socket.id);
         if (clientData) {
           clientData.subscriptions.add("leaderboard");
           socket.join("leaderboard");
           console.log(`[WebSocket] Cliente ${socket.id} inscrito em leaderboard`);
-          const leaderboard = this.generateLeaderboardData();
-          socket.emit("leaderboard:update", leaderboard);
+          try {
+            const leaderboard = await this.generateLeaderboardData();
+            socket.emit("leaderboard:update", leaderboard);
+          } catch (error) {
+            console.error("[WebSocket] Erro ao gerar leaderboard:", error);
+          }
         }
       });
 
@@ -89,25 +97,33 @@ class WebSocketManager {
   private startUpdateBroadcasts() {
     this.updateIntervals.set(
       "artilheiros",
-      setInterval(() => {
-        const artilheiros = getArtilheirosAvancado();
-        this.io.to("artilheiros").emit("artilheiros:update", artilheiros);
-        console.log(`[WebSocket] Broadcast de artilheiros enviado`);
+      setInterval(async () => {
+        try {
+          const artilheiros = await getArtilheirosAvancado(new Date().toISOString().split('T')[0]);
+          this.io.to("artilheiros").emit("artilheiros:update", artilheiros);
+          console.log(`[WebSocket] Broadcast de artilheiros enviado`);
+        } catch (error) {
+          console.error("[WebSocket] Erro ao fazer broadcast de artilheiros:", error);
+        }
       }, 30000)
     );
 
     this.updateIntervals.set(
       "leaderboard",
-      setInterval(() => {
-        const leaderboard = this.generateLeaderboardData();
-        this.io.to("leaderboard").emit("leaderboard:update", leaderboard);
-        console.log(`[WebSocket] Broadcast de leaderboard enviado`);
+      setInterval(async () => {
+        try {
+          const leaderboard = await this.generateLeaderboardData();
+          this.io.to("leaderboard").emit("leaderboard:update", leaderboard);
+          console.log(`[WebSocket] Broadcast de leaderboard enviado`);
+        } catch (error) {
+          console.error("[WebSocket] Erro ao fazer broadcast de leaderboard:", error);
+        }
       }, 30000)
     );
   }
 
-  private generateLeaderboardData() {
-    const artilheiros = getArtilheirosAvancado();
+  private async generateLeaderboardData() {
+    const artilheiros = await getArtilheirosAvancado(new Date().toISOString().split('T')[0]);
     return {
       topGols: (artilheiros as any).topGols?.slice(0, 10) || [],
       topAssistencias: (artilheiros as any).topAssistencias?.slice(0, 10) || [],
