@@ -1,0 +1,20 @@
+{
+  "compilerOptions": {
+    "noEmit": true,
+    "target": "ES2020",
+    "module": "ESNext",
+    "strict": false,
+    "moduleResolution": "bundler",
+    "skipLibCheck": true,
+    "types": [],
+    "noResolve": true,
+    "lib": ["es2020"]
+  },
+  "files": [
+    "server/lib/oddsFeed.ts",
+    "server/lib/botEngine.ts",
+    "server/routes/bots.ts",
+    "server/index.ts",
+    "server/db/schema.ts"
+  ]
+}
