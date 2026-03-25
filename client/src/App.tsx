@@ -28,6 +28,7 @@ import CelebracaoEpica from "./pages/CelebracaoEpica";
 import RankingRecordes from "./pages/RankingRecordes";
 import ModoJogo from "./pages/ModoJogo";
 import LeaderboardGlobal from "./pages/LeaderboardGlobal";
+import MatchCenter from "./pages/MatchCenter";
 import NotificationCenter from "./components/NotificationCenter";
 
 function Router() {
@@ -57,6 +58,7 @@ function Router() {
       <Route path="/ranking-recordes" component={RankingRecordes} />
       <Route path="/modo-jogo" component={ModoJogo} />
       <Route path="/leaderboard-global" component={LeaderboardGlobal} />
+      <Route path="/match-center" component={MatchCenter} />
       <Route path="/historico-ao-vivo" component={HistoricoAoVivo} />
       <Route path="/configuracoes" component={Configuracoes} />
       <Route path="/404" component={NotFound} />
