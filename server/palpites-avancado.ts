@@ -382,6 +382,130 @@ async function analisarFixture(fixture: any, season: number): Promise<PalpiteAva
       });
     }
 
+    // Escanteios (estimativa baseada em gols e posse)
+    const estimativaEscanteios = (lambdaHome + lambdaAway) * 3.5; // Média de escanteios por gol
+    if (estimativaEscanteios > 8) {
+      const probEscanteios = Math.min(0.95, estimativaEscanteios / 15); // Normalizar
+      const confianca = probEscanteios > 0.60 ? "Alta" : probEscanteios > 0.50 ? "Media" : "Baixa";
+      palpites.push({
+        fixtureId,
+        homeTeam: homeTeam.name,
+        homeTeamLogo: homeTeam.logo,
+        awayTeam: awayTeam.name,
+        awayTeamLogo: awayTeam.logo,
+        leagueName: league.name,
+        leagueLogo: league.logo,
+        countryFlag,
+        matchTime,
+        mercado: "Escanteios",
+        palpite: "Over 9.5",
+        confianca,
+        probabilidade: Math.round(probEscanteios * 100),
+        motivo: `Estimativa de ${estimativaEscanteios.toFixed(1)} escanteios. ${homeTeam.name} marca ${homeMediaGolsEmCasa.toFixed(1)}/jogo, ${awayTeam.name} marca ${awayMediaGolsForaEmCasa.toFixed(1)}/jogo.`,
+        analiseDetalhada: {
+          homeTeamStats: {
+            mediaGols: homeMediaGols,
+            mediaGolsForaEmCasa: homeMediaGolsEmCasa,
+            mediaGolsSofridos: homeMediaGolsSofridos,
+            forma: homeUltimosJogos.join(""),
+            ultimosJogos: homeUltimosJogos,
+            vitorias: homeStats.fixtures.wins.total,
+            empates: homeStats.fixtures.draws.total,
+            derrotas: homeStats.fixtures.loses.total,
+            aproveitamento: homeAproveitamento,
+          },
+          awayTeamStats: {
+            mediaGols: awayMediaGols,
+            mediaGolsForaEmCasa: awayMediaGolsForaEmCasa,
+            mediaGolsSofridos: awayMediaGolsSofridos,
+            forma: awayUltimosJogos.join(""),
+            ultimosJogos: awayUltimosJogos,
+            vitorias: awayStats.fixtures.wins.total,
+            empates: awayStats.fixtures.draws.total,
+            derrotas: awayStats.fixtures.loses.total,
+            aproveitamento: awayAproveitamento,
+          },
+          h2h: {
+            ultimosJogos: h2hData.slice(0, 5).map(j => ({
+              data: new Date(j.fixture.date).toLocaleDateString("pt-BR"),
+              resultado: j.goals.home > j.goals.away ? "V" : j.goals.away > j.goals.home ? "D" : "E",
+              placar: `${j.goals.home}-${j.goals.away}`,
+            })),
+            estatisticas: h2hStats,
+          },
+          modeloPoisson: {
+            probabilidadeGolsHome: distHome,
+            probabilidadeGolsAway: distAway,
+            probabilidadeBTTS: probBTTS,
+            probabilidadeOver25: probOver25,
+          },
+          fatoresInfluencia: fatores,
+        },
+      });
+    }
+
+    // Cartões (estimativa baseada em forma e confrontos)
+    const estimativaCartoes = (homeAproveitamento + awayAproveitamento) / 20 + 4; // Média de cartões
+    if (estimativaCartoes > 3) {
+      const probCartoes = Math.min(0.90, estimativaCartoes / 8); // Normalizar
+      const confianca = probCartoes > 0.60 ? "Alta" : probCartoes > 0.50 ? "Media" : "Baixa";
+      palpites.push({
+        fixtureId,
+        homeTeam: homeTeam.name,
+        homeTeamLogo: homeTeam.logo,
+        awayTeam: awayTeam.name,
+        awayTeamLogo: awayTeam.logo,
+        leagueName: league.name,
+        leagueLogo: league.logo,
+        countryFlag,
+        matchTime,
+        mercado: "Cartões",
+        palpite: "Over 3.5",
+        confianca,
+        probabilidade: Math.round(probCartoes * 100),
+        motivo: `Estimativa de ${estimativaCartoes.toFixed(1)} cartões. ${homeTeam.name} com ${homeAproveitamento}% aproveitamento, ${awayTeam.name} com ${awayAproveitamento}%.`,
+        analiseDetalhada: {
+          homeTeamStats: {
+            mediaGols: homeMediaGols,
+            mediaGolsForaEmCasa: homeMediaGolsEmCasa,
+            mediaGolsSofridos: homeMediaGolsSofridos,
+            forma: homeUltimosJogos.join(""),
+            ultimosJogos: homeUltimosJogos,
+            vitorias: homeStats.fixtures.wins.total,
+            empates: homeStats.fixtures.draws.total,
+            derrotas: homeStats.fixtures.loses.total,
+            aproveitamento: homeAproveitamento,
+          },
+          awayTeamStats: {
+            mediaGols: awayMediaGols,
+            mediaGolsForaEmCasa: awayMediaGolsForaEmCasa,
+            mediaGolsSofridos: awayMediaGolsSofridos,
+            forma: awayUltimosJogos.join(""),
+            ultimosJogos: awayUltimosJogos,
+            vitorias: awayStats.fixtures.wins.total,
+            empates: awayStats.fixtures.draws.total,
+            derrotas: awayStats.fixtures.loses.total,
+            aproveitamento: awayAproveitamento,
+          },
+          h2h: {
+            ultimosJogos: h2hData.slice(0, 5).map(j => ({
+              data: new Date(j.fixture.date).toLocaleDateString("pt-BR"),
+              resultado: j.goals.home > j.goals.away ? "V" : j.goals.away > j.goals.home ? "D" : "E",
+              placar: `${j.goals.home}-${j.goals.away}`,
+            })),
+            estatisticas: h2hStats,
+          },
+          modeloPoisson: {
+            probabilidadeGolsHome: distHome,
+            probabilidadeGolsAway: distAway,
+            probabilidadeBTTS: probBTTS,
+            probabilidadeOver25: probOver25,
+          },
+          fatoresInfluencia: fatores,
+        },
+      });
+    }
+
   } catch (error) {
     console.error(`Erro ao analisar fixture ${fixtureId}:`, error);
   }

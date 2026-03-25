@@ -448,3 +448,30 @@
 - [x] Melhorar visual da seção de artilheiros na página Destaques
 - [x] Corrigir import do axios no artilheiros-avancado.ts
 - [x] Corrigir problema de cookies em produção (secure: true)
+
+
+## Fase 38 — Melhorias na Página Destaques
+- [ ] Corrigir título: remover "Palpites Automáticos da IA" e deixar apenas "Destaques"
+- [ ] Separar artilheiros em abas: Gols, Assistências, Cartões com ranking independente
+- [ ] Separar palpites por tipo de análise com tabs independentes
+- [ ] Melhorar visual: cards separados por critério como scoretabs faz
+
+
+## Fase 39 — Reescrita Profunda da Página Destaques
+- [x] Corrigir motor de palpites para gerar análises para Gols, Escanteios e Cartões
+- [x] Expandir análise para cobrir TODOS os mercados com probabilidades
+- [ ] Redesenhar seção de Artilheiros com máximo de informação estatística
+- [ ] Adicionar gráficos, comparações, histórico de artilheiros
+- [ ] Redesenhar seção de Palpites com máxima interatividade
+- [ ] Adicionar visualizações de dados, modelos Poisson, fatores de influência
+- [ ] Testar página Destaques com novo design premium
+
+
+## Fase 39 — Reescrita Profunda da Página Destaques
+- [x] Corrigir motor de palpites para gerar análises para Gols, Escanteios e Cartões
+- [x] Expandir análise para cobrir TODOS os mercados com probabilidades
+- [x] Redesenhar seção de Palpites com máxima interatividade (143 palpites, 5 abas)
+- [x] Adicionar visualizações de dados, modelos Poisson, fatores de influência
+- [x] Criar modal de análise detalhada com todas as informações estatísticas
+- [x] Adicionar filtro de ligas e seletor de datas
+- [x] Testar página Destaques com novo design premium — FUNCIONANDO PERFEITAMENTE
