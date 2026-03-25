@@ -534,3 +534,13 @@
 - [x] Implementar indicadores de consistência (percentual)
 - [x] Criar visualizações de barras de progresso e badges
 - [x] Testar todas as funcionalidades
+
+
+### Fase 40 — Gráficos de Evolução, Comparação Head-to-Head e Filtros Avançados
+- [x] Instalar Recharts para gráficos
+- [x] Implementar line chart de evolução de gols/cartões (últimos 5 jogos)
+- [x] Adicionar gráficos nos modais de artilheiros e indisciplinados
+- [x] Criar modal de comparação head-to-head entre 2 jogadores
+- [x] Implementar filtros avançados (liga, time, faixa de gols)
+- [x] Adicionar ordenação customizada (gols, assistências, eficiência, etc)
+- [x] Testar todas as funcionalidades
