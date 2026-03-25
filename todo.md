@@ -390,3 +390,13 @@
 - [x] Adicionar animações de hover, pulse, glow aos botões
 - [x] Melhorar ícones: Bots IA, Ao Vivo, Pitacos, Destaques
 - [x] Testar navegação em desenvolvimento — funcionando perfeitamente
+
+## Fase 34 — Cards do Painel Clicáveis
+- [x] Tornar card "Bots Ativos" clicável → navega para /bots
+- [x] Tornar card "Jogos Ao Vivo" clicável → navega para /ao-vivo
+- [x] Tornar card "Alertas Hoje" clicável → navega para /auditoria
+- [x] Tornar card "Taxa de Acerto" clicável → navega para /apostas
+- [x] Tornar card "Banca Atual" clicável → navega para /apostas
+- [x] Tornar card "Lucro Total" clicável → navega para /apostas
+- [x] Adicionar efeitos de hover nos cards (glow colorido, scale, rotação de ícone)
+- [x] Testar navegação em desenvolvimento — todos os cards funcionando perfeitamente

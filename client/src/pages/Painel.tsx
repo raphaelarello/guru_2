@@ -99,28 +99,66 @@ export default function Painel() {
         </div>
       </div>
 
-      {/* Cards de métricas */}
+      {/* Cards de métricas com efeitos premium */}
       <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-5">
-        {cards.map((card, i) => (
-          <Link key={i} href={card.link}>
-            <Card className="bg-card border-border hover:border-primary/50 hover:shadow-lg hover:shadow-primary/10 hover:-translate-y-0.5 transition-all duration-200 cursor-pointer group h-full active:scale-95">
-              <CardContent className="p-4">
-                <div className="flex items-start justify-between mb-3">
-                  <div className={`w-9 h-9 rounded-xl ${card.bg} flex items-center justify-center group-hover:scale-110 transition-transform duration-200`}>
-                    <card.icone className={`w-4 h-4 ${card.cor}`} />
+        {cards.map((card, i) => {
+          const getGlowColor = () => {
+            if (card.cor === 'text-primary') return 'rgba(0,255,136,0.3)';
+            if (card.cor === 'text-red-400') return 'rgba(248,113,113,0.3)';
+            if (card.cor === 'text-green-400') return 'rgba(74,222,128,0.3)';
+            if (card.cor === 'text-yellow-400') return 'rgba(234,179,8,0.3)';
+            if (card.cor === 'text-blue-400') return 'rgba(96,165,250,0.3)';
+            return 'rgba(0,255,136,0.3)';
+          };
+          
+          return (
+            <Link key={i} href={card.link}>
+              <Card className="relative bg-card border border-border/60 hover:border-primary/70 hover:shadow-2xl hover:shadow-primary/25 hover:-translate-y-1.5 transition-all duration-300 cursor-pointer group h-full active:scale-95 overflow-hidden">
+                {/* Fundo com glow ao hover */}
+                <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" style={{
+                  background: `radial-gradient(circle at top-right, ${getGlowColor()}, transparent)`,
+                }} />
+                
+                <CardContent className="p-4 relative z-10">
+                  <div className="flex items-start justify-between mb-3">
+                    {/* Ícone com efeitos */}
+                    <div 
+                      className={`w-10 h-10 rounded-xl ${card.bg} flex items-center justify-center group-hover:scale-125 transition-all duration-300 flex-shrink-0`}
+                      style={{
+                        boxShadow: `0 0 0 0 ${getGlowColor()}`,
+                      }}
+                    >
+                      <card.icone className={`w-5 h-5 ${card.cor} transition-all duration-300 group-hover:rotate-12 group-hover:scale-110`} />
+                    </div>
+                    
+                    {/* Badge "ir" com efeito */}
+                    <div className="flex items-center gap-1 bg-primary/15 rounded-full px-2 py-1 group-hover:bg-primary/30 transition-all duration-300 group-hover:shadow-lg" style={{
+                      boxShadow: `0 0 8px ${getGlowColor()}`,
+                    }}>
+                      <span className="text-[8px] text-primary font-bold uppercase tracking-wider">ir</span>
+                      <ArrowRight className="w-3 h-3 text-primary group-hover:translate-x-1 transition-all duration-300" />
+                    </div>
                   </div>
-                  <div className="flex items-center gap-0.5 bg-primary/10 rounded-full px-1.5 py-0.5">
-                    <span className="text-[8px] text-primary font-medium">ir</span>
-                    <ArrowRight className="w-2.5 h-2.5 text-primary group-hover:translate-x-0.5 transition-transform" />
-                  </div>
-                </div>
-                <p className={`text-xl font-bold ${card.cor}`}>{card.valor}</p>
-                <p className="text-xs font-medium text-foreground">{card.titulo}</p>
-                <p className="text-[10px] text-muted-foreground">{card.desc}</p>
-              </CardContent>
-            </Card>
-          </Link>
-        ))}
+                  
+                  {/* Valor com efeito de escala */}
+                  <p className={`text-2xl font-bold ${card.cor} transition-all duration-300 group-hover:scale-110 origin-left`}>
+                    {card.valor}
+                  </p>
+                  
+                  {/* Título com efeito de cor */}
+                  <p className="text-xs font-semibold text-foreground mt-1 group-hover:text-primary transition-colors duration-300">
+                    {card.titulo}
+                  </p>
+                  
+                  {/* Descrição com efeito */}
+                  <p className="text-[10px] text-muted-foreground group-hover:text-muted-foreground/70 transition-colors duration-300">
+                    {card.desc}
+                  </p>
+                </CardContent>
+              </Card>
+            </Link>
+          );
+        })}
       </div>
 
       {/* ═══════════════════════════════════════════════════════════════ */}
