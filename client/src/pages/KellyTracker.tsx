@@ -134,7 +134,7 @@ export default function KellyTracker() {
   const pctBanca = bancaTotal > 0 ? (bancaAtual / bancaTotal) * 100 : 0;
 
   return (
-    <RaphaLayout title="Kelly Tracker">
+    <RaphaLayout title="Apostas">
       {/* Banca Overview */}
       {banca ? (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
@@ -183,7 +183,7 @@ export default function KellyTracker() {
           <CardContent className="p-8 text-center">
             <DollarSign className="w-12 h-12 text-muted-foreground mx-auto mb-3" />
             <h3 className="text-lg font-semibold text-foreground mb-2">Configure sua Banca</h3>
-            <p className="text-muted-foreground mb-4">Defina sua banca para usar o Kelly Tracker completo</p>
+            <p className="text-muted-foreground mb-4">Defina sua banca para usar o Gestor de Apostas completo</p>
             <Button className="bg-primary text-primary-foreground" onClick={() => setModalBanca(true)}>
               <Settings className="w-4 h-4 mr-2" />
               Configurar Banca

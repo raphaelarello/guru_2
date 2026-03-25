@@ -46,6 +46,7 @@ import {
   getCacheStats,
   getBlockStatus,
   getApiUsage,
+  getDestaquesHoje,
 } from "./football";
 
 export const appRouter = router({
@@ -975,6 +976,14 @@ export const appRouter = router({
           rodada: f.league.round,
         }));
       }),
+  }),
+
+  // ── DESTAQUES DO DIA ────────────────────────────────────────────────────────
+  destaques: router({
+    /** Destaques do dia: rankings de times e jogadores */
+    hoje: publicProcedure
+      .input(z.object({ date: z.string().optional() }).optional())
+      .query(({ input }) => getDestaquesHoje(input?.date)),
   }),
 
   // ── HISTÓRICO DE JOGOS AO VIVO ─────────────────────────────────────────────────────────────────────

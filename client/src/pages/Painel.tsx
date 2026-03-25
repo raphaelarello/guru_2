@@ -79,9 +79,9 @@ export default function Painel() {
     { titulo: "Bots Ativos", valor: `${botsAtivos}/${bots.length}`, icone: Bot, cor: "text-primary", bg: "bg-primary/10", link: "/bots", desc: "Bots automáticos" },
     { titulo: "Jogos Ao Vivo", valor: liveQuery.data ? `${liveQuery.data.length}` : "—", icone: Radio, cor: "text-red-400", bg: "bg-red-500/10", link: "/ao-vivo", desc: "Jogos em andamento agora" },
     { titulo: "Alertas Hoje", valor: alertasHoje, icone: Target, cor: "text-green-400", bg: "bg-green-500/10", link: "/auditoria", desc: "Sinais gerados" },
-    { titulo: "Taxa de Acerto", valor: `${taxa}%`, icone: CheckCircle, cor: "text-yellow-400", bg: "bg-yellow-500/10", link: "/kelly", desc: "Performance geral" },
-    { titulo: "Banca Atual", valor: banca ? `R$ ${parseFloat(banca.valorAtual ?? "0").toLocaleString("pt-BR", { minimumFractionDigits: 2 })}` : "—", icone: DollarSign, cor: "text-blue-400", bg: "bg-blue-500/10", link: "/kelly", desc: "Kelly Tracker" },
-    { titulo: "Lucro Total", valor: `R$ ${lucroTotal.toFixed(2)}`, icone: TrendingUp, cor: lucroTotal >= 0 ? "text-green-400" : "text-red-400", bg: lucroTotal >= 0 ? "bg-green-500/10" : "bg-red-500/10", link: "/kelly", desc: "Resultado acumulado" },
+    { titulo: "Taxa de Acerto", valor: `${taxa}%`, icone: CheckCircle, cor: "text-yellow-400", bg: "bg-yellow-500/10", link: "/apostas", desc: "Performance geral" },
+    { titulo: "Banca Atual", valor: banca ? `R$ ${parseFloat(banca.valorAtual ?? "0").toLocaleString("pt-BR", { minimumFractionDigits: 2 })}` : "—", icone: DollarSign, cor: "text-blue-400", bg: "bg-blue-500/10", link: "/apostas", desc: "Apostas" },
+    { titulo: "Lucro Total", valor: `R$ ${lucroTotal.toFixed(2)}`, icone: TrendingUp, cor: lucroTotal >= 0 ? "text-green-400" : "text-red-400", bg: lucroTotal >= 0 ? "bg-green-500/10" : "bg-red-500/10", link: "/apostas", desc: "Resultado acumulado" },
   ];
 
   return (

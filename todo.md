@@ -354,3 +354,11 @@
 - [ ] Widget de consumo da API Football no Painel
 - [ ] Ranking de acurácia do termômetro no Histórico Ao Vivo
 - [ ] Configurações de push por tipo de bot
+
+## Fase 30 - Página Destaques do Dia
+- [ ] Analisar scoretabs.com.br/destaques-do-dia
+- [ ] Endpoints no servidor para estatísticas de times e jogadores dos jogos de hoje
+- [ ] Página Destaques com tops do dia, times por gols/chutes/cartões/escanteios
+- [ ] Cards de jogadores em forma e mais indisciplinados
+- [ ] Corrigir textos internos Kelly Tracker → Apostas
+- [ ] Badge de notificações no sino do header
