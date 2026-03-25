@@ -53,7 +53,12 @@ export default function Artilheiros() {
 
   // Extrair dados de artilheiros e indisciplinados
   const artilheiros = useMemo(() => {
-    if (!destaquesData?.topGols) return [];
+    console.log("[DEBUG] destaquesData:", destaquesData);
+    if (!destaquesData?.topGols) {
+      console.log("[DEBUG] topGols vazio ou undefined");
+      return [];
+    }
+    console.log("[DEBUG] topGols encontrados:", destaquesData.topGols.length);
     return destaquesData.topGols.slice(0, 20);
   }, [destaquesData]);
 
