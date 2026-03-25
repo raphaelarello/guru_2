@@ -293,11 +293,60 @@ async function processarTodosBots(): Promise<void> {
           );
 
           const regras = (bot.regras as { tipo?: string } | null) || {};
+          const filtros = (bot.filtros as {
+            ligasIds?: number[];
+            minutoMin?: number;
+            minutoMax?: number;
+            oddsMin?: number;
+            oddsMax?: number;
+            evMin?: number;
+            placarAtual?: string;
+            diferencaGolsMax?: number;
+            apenasAoVivo?: boolean;
+            apenasPreJogo?: boolean;
+          } | null) || {};
+
+          // Filtro por liga
+          if (filtros.ligasIds && filtros.ligasIds.length > 0) {
+            if (!filtros.ligasIds.includes(fixture.league.id)) continue;
+          }
+
+          // Filtro por minuto
+          const minutoAtual = fixture.fixture.status.elapsed ?? 0;
+          if (filtros.minutoMin !== undefined && minutoAtual < filtros.minutoMin) continue;
+          if (filtros.minutoMax !== undefined && minutoAtual > filtros.minutoMax) continue;
+
+          // Filtro por tipo de jogo (ao vivo vs pré-jogo)
+          const aoVivo = fixture.fixture.status.short === "1H" || fixture.fixture.status.short === "2H" || fixture.fixture.status.short === "HT";
+          if (filtros.apenasAoVivo && !aoVivo) continue;
+          if (filtros.apenasPreJogo && aoVivo) continue;
+
+          // Filtro por placar atual
+          if (filtros.placarAtual && filtros.placarAtual !== "qualquer") {
+            const golsCasa = fixture.goals?.home ?? 0;
+            const golsVisit = fixture.goals?.away ?? 0;
+            if (filtros.placarAtual === "empate" && golsCasa !== golsVisit) continue;
+            if (filtros.placarAtual === "casa_vence" && golsCasa <= golsVisit) continue;
+            if (filtros.placarAtual === "visitante_vence" && golsVisit <= golsCasa) continue;
+          }
+
+          // Filtro por diferença máxima de gols
+          if (filtros.diferencaGolsMax !== undefined && filtros.diferencaGolsMax < 5) {
+            const diff = Math.abs((fixture.goals?.home ?? 0) - (fixture.goals?.away ?? 0));
+            if (diff > filtros.diferencaGolsMax) continue;
+          }
 
           for (const op of oportunidades) {
             const confMin = bot.confiancaMinima ?? 70;
             if (op.confianca < confMin) continue;
             if (regras.tipo && op.tipo !== regras.tipo) continue;
+
+            // Filtro por faixa de odds
+            if (filtros.oddsMin !== undefined && op.odd < filtros.oddsMin) continue;
+            if (filtros.oddsMax !== undefined && op.odd > filtros.oddsMax) continue;
+
+            // Filtro por EV mínimo
+            if (filtros.evMin !== undefined && filtros.evMin > 0 && op.ev < filtros.evMin) continue;
 
             // Verificar se já existe alerta igual nas últimas 2 horas (evitar duplicatas)
             const duasHorasAtras = new Date(Date.now() - 2 * 60 * 60 * 1000);

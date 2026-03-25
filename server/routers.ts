@@ -314,6 +314,8 @@ export const appRouter = router({
         confiancaMinima: z.number().min(0).max(100).default(70),
         limiteDiario: z.number().min(1).max(100).default(10),
         regras: z.any().optional(),
+        filtros: z.any().optional(),
+        canal: z.string().optional(),
       }))
       .mutation(({ ctx, input }) => createBot({ ...input, userId: ctx.user.id, ativo: false })),
     update: protectedProcedure
@@ -325,6 +327,8 @@ export const appRouter = router({
         confiancaMinima: z.number().min(0).max(100).optional(),
         limiteDiario: z.number().min(1).max(100).optional(),
         regras: z.any().optional(),
+        filtros: z.any().optional(),
+        canal: z.string().optional(),
       }))
       .mutation(({ ctx, input }) => {
         const { id, ...data } = input;
@@ -428,6 +432,11 @@ export const appRouter = router({
         return updateCanal(id, ctx.user.id, data);
       }),
 
+    /** Ativar/desativar canal */
+    toggle: protectedProcedure
+      .input(z.object({ id: z.number(), ativo: z.boolean() }))
+      .mutation(({ ctx, input }) => updateCanal(input.id, ctx.user.id, { ativo: input.ativo })),
+
     /** Testar envio de mensagem em um canal */
     testar: protectedProcedure
       .input(z.object({ id: z.number() }))
@@ -447,7 +456,7 @@ export const appRouter = router({
         });
 
         const resultado = resultados.find((r: { canal: string; sucesso: boolean }) => r.canal === canal.tipo);
-        return { sucesso: resultado?.sucesso ?? false, canal: canal.tipo };
+        return { sucesso: resultado?.sucesso ?? false, canal: canal.tipo, erro: resultado?.sucesso ? undefined : "Falha no envio" };
       }),
   }),
 

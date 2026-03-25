@@ -120,3 +120,41 @@
 - [x] Badge "Já ativado" nos templates que já foram criados
 - [x] Botão de configuração avançada ao lado do 1 clique nos templates
 - [x] Cron automático com controles na aba Central dos Bots
+
+## Fase 19 — Sistema de Bots Premium Ultra-Avançado
+- [x] Expandir para 35+ templates de IA com novas categorias (42 templates)
+- [x] Templates: Gol nos primeiros 5/10/15/20/30 minutos
+- [x] Templates: Gol nos últimos 15/10 minutos
+- [x] Templates: Virada em andamento (time perdendo mas pressionando)
+- [x] Templates: Placar exato provável (0-0, 1-0, 1-1, 2-0, 2-1)
+- [x] Templates: Escanteios acima de 8/10/12
+- [x] Templates: Cartões acima de 3/5
+- [x] Templates: Posse de bola dominante (>65%)
+- [x] Templates: Chutes a gol acima de 10
+- [x] Templates: Pressão intensa (xG alto sem gol)
+- [x] Templates: Empate no intervalo + Over 2.5 FT
+- [x] Templates: Time favorito perdendo (value bet)
+- [x] Templates: Gol de pênalti detectado
+- [x] Templates: Jogo de 6 pontos (ambos precisam vencer)
+- [x] Construtor visual de bots com filtros avançados no modal
+- [x] Filtro por liga específica em cada bot (multi-seleção com FiltroLigas)
+- [x] Filtro por minuto de jogo (slider mínimo/máximo)
+- [x] Filtro por placar atual (empate, casa vence, visitante vence)
+- [x] Filtro por odds mínima/máxima (slider)
+- [x] Filtro por EV mínimo configurável
+- [x] Filtro por tipo de jogo (ao vivo / pré-jogo / ambos)
+- [x] Filtro por diferença máxima de gols
+- [x] Filtro por importância do jogo (qualquer, importante, decisivo, derby)
+- [x] Resumo visual dos filtros configurados no modal
+- [x] Badge de filtros ativos nos cards de bots na Central
+- [x] Busca de templates por nome/descrição
+- [x] Filtro de templates por tag (popular, value, ao-vivo, seguro, alto-risco)
+- [x] Filtro de templates por categoria (Gols, BTTS, Resultado, Placar Exato, etc.)
+- [x] Campo `filtros` JSON na tabela bots (migração aplicada)
+- [x] Campo `canal` na tabela bots para canal de envio por bot
+- [x] cronService atualizado para respeitar todos os filtros avançados
+- [x] Procedimento canais.toggle para ativar/desativar canal
+- [x] Visual melhorado da página de Canais com status de conexão
+- [ ] Página Estatísticas de Times com busca e histórico
+- [ ] Confrontos diretos (H2H) entre dois times
+- [ ] Forma recente (últimos 5/10 jogos)

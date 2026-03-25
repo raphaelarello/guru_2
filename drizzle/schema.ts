@@ -38,6 +38,8 @@ export const bots = mysqlTable("bots", {
   totalSinais: int("totalSinais").default(0).notNull(),
   totalAcertos: int("totalAcertos").default(0).notNull(),
   regras: json("regras"),
+  filtros: json("filtros"), // filtros avançados: ligas, minuto, placar, odds, etc.
+  canal: varchar("canal", { length: 100 }).default("painel"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });
