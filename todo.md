@@ -158,3 +158,23 @@
 - [ ] Página Estatísticas de Times com busca e histórico
 - [ ] Confrontos diretos (H2H) entre dois times
 - [ ] Forma recente (últimos 5/10 jogos)
+
+## Fase 20 — Dashboard de Resultados Ultra-Inteligente (Multi-Mercado)
+- [x] Schema: campo `mercadosPrevistos` JSON em pitacos (array de {tipo, valorPrevisto, valorReal, acertou})
+- [x] Schema: campo `scorePrevisao` decimal em pitacos (0-100, calculado automaticamente)
+- [x] Schema: campo `placarFinal` varchar em pitacos
+- [x] Router: procedure pitacos.create aceita array de mercados previstos
+- [x] Router: procedure pitacos.updateMercados aceita resultados individuais por mercado + calcula score
+- [x] Router: procedure pitacos.stats retorna métricas avançadas por mercado
+- [x] Componente ScorePrecisao: gauge circular SVG animado com score 0-100 e label dinâmico
+- [x] Componente MercadoResultadoItem: linha com ícone, valor previsto vs real, badge acerto/erro
+- [x] Componente ScoreBadge: mini badge colorido com score e label
+- [x] Componente GaugeCircular: gauge circular reutilizável
+- [x] Dashboard Painel: seção "Análise de Precisão" com gauge + bar chart por mercado
+- [x] Dashboard Painel: últimos palpites com score individual
+- [x] Dashboard Painel: melhor e pior mercado com destaque visual
+- [x] Pitacos: formulário multi-mercado com atalhos rápidos (18 templates) e campo personalizado
+- [x] Pitacos: modal de inserção de resultados com preview de score em tempo real
+- [x] Pitacos: cálculo automático de score de precisão ponderado
+- [x] Pitacos: aba "Análise de Precisão" com radar chart + ranking + evolução do score
+- [x] Pitacos: resultado geral (green/red) determinado automaticamente pelo score

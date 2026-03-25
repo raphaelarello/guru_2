@@ -550,8 +550,9 @@ export const appRouter = router({
   // ═══════════════════════════════════════════════════════════════════════
   pitacos: router({
     list: protectedProcedure
-      .input(z.object({ limit: z.number().default(50) }).optional())
+      .input(z.object({ limit: z.number().default(100) }).optional())
       .query(({ ctx, input }) => getPitacosByUserId(ctx.user.id, input?.limit)),
+
     create: protectedProcedure
       .input(z.object({
         jogo: z.string(),
@@ -560,14 +561,124 @@ export const appRouter = router({
         odd: z.string(),
         analise: z.string().optional(),
         confianca: z.number().min(0).max(100).default(70),
+        // Multi-mercado
+        mercadosPrevistos: z.array(z.object({
+          tipo: z.string(),
+          label: z.string(),
+          valorPrevisto: z.string(),
+          valorReal: z.string().optional(),
+          acertou: z.boolean().optional(),
+          peso: z.number().default(1),
+        })).optional(),
+        placarFinal: z.string().optional(),
       }))
       .mutation(({ ctx, input }) => createPitaco({ ...input, userId: ctx.user.id })),
+
     updateResultado: protectedProcedure
       .input(z.object({
         id: z.number(),
         resultado: z.enum(["pendente", "green", "red", "void"]),
       }))
       .mutation(({ ctx, input }) => updatePitaco(input.id, ctx.user.id, { resultado: input.resultado })),
+
+    /** Atualizar resultados individuais de cada mercado previsto */
+    updateMercados: protectedProcedure
+      .input(z.object({
+        id: z.number(),
+        mercadosPrevistos: z.array(z.object({
+          tipo: z.string(),
+          label: z.string(),
+          valorPrevisto: z.string(),
+          valorReal: z.string().optional(),
+          acertou: z.boolean().optional(),
+          peso: z.number().default(1),
+        })),
+        placarFinal: z.string().optional(),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        // Calcular score de precisão
+        const finalizados = input.mercadosPrevistos.filter(m => m.acertou !== undefined);
+        let scorePrevisao: string | undefined;
+        if (finalizados.length > 0) {
+          const pesoTotal = finalizados.reduce((s, m) => s + m.peso, 0);
+          const pesoAcertos = finalizados.filter(m => m.acertou).reduce((s, m) => s + m.peso, 0);
+          scorePrevisao = ((pesoAcertos / pesoTotal) * 100).toFixed(2);
+        }
+        // Determinar resultado geral (green se score >= 50, red se < 50 e todos finalizados)
+        const todosFinalizados = input.mercadosPrevistos.every(m => m.acertou !== undefined);
+        const score = scorePrevisao ? parseFloat(scorePrevisao) : undefined;
+        const resultado = todosFinalizados && score !== undefined
+          ? (score >= 50 ? "green" as const : "red" as const)
+          : "pendente" as const;
+        return updatePitaco(input.id, ctx.user.id, {
+          mercadosPrevistos: input.mercadosPrevistos,
+          scorePrevisao,
+          placarFinal: input.placarFinal,
+          resultado,
+        });
+      }),
+
+    /** Estatísticas avançadas de precisão por tipo de mercado */
+    stats: protectedProcedure.query(async ({ ctx }) => {
+      const todos = await getPitacosByUserId(ctx.user.id, 500);
+      const finalizados = todos.filter(p => p.resultado !== "pendente");
+
+      // Estatísticas gerais
+      const totalPalpites = todos.length;
+      const greens = finalizados.filter(p => p.resultado === "green").length;
+      const reds = finalizados.filter(p => p.resultado === "red").length;
+      const taxaAcerto = finalizados.length > 0 ? (greens / finalizados.length) * 100 : 0;
+
+      // Score médio de precisão
+      const comScore = todos.filter(p => p.scorePrevisao !== null && p.scorePrevisao !== undefined);
+      const scoreMedio = comScore.length > 0
+        ? comScore.reduce((s, p) => s + parseFloat(p.scorePrevisao ?? "0"), 0) / comScore.length
+        : 0;
+
+      // Estatísticas por tipo de mercado
+      const statsPorMercado: Record<string, { label: string; acertos: number; total: number; taxa: number }> = {};
+      for (const pitaco of todos) {
+        const mercados = (pitaco.mercadosPrevistos as Array<{ tipo: string; label: string; acertou?: boolean }> | null) ?? [];
+        for (const m of mercados) {
+          if (m.acertou === undefined) continue;
+          const tipo = m.tipo || "outros";
+          if (!statsPorMercado[tipo]) statsPorMercado[tipo] = { label: tipo, acertos: 0, total: 0, taxa: 0 };
+          statsPorMercado[tipo].total++;
+          if (m.acertou) statsPorMercado[tipo].acertos++;
+        }
+      }
+      for (const tipo of Object.keys(statsPorMercado)) {
+        const s = statsPorMercado[tipo];
+        s.taxa = s.total > 0 ? (s.acertos / s.total) * 100 : 0;
+      }
+
+      // Histórico de score (últimos 20 palpites com score)
+      const historicoScore = comScore
+        .slice(-20)
+        .map(p => ({
+          data: p.createdAt,
+          score: parseFloat(p.scorePrevisao ?? "0"),
+          jogo: p.jogo,
+        }));
+
+      // Melhor e pior mercado
+      const mercadosOrdenados = Object.values(statsPorMercado)
+        .filter(s => s.total >= 2)
+        .sort((a, b) => b.taxa - a.taxa);
+
+      return {
+        totalPalpites,
+        greens,
+        reds,
+        taxaAcerto,
+        scoreMedio,
+        statsPorMercado,
+        historicoScore,
+        melhorMercado: mercadosOrdenados[0] ?? null,
+        piorMercado: mercadosOrdenados[mercadosOrdenados.length - 1] ?? null,
+        rankingMercados: mercadosOrdenados,
+      };
+    }),
   }),
 });
 

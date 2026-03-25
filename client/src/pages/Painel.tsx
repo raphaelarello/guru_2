@@ -1,20 +1,37 @@
+import { useMemo } from "react";
 import RaphaLayout from "@/components/RaphaLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Link } from "wouter";
-import { Bot, Radio, TrendingUp, Target, Zap, ArrowRight, BarChart3, DollarSign, CheckCircle } from "lucide-react";
+import {
+  Bot, Radio, TrendingUp, Target, Zap, ArrowRight, BarChart3,
+  DollarSign, CheckCircle, Trophy, Star, Activity, Flame,
+  AlertTriangle, ChevronRight
+} from "lucide-react";
 import { trpc } from "@/lib/trpc";
+import {
+  GaugeCircular, ScoreBadge, getScoreLabel, ICONES_MERCADO,
+  type MercadoPrevisto
+} from "@/components/ScorePrecisao";
+import {
+  LineChart, Line, XAxis, YAxis, Tooltip as RTooltip,
+  CartesianGrid, ResponsiveContainer, BarChart, Bar, Cell
+} from "recharts";
 
 export default function Painel() {
   const botsQuery = trpc.bots.list.useQuery();
   const alertasQuery = trpc.alertas.list.useQuery();
   const bancaQuery = trpc.banca.get.useQuery();
   const apostasQuery = trpc.apostas.list.useQuery();
+  const pitacosStatsQuery = trpc.pitacos.stats.useQuery();
+  const pitacosQuery = trpc.pitacos.list.useQuery();
 
   const bots = botsQuery.data ?? [];
   const alertas = alertasQuery.data ?? [];
   const apostas = apostasQuery.data ?? [];
   const banca = bancaQuery.data;
+  const pStats = pitacosStatsQuery.data;
+  const pitacos = pitacosQuery.data ?? [];
 
   const botsAtivos = bots.filter(b => b.ativo).length;
   const alertasHoje = alertas.filter(a => {
@@ -26,6 +43,34 @@ export default function Painel() {
   const finalizadas = apostas.filter(a => a.resultado !== "pendente" && a.resultado !== "void").length;
   const taxa = finalizadas > 0 ? ((greens / finalizadas) * 100).toFixed(1) : "0";
   const lucroTotal = apostas.reduce((s, a) => s + parseFloat(a.lucro ?? "0"), 0);
+
+  // Últimos palpites com score
+  const ultimosPalpitesComScore = useMemo(() =>
+    pitacos
+      .filter(p => p.scorePrevisao !== null && p.scorePrevisao !== undefined)
+      .slice(-5)
+      .reverse(),
+    [pitacos]
+  );
+
+  // Dados para gráfico de barras de mercados
+  const dadosMercados = useMemo(() => {
+    if (!pStats?.statsPorMercado) return [];
+    return Object.entries(pStats.statsPorMercado)
+      .filter(([, s]) => s.total >= 1)
+      .map(([tipo, s]) => ({
+        nome: tipo,
+        taxa: Math.round(s.taxa),
+        total: s.total,
+        icone: ICONES_MERCADO[tipo] ?? "📊",
+      }))
+      .sort((a, b) => b.taxa - a.taxa)
+      .slice(0, 6);
+  }, [pStats]);
+
+  // Score médio
+  const scoreMedio = pStats?.scoreMedio ? Math.round(pStats.scoreMedio) : 0;
+  const { cor: scoreCor } = getScoreLabel(scoreMedio);
 
   const cards = [
     { titulo: "Bots Ativos", valor: `${botsAtivos}/${bots.length}`, icone: Bot, cor: "text-primary", bg: "bg-primary/10", link: "/bots", desc: "Bots automáticos" },
@@ -39,101 +84,256 @@ export default function Painel() {
   return (
     <RaphaLayout title="Painel">
       {/* Boas-vindas */}
-      <div className="bg-gradient-to-r from-primary/10 to-transparent border border-primary/20 rounded-2xl p-6 mb-6">
+      <div className="bg-gradient-to-r from-primary/10 to-transparent border border-primary/20 rounded-2xl p-5 mb-5">
         <div className="flex items-center gap-4">
-          <div className="w-14 h-14 rounded-2xl bg-primary/20 neon-glow flex items-center justify-center flex-shrink-0">
-            <Zap className="w-8 h-8 text-primary" />
+          <div className="w-12 h-12 rounded-2xl bg-primary/20 neon-glow flex items-center justify-center flex-shrink-0">
+            <Zap className="w-7 h-7 text-primary" />
           </div>
           <div>
-            <h2 className="text-2xl font-bold text-foreground">RAPHA GURU</h2>
-            <p className="text-muted-foreground">Plataforma de Apostas com Inteligência Artificial</p>
+            <h2 className="text-xl font-bold text-foreground">RAPHA GURU</h2>
+            <p className="text-sm text-muted-foreground">Plataforma de Apostas com Inteligência Artificial</p>
           </div>
         </div>
       </div>
 
       {/* Cards de métricas */}
-      <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-6">
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-5">
         {cards.map((card, i) => (
           <Link key={i} href={card.link}>
             <Card className="bg-card border-border hover:border-primary/30 transition-all cursor-pointer group h-full">
               <CardContent className="p-4">
                 <div className="flex items-start justify-between mb-3">
-                  <div className={`w-10 h-10 rounded-xl ${card.bg} flex items-center justify-center`}>
-                    <card.icone className={`w-5 h-5 ${card.cor}`} />
+                  <div className={`w-9 h-9 rounded-xl ${card.bg} flex items-center justify-center`}>
+                    <card.icone className={`w-4 h-4 ${card.cor}`} />
                   </div>
-                  <ArrowRight className="w-4 h-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+                  <ArrowRight className="w-3.5 h-3.5 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
                 </div>
-                <p className={`text-2xl font-bold ${card.cor}`}>{card.valor}</p>
-                <p className="text-sm font-medium text-foreground">{card.titulo}</p>
-                <p className="text-xs text-muted-foreground">{card.desc}</p>
+                <p className={`text-xl font-bold ${card.cor}`}>{card.valor}</p>
+                <p className="text-xs font-medium text-foreground">{card.titulo}</p>
+                <p className="text-[10px] text-muted-foreground">{card.desc}</p>
               </CardContent>
             </Card>
           </Link>
         ))}
       </div>
 
-      {/* Ações rápidas */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <Card className="bg-card border-border">
-          <CardHeader>
-            <CardTitle className="text-foreground text-base flex items-center gap-2">
-              <Bot className="w-4 h-4 text-primary" />
-              Ações Rápidas
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2">
-            {[
-              { label: "Ver Jogos Ao Vivo", link: "/ao-vivo", icon: Radio, color: "text-red-400" },
-              { label: "Gerenciar Bots", link: "/bots", icon: Bot, color: "text-primary" },
-              { label: "Calcular Stake Kelly", link: "/kelly", icon: TrendingUp, color: "text-green-400" },
-              { label: "Registrar Pitaco", link: "/pitacos", icon: Target, color: "text-yellow-400" },
-            ].map((item, i) => (
-              <Link key={i} href={item.link}>
-                <div className="flex items-center gap-3 p-3 rounded-lg hover:bg-muted/50 transition-colors cursor-pointer group">
-                  <item.icon className={`w-4 h-4 ${item.color}`} />
-                  <span className="text-sm text-foreground group-hover:text-primary transition-colors">{item.label}</span>
-                  <ArrowRight className="w-3 h-3 text-muted-foreground ml-auto opacity-0 group-hover:opacity-100 transition-opacity" />
-                </div>
-              </Link>
-            ))}
-          </CardContent>
-        </Card>
+      {/* ═══════════════════════════════════════════════════════════════ */}
+      {/* SEÇÃO ANÁLISE DE PRECISÃO ULTRA-INTELIGENTE                   */}
+      {/* ═══════════════════════════════════════════════════════════════ */}
+      <div className="mb-5">
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="text-base font-bold text-foreground flex items-center gap-2">
+            <Activity className="w-4 h-4 text-primary" />
+            Análise de Precisão de Palpites
+          </h3>
+          <Link href="/pitacos">
+            <Button size="sm" variant="outline" className="border-border text-xs">
+              Ver Detalhes <ChevronRight className="w-3.5 h-3.5 ml-1" />
+            </Button>
+          </Link>
+        </div>
 
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {/* Score médio com gauge */}
+          <Card className="bg-card border-border">
+            <CardContent className="p-5 flex flex-col items-center justify-center gap-3">
+              <GaugeCircular score={scoreMedio} size={120} />
+              <div className="text-center">
+                <p className="text-sm font-bold text-foreground">Score Médio de Precisão</p>
+                <p className="text-xs text-muted-foreground">
+                  {pStats?.totalPalpites ?? 0} palpite{(pStats?.totalPalpites ?? 0) !== 1 ? "s" : ""} •{" "}
+                  <span className="text-green-400">{pStats?.greens ?? 0}G</span>{" "}
+                  <span className="text-red-400">{pStats?.reds ?? 0}R</span>
+                </p>
+                {scoreMedio > 0 && <ScoreBadge score={scoreMedio} />}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Gráfico de barras por mercado */}
+          <Card className="bg-card border-border md:col-span-2">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-foreground text-sm flex items-center gap-2">
+                <BarChart3 className="w-4 h-4 text-primary" />
+                Taxa de Acerto por Mercado
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {dadosMercados.length === 0 ? (
+                <div className="h-32 flex flex-col items-center justify-center text-center gap-2">
+                  <Target className="w-8 h-8 text-muted-foreground opacity-30" />
+                  <p className="text-xs text-muted-foreground">Registre palpites com múltiplos mercados para ver a análise</p>
+                  <Link href="/pitacos">
+                    <Button size="sm" className="bg-primary/10 text-primary border border-primary/30 text-xs mt-1">
+                      Criar Palpite Multi-Mercado
+                    </Button>
+                  </Link>
+                </div>
+              ) : (
+                <ResponsiveContainer width="100%" height={130}>
+                  <BarChart data={dadosMercados} layout="vertical" margin={{ left: 8, right: 20 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" horizontal={false} />
+                    <XAxis type="number" domain={[0, 100]} tick={{ fill: "#6b7280", fontSize: 10 }} tickFormatter={v => `${v}%`} />
+                    <YAxis type="category" dataKey="nome" tick={{ fill: "#9ca3af", fontSize: 10 }} width={70} tickFormatter={v => `${ICONES_MERCADO[v] ?? "📊"} ${v}`} />
+                    <RTooltip
+                      contentStyle={{ background: "#1a1a1a", border: "1px solid #333", borderRadius: 8, fontSize: 11 }}
+                      formatter={(v: any, _: any, props: any) => [`${v}% (${props.payload.total} prev.)`, "Taxa"]}
+                    />
+                    <Bar dataKey="taxa" radius={[0, 4, 4, 0]}>
+                      {dadosMercados.map((entry, i) => (
+                        <Cell key={i} fill={entry.taxa >= 60 ? "#22c55e" : entry.taxa >= 40 ? "#eab308" : "#ef4444"} />
+                      ))}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+
+      {/* Últimos palpites com score + Melhor/Pior mercado */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-5">
+        {/* Últimos palpites com score */}
         <Card className="bg-card border-border">
-          <CardHeader>
-            <CardTitle className="text-foreground text-base flex items-center gap-2">
-              <BarChart3 className="w-4 h-4 text-primary" />
-              Últimas Apostas
+          <CardHeader className="pb-2">
+            <CardTitle className="text-foreground text-sm flex items-center gap-2">
+              <Flame className="w-4 h-4 text-primary" />
+              Últimos Palpites com Score
             </CardTitle>
           </CardHeader>
           <CardContent>
-            {apostas.length === 0 ? (
-              <div className="text-center py-6">
-                <p className="text-muted-foreground text-sm">Nenhuma aposta registrada</p>
-                <Link href="/kelly">
-                  <Button size="sm" variant="outline" className="border-border mt-3">
-                    Registrar Aposta
-                  </Button>
+            {ultimosPalpitesComScore.length === 0 ? (
+              <div className="py-6 text-center">
+                <p className="text-xs text-muted-foreground">Nenhum palpite com score ainda</p>
+                <Link href="/pitacos">
+                  <Button size="sm" variant="outline" className="border-border mt-2 text-xs">Registrar Palpite</Button>
                 </Link>
               </div>
             ) : (
               <div className="space-y-2">
-                {apostas.slice(0, 4).map(aposta => (
-                  <div key={aposta.id} className="flex items-center justify-between py-2 border-b border-border last:border-0">
-                    <div>
-                      <p className="text-sm font-medium text-foreground truncate max-w-[160px]">{aposta.jogo}</p>
-                      <p className="text-xs text-muted-foreground">{aposta.mercado} @{aposta.odd}</p>
+                {ultimosPalpitesComScore.map(p => {
+                  const score = parseFloat(p.scorePrevisao ?? "0");
+                  const { cor } = getScoreLabel(score);
+                  const mercados = (p.mercadosPrevistos as MercadoPrevisto[] | null) ?? [];
+                  const acertos = mercados.filter(m => m.acertou === true).length;
+                  const total = mercados.length;
+                  return (
+                    <div key={p.id} className="flex items-center gap-3 py-2 border-b border-border last:border-0">
+                      <GaugeCircular score={score} size={48} />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-semibold text-foreground truncate">{p.jogo}</p>
+                        <p className="text-[10px] text-muted-foreground">
+                          {acertos}/{total} mercados •{" "}
+                          {p.placarFinal && <span className="text-primary font-medium">{p.placarFinal}</span>}
+                        </p>
+                      </div>
+                      <ScoreBadge score={score} />
                     </div>
-                    <span className={aposta.resultado === "green" ? "badge-green" : aposta.resultado === "red" ? "badge-red" : "badge-yellow"}>
-                      {aposta.resultado === "green" ? "Green" : aposta.resultado === "red" ? "Red" : "Pendente"}
-                    </span>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </CardContent>
         </Card>
+
+        {/* Melhor e pior mercado + Ações rápidas */}
+        <div className="space-y-4">
+          {/* Melhor mercado */}
+          {pStats?.melhorMercado && (
+            <Card className="bg-green-500/5 border-green-500/30">
+              <CardContent className="p-4 flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-green-500/20 flex items-center justify-center text-xl shrink-0">
+                  {ICONES_MERCADO[pStats.melhorMercado.label] ?? "🏆"}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-[10px] text-green-400 font-semibold uppercase tracking-wide">Melhor Mercado</p>
+                  <p className="text-sm font-bold text-foreground capitalize truncate">{pStats.melhorMercado.label}</p>
+                  <p className="text-xs text-green-400">{pStats.melhorMercado.taxa.toFixed(0)}% • {pStats.melhorMercado.acertos}/{pStats.melhorMercado.total} acertos</p>
+                </div>
+                <Trophy className="w-5 h-5 text-yellow-400 shrink-0" />
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Pior mercado */}
+          {pStats?.piorMercado && pStats.piorMercado.label !== pStats.melhorMercado?.label && (
+            <Card className="bg-red-500/5 border-red-500/30">
+              <CardContent className="p-4 flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-red-500/20 flex items-center justify-center text-xl shrink-0">
+                  {ICONES_MERCADO[pStats.piorMercado.label] ?? "📉"}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-[10px] text-red-400 font-semibold uppercase tracking-wide">Mercado a Melhorar</p>
+                  <p className="text-sm font-bold text-foreground capitalize truncate">{pStats.piorMercado.label}</p>
+                  <p className="text-xs text-red-400">{pStats.piorMercado.taxa.toFixed(0)}% • {pStats.piorMercado.acertos}/{pStats.piorMercado.total} acertos</p>
+                </div>
+                <AlertTriangle className="w-5 h-5 text-red-400 shrink-0" />
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Ações rápidas */}
+          <Card className="bg-card border-border">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-foreground text-sm flex items-center gap-2">
+                <Bot className="w-4 h-4 text-primary" />
+                Ações Rápidas
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-1">
+              {[
+                { label: "Ver Jogos Ao Vivo", link: "/ao-vivo", icon: Radio, color: "text-red-400" },
+                { label: "Gerenciar Bots", link: "/bots", icon: Bot, color: "text-primary" },
+                { label: "Calcular Stake Kelly", link: "/kelly", icon: TrendingUp, color: "text-green-400" },
+                { label: "Novo Palpite Multi-Mercado", link: "/pitacos", icon: Target, color: "text-yellow-400" },
+              ].map((item, i) => (
+                <Link key={i} href={item.link}>
+                  <div className="flex items-center gap-3 p-2.5 rounded-lg hover:bg-muted/50 transition-colors cursor-pointer group">
+                    <item.icon className={`w-4 h-4 ${item.color} shrink-0`} />
+                    <span className="text-xs text-foreground group-hover:text-primary transition-colors">{item.label}</span>
+                    <ArrowRight className="w-3 h-3 text-muted-foreground ml-auto opacity-0 group-hover:opacity-100 transition-opacity" />
+                  </div>
+                </Link>
+              ))}
+            </CardContent>
+          </Card>
+        </div>
       </div>
+
+      {/* Últimas apostas */}
+      <Card className="bg-card border-border">
+        <CardHeader className="pb-2">
+          <CardTitle className="text-foreground text-sm flex items-center gap-2">
+            <BarChart3 className="w-4 h-4 text-primary" />
+            Últimas Apostas
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {apostas.length === 0 ? (
+            <div className="text-center py-4">
+              <p className="text-muted-foreground text-xs">Nenhuma aposta registrada</p>
+              <Link href="/kelly">
+                <Button size="sm" variant="outline" className="border-border mt-2 text-xs">Registrar Aposta</Button>
+              </Link>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {apostas.slice(0, 5).map(aposta => (
+                <div key={aposta.id} className="flex items-center justify-between py-2 border-b border-border last:border-0">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-medium text-foreground truncate">{aposta.jogo}</p>
+                    <p className="text-[10px] text-muted-foreground">{aposta.mercado} @{aposta.odd}</p>
+                  </div>
+                  <span className={aposta.resultado === "green" ? "badge-green text-[10px]" : aposta.resultado === "red" ? "badge-red text-[10px]" : "badge-yellow text-[10px]"}>
+                    {aposta.resultado === "green" ? "✅ Green" : aposta.resultado === "red" ? "❌ Red" : "⏳ Pendente"}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </RaphaLayout>
   );
 }

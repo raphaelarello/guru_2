@@ -132,6 +132,12 @@ export const pitacos = mysqlTable("pitacos", {
   analise: text("analise"),
   confianca: int("confianca").default(70).notNull(),
   resultado: mysqlEnum("resultado", ["pendente", "green", "red", "void"]).default("pendente").notNull(),
+  // Multi-mercado: array de { tipo, label, valorPrevisto, valorReal, acertou, peso }
+  mercadosPrevistos: json("mercadosPrevistos"),
+  // Score de precisão calculado: 0-100 (acertos ponderados / total de mercados)
+  scorePrevisao: decimal("scorePrevisao", { precision: 5, scale: 2 }),
+  // Placar final real
+  placarFinal: varchar("placarFinal", { length: 20 }),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });
