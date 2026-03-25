@@ -1,479 +1,255 @@
 
-import { useMemo, useState } from "react";
-import { trpc } from "@/lib/trpc";
+import { useEffect, useMemo, useState } from "react";
 import RaphaLayout from "@/components/RaphaLayout";
-import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { trpc } from "@/lib/trpc";
+import CompactMatchCard from "@/components/live/CompactMatchCard";
 import {
-  Activity,
-  AlertCircle,
-  Flame,
-  Radar,
-  RefreshCw,
-  ShieldAlert,
-  Sparkles,
-  Timer,
-  Trophy,
-  Waves,
+  Activity, ArrowRight, BellRing, ChevronRight, Flag, ShieldAlert, Sparkles, Target, X
 } from "lucide-react";
 
-type Filtro = "todos" | "quentes" | "sinal";
-
-function statusLabel(short?: string, elapsed?: number | null, extra?: number | null) {
-  if (short === "HT") return "Intervalo";
-  if (short === "FT") return "Encerrado";
-  if (short === "NS") return "Agendado";
-  if (short === "PST") return "Adiado";
-  if (elapsed != null) return extra ? `${elapsed}+${extra}'` : `${elapsed}'`;
-  return short ?? "-";
+function numeroStat(stats: any[] | undefined, teamIndex: number, type: string) {
+  const raw = stats?.[teamIndex]?.statistics?.find((s: any) => s.type === type)?.value;
+  if (raw === undefined || raw === null) return 0;
+  if (typeof raw === "string") return parseFloat(raw.replace("%", "")) || 0;
+  return typeof raw === "number" ? raw : 0;
 }
 
-function safeText(value: any, fallback = "—") {
-  if (typeof value === "string" || typeof value === "number") return String(value);
-  if (value && typeof value === "object") {
-    if (typeof value.name === "string") return value.name;
-    if (typeof value.label === "string") return value.label;
-    if (typeof value.title === "string") return value.title;
+function resumirFixture(fixture: any, oportunidades: any[] = []) {
+  const events = fixture?.events || [];
+  const homeId = fixture?.teams?.home?.id;
+  const awayId = fixture?.teams?.away?.id;
+  const golsCasa = [];
+  const golsFora = [];
+  let amarelosCasa = 0, amarelosFora = 0, vermelhosCasa = 0, vermelhosFora = 0;
+
+  for (const event of events) {
+    const home = event.team?.id === homeId;
+    if (event.type === "Goal") {
+      const item = { jogador: event.player?.name || "Gol", minuto: `${event.time?.elapsed || 0}'`, tipo: event.detail || "Gol" };
+      if (home) golsCasa.push(item); else golsFora.push(item);
+    }
+    if (event.type === "Card") {
+      const red = String(event.detail || "").toLowerCase().includes("red");
+      if (home) red ? vermelhosCasa++ : amarelosCasa++;
+      else red ? vermelhosFora++ : amarelosFora++;
+    }
   }
-  return fallback;
+
+  const escanteiosCasa = numeroStat(fixture.statistics, 0, "Corner Kicks");
+  const escanteiosFora = numeroStat(fixture.statistics, 1, "Corner Kicks");
+  const posseCasa = numeroStat(fixture.statistics, 0, "Ball Possession");
+  const posseFora = numeroStat(fixture.statistics, 1, "Ball Possession");
+  const chutesGolCasa = numeroStat(fixture.statistics, 0, "Shots on Goal");
+  const chutesGolFora = numeroStat(fixture.statistics, 1, "Shots on Goal");
+  const ataquesCasa = numeroStat(fixture.statistics, 0, "Dangerous Attacks");
+  const ataquesFora = numeroStat(fixture.statistics, 1, "Dangerous Attacks");
+
+  return {
+    id: fixture.fixture.id,
+    homeTeam: fixture.teams.home,
+    awayTeam: fixture.teams.away,
+    homeScore: fixture.goals.home,
+    awayScore: fixture.goals.away,
+    minute: fixture.fixture.status.elapsed,
+    status: fixture.fixture.status.short,
+    stadium: fixture.fixture.venue?.name || fixture.league?.name,
+    eventosResumo: { golsCasa, golsFora, amarelosCasa, amarelosFora, vermelhosCasa, vermelhosFora },
+    estatisticasResumo: {
+      escanteiosCasa,
+      escanteiosFora,
+      posseCasa,
+      posseFora,
+      chutesGolCasa,
+      chutesGolFora,
+      pressaoCasa: ataquesCasa || chutesGolCasa * 8 || posseCasa,
+      pressaoFora: ataquesFora || chutesGolFora * 8 || posseFora,
+    },
+    oportunidadesResumo: oportunidades.slice(0, 2).map((o: any) => ({
+      titulo: String(o.mercado || "Sinal").replace(/over/ig, "Mais de").replace(/under/ig, "Menos de"),
+      confianca: o.confianca,
+      urgencia: o.urgencia,
+    })),
+  };
 }
 
-function parseStatValue(value: unknown) {
-  if (typeof value === "number") return value;
-  if (typeof value === "string") return Number.parseFloat(value.replace("%", "")) || 0;
-  return 0;
-}
-
-function getFixtureStatsList(fixture: any) {
-  return Array.isArray(fixture?.statistics) ? fixture.statistics : [];
-}
-
-function getStat(fixture: any, type: string, teamIndex: 0 | 1) {
-  const stats = getFixtureStatsList(fixture);
-  const value = stats?.[teamIndex]?.statistics?.find((item: any) => item.type === type)?.value;
-  return parseStatValue(value);
-}
-
-function getCards(events: any[]) {
-  return events.filter((event: any) => event?.type === "Card");
-}
-
-function getGoals(events: any[]) {
-  return events.filter((event: any) => event?.type === "Goal");
-}
-
-function getHeat(jogo: any) {
-  const fixture = jogo?.fixture;
-  const events = fixture?.events ?? [];
-  const totalGoals = (fixture?.goals?.home ?? 0) + (fixture?.goals?.away ?? 0);
-  const shots = getStat(fixture, "Shots on Goal", 0) + getStat(fixture, "Shots on Goal", 1);
-  const corners = getStat(fixture, "Corner Kicks", 0) + getStat(fixture, "Corner Kicks", 1);
-
-  let score = 28;
-  if (jogo?.totalOportunidades) score += Math.min(34, jogo.totalOportunidades * 12);
-  if (totalGoals >= 3) score += 16;
-  if (events.length >= 6) score += 10;
-  if (shots >= 5) score += 12;
-  if (corners >= 8) score += 8;
-  if ((fixture?.fixture?.status?.elapsed ?? 0) >= 60) score += 8;
-  return Math.min(score, 99);
-}
-
-function scoreTone(score: number) {
-  if (score >= 80) return { label: "Vulcão", className: "chip-live" };
-  if (score >= 62) return { label: "Quente", className: "chip-success" };
-  if (score >= 45) return { label: "Ativo", className: "chip-info" };
-  return { label: "Morno", className: "" };
-}
-
-function TeamRow({ team, score }: { team: any; score: number | null | undefined }) {
-  return (
-    <div className="flex items-center gap-3 rounded-[20px] border border-white/10 bg-black/15 px-3 py-3">
-      {team?.logo ? <img src={team.logo} alt="" className="size-8 rounded-full bg-white/5 p-0.5" /> : <div className="size-8 rounded-full bg-white/8" />}
-      <span className="flex-1 text-sm font-semibold">{safeText(team?.name, "Time")}</span>
-      <span className="text-2xl font-black">{score ?? 0}</span>
-    </div>
-  );
-}
-
-function EventRow({ event }: { event: any }) {
-  const detail = safeText(event?.detail, safeText(event?.type, "Evento"));
-  const actor = safeText(event?.player, safeText(event?.team, "Jogador"));
-  const minute = event?.time?.elapsed ?? event?.minute ?? 0;
-  const isGoal = safeText(event?.type) === "Goal";
-  const isCard = safeText(event?.type) === "Card";
-  const isRed = detail.toLowerCase().includes("red");
-
-  return (
-    <div
-      className={`flex items-center justify-between gap-3 rounded-2xl border px-3 py-2 text-sm ${
-        isGoal
-          ? "border-emerald-500/25 bg-emerald-500/10"
-          : isCard && isRed
-          ? "border-red-500/25 bg-red-500/10"
-          : isCard
-          ? "border-amber-500/25 bg-amber-500/10"
-          : "border-white/8 bg-black/15"
-      }`}
-    >
-      <div className="min-w-0">
-        <p className="truncate font-semibold">{actor}</p>
-        <p className="truncate text-muted-foreground">{detail}</p>
-      </div>
-      <span className="shrink-0 font-bold">{minute}'</span>
-    </div>
-  );
-}
-
-function MatchCard({ jogo, onOpen }: { jogo: any; onOpen: () => void }) {
-  const fixture = jogo.fixture;
-  const heat = getHeat(jogo);
-  const tone = scoreTone(heat);
-  const st = fixture?.fixture?.status;
-  const events = fixture?.events ?? [];
-  const goals = getGoals(events);
-  const cards = getCards(events);
-  const corners = getStat(fixture, "Corner Kicks", 0) + getStat(fixture, "Corner Kicks", 1);
-
-  return (
-    <button onClick={onOpen} className="sports-surface surface-hover w-full rounded-[28px] p-4 text-left">
-      <div className="mb-4 flex flex-wrap items-start justify-between gap-2">
-        <div className="min-w-0">
-          <p className="truncate text-xs font-semibold uppercase tracking-[0.24em] text-muted-foreground">{fixture?.league?.name ?? "Liga"}</p>
-          <p className="mt-1 text-xs text-muted-foreground">{fixture?.fixture?.venue?.name ?? "Ao vivo"}</p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <span className="chip chip-live">{statusLabel(st?.short, st?.elapsed, st?.extra)}</span>
-          <span className={`chip ${tone.className}`}>{tone.label}</span>
-        </div>
-      </div>
-
-      <div className="space-y-2">
-        <TeamRow team={fixture?.teams?.home} score={fixture?.goals?.home} />
-        <TeamRow team={fixture?.teams?.away} score={fixture?.goals?.away} />
-      </div>
-
-      <div className="mt-4 grid grid-cols-4 gap-2">
-        <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-3">
-          <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">Heat</p>
-          <p className="mt-2 text-2xl font-black text-primary">{heat}</p>
-        </div>
-        <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-3">
-          <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">Sinais</p>
-          <p className="mt-2 text-2xl font-black text-cyan-300">{jogo.totalOportunidades ?? 0}</p>
-        </div>
-        <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-3">
-          <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">Cartões</p>
-          <p className="mt-2 text-2xl font-black text-amber-300">{cards.length}</p>
-        </div>
-        <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-3">
-          <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">Escanteios</p>
-          <p className="mt-2 text-2xl font-black text-red-300">{corners}</p>
-        </div>
-      </div>
-
-      <div className="mt-4 flex flex-wrap gap-2">
-        {goals.slice(-3).map((goal: any, index: number) => (
-          <span key={`${goal?.player?.id ?? index}-${goal?.time?.elapsed ?? index}`} className="rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-1 text-xs text-emerald-200">
-            ⚽ {safeText(goal?.player, "Gol")} · {goal?.time?.elapsed ?? 0}'
-          </span>
-        ))}
-      </div>
-    </button>
-  );
-}
-
-function MatchModal({ fixtureId, open, onClose }: { fixtureId: number | null; open: boolean; onClose: () => void }) {
-  const { data, isLoading } = trpc.football.analisarJogo.useQuery(
-    { fixtureId: fixtureId ?? 0 },
-    { enabled: open && !!fixtureId, refetchInterval: 10000 }
-  );
-
-  const fixture = data?.fixture;
-  const events = Array.isArray(fixture?.events) ? fixture.events : [];
-  const goals = getGoals(events);
-  const cards = getCards(events);
-  const cornersHome = getStat(fixture, "Corner Kicks", 0);
-  const cornersAway = getStat(fixture, "Corner Kicks", 1);
-  const shotsHome = getStat(fixture, "Shots on Goal", 0);
-  const shotsAway = getStat(fixture, "Shots on Goal", 1);
-  const possessionHome = getStat(fixture, "Ball Possession", 0);
-  const possessionAway = getStat(fixture, "Ball Possession", 1);
-
-  return (
-    <Dialog open={open} onOpenChange={value => !value && onClose()}>
-      <DialogContent className="max-w-5xl border-white/10 bg-[#080c18] text-white">
-        <DialogHeader>
-          <DialogTitle className="text-2xl font-black">Match center ao vivo</DialogTitle>
-        </DialogHeader>
-
-        {isLoading ? (
-          <div className="py-10 text-center text-muted-foreground">Carregando análise ao vivo...</div>
-        ) : !fixture ? (
-          <div className="rounded-[24px] border border-dashed border-white/12 p-8 text-center text-muted-foreground">
-            Não foi possível carregar os detalhes desta partida.
-          </div>
-        ) : (
-          <div className="space-y-4">
-            <div className="hero-glow sports-surface rounded-[28px] p-5">
-              <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-                <div>
-                  <p className="text-xs uppercase tracking-[0.22em] text-muted-foreground">{fixture.league?.name}</p>
-                  <p className="mt-1 text-sm text-muted-foreground">{fixture.fixture?.venue?.name ?? "Ao vivo agora"}</p>
-                </div>
-                <span className="chip chip-live">
-                  <Timer className="size-3.5" />
-                  {statusLabel(fixture.fixture?.status?.short, fixture.fixture?.status?.elapsed, fixture.fixture?.status?.extra)}
-                </span>
-              </div>
-
-              <div className="grid gap-3 md:grid-cols-2">
-                <TeamRow team={fixture.teams?.home} score={fixture.goals?.home} />
-                <TeamRow team={fixture.teams?.away} score={fixture.goals?.away} />
-              </div>
-
-              <div className="mt-4 grid gap-3 sm:grid-cols-4">
-                <div className="rounded-[22px] border border-white/10 bg-black/15 p-4">
-                  <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">Escanteios</p>
-                  <p className="mt-2 text-2xl font-black text-primary">{cornersHome}–{cornersAway}</p>
-                </div>
-                <div className="rounded-[22px] border border-white/10 bg-black/15 p-4">
-                  <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">Chutes no gol</p>
-                  <p className="mt-2 text-2xl font-black text-cyan-300">{shotsHome}–{shotsAway}</p>
-                </div>
-                <div className="rounded-[22px] border border-white/10 bg-black/15 p-4">
-                  <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">Cartões</p>
-                  <p className="mt-2 text-2xl font-black text-amber-300">{cards.length}</p>
-                </div>
-                <div className="rounded-[22px] border border-white/10 bg-black/15 p-4">
-                  <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">Gols</p>
-                  <p className="mt-2 text-2xl font-black text-emerald-300">{goals.length}</p>
-                </div>
-              </div>
-
-              <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                <div className="rounded-[22px] border border-white/10 bg-black/15 p-4">
-                  <div className="mb-2 flex items-center justify-between text-sm">
-                    <span>{safeText(fixture.teams?.home?.name, "Casa")}</span>
-                    <span className="text-primary">{possessionHome}% posse</span>
-                  </div>
-                  <div className="h-2 rounded-full bg-white/10">
-                    <div className="h-2 rounded-full bg-gradient-to-r from-primary to-cyan-300" style={{ width: `${Math.min(100, possessionHome || 50)}%` }} />
-                  </div>
-                </div>
-                <div className="rounded-[22px] border border-white/10 bg-black/15 p-4">
-                  <div className="mb-2 flex items-center justify-between text-sm">
-                    <span>{safeText(fixture.teams?.away?.name, "Fora")}</span>
-                    <span className="text-cyan-300">{possessionAway}% posse</span>
-                  </div>
-                  <div className="h-2 rounded-full bg-white/10">
-                    <div className="h-2 rounded-full bg-gradient-to-r from-cyan-300 to-blue-400" style={{ width: `${Math.min(100, possessionAway || 50)}%` }} />
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div className="grid gap-4 lg:grid-cols-[1.1fr_0.9fr]">
-              <div className="space-y-4">
-                <div className="rounded-[24px] border border-white/10 bg-white/[0.03] p-4">
-                  <p className="text-xs uppercase tracking-[0.22em] text-muted-foreground">Oportunidades identificadas</p>
-                  <div className="mt-3 space-y-3">
-                    {data?.oportunidades?.length ? data.oportunidades.map((item: any, index: number) => (
-                      <div key={index} className="rounded-[20px] border border-white/10 bg-black/15 p-4">
-                        <div className="flex flex-wrap items-center justify-between gap-2">
-                          <h4 className="font-bold">{safeText(item.mercado, safeText(item.label, "Sinal"))}</h4>
-                          <span className="chip chip-success">EV {Number(item.ev ?? 0).toFixed(1)}%</span>
-                        </div>
-                        <p className="mt-2 text-sm text-muted-foreground">
-                          Probabilidade: {Number(item.probabilidade ?? item.prob ?? 0).toFixed(1)}% · Odd: {Number(item.odd ?? 0).toFixed(2)}
-                        </p>
-                      </div>
-                    )) : (
-                      <p className="text-sm text-muted-foreground">Nenhum sinal forte disponível agora.</p>
-                    )}
-                  </div>
-                </div>
-
-                <div className="rounded-[24px] border border-white/10 bg-white/[0.03] p-4">
-                  <p className="text-xs uppercase tracking-[0.22em] text-muted-foreground">Quem fez o gol e quando</p>
-                  <div className="mt-3 space-y-2">
-                    {goals.length ? goals.map((event: any, index: number) => <EventRow key={`goal-${index}`} event={event} />) : (
-                      <p className="text-sm text-muted-foreground">Sem gols detalhados até agora.</p>
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              <div className="space-y-4">
-                <div className="rounded-[24px] border border-white/10 bg-white/[0.03] p-4">
-                  <p className="text-xs uppercase tracking-[0.22em] text-muted-foreground">Cartões e alertas</p>
-                  <div className="mt-3 space-y-2">
-                    {cards.length ? cards.map((event: any, index: number) => <EventRow key={`card-${index}`} event={event} />) : (
-                      <p className="text-sm text-muted-foreground">Sem cartões até o momento.</p>
-                    )}
-                  </div>
-                </div>
-
-                <div className="rounded-[24px] border border-white/10 bg-white/[0.03] p-4">
-                  <p className="text-xs uppercase tracking-[0.22em] text-muted-foreground">Eventos recentes</p>
-                  <div className="mt-3 space-y-2">
-                    {events.length ? events.slice(-8).reverse().map((event: any, index: number) => (
-                      <EventRow key={`event-${index}`} event={event} />
-                    )) : (
-                      <p className="text-sm text-muted-foreground">Sem eventos detalhados.</p>
-                    )}
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-      </DialogContent>
-    </Dialog>
-  );
+function corUrgencia(urgencia?: string) {
+  if (urgencia === "alta") return "border-red-500/20 bg-red-500/10 text-red-100";
+  if (urgencia === "media") return "border-amber-500/20 bg-amber-500/10 text-amber-100";
+  return "border-cyan-500/20 bg-cyan-500/10 text-cyan-100";
 }
 
 export default function AoVivo() {
+  const dashboard = trpc.football.dashboardAoVivo.useQuery(undefined, { refetchInterval: 12000 });
+  const alertas = trpc.football.centralAlertas.useQuery(undefined, { refetchInterval: 20000 });
+
   const [selectedFixtureId, setSelectedFixtureId] = useState<number | null>(null);
-  const [leagueId, setLeagueId] = useState<number | null>(null);
-  const [filtro, setFiltro] = useState<Filtro>("todos");
-  const [sort, setSort] = useState<"heat" | "signals" | "ev">("heat");
+  const selectedQuery = trpc.football.radarJogo.useQuery(
+    { fixtureId: selectedFixtureId || 0 },
+    { enabled: !!selectedFixtureId, refetchInterval: 12000 }
+  );
 
-  const { data, isLoading, error, refetch, isRefetching } = trpc.football.dashboardAoVivo.useQuery(undefined, {
-    refetchInterval: 12000,
-  });
+  const jogos = useMemo(() => (dashboard.data?.jogos || []).map((jogo: any) => ({
+    raw: jogo,
+    resumo: resumirFixture(jogo.fixture, jogo.oportunidades || []),
+  })), [dashboard.data]);
 
-  const jogos = data?.jogos ?? [];
-  const leagues = useMemo(() => {
-    const map = new Map<number, string>();
-    jogos.forEach((jogo: any) => {
-      const league = jogo.fixture?.league;
-      if (league?.id && league?.name) map.set(league.id, league.name);
-    });
-    return Array.from(map.entries()).map(([id, name]) => ({ id, name })).sort((a, b) => a.name.localeCompare(b.name));
-  }, [jogos]);
+  useEffect(() => {
+    if (!selectedFixtureId && jogos[0]?.resumo?.id) setSelectedFixtureId(jogos[0].resumo.id);
+  }, [jogos, selectedFixtureId]);
 
-  const filtered = useMemo(() => {
-    let current = jogos.filter((jogo: any) => !leagueId || jogo.fixture?.league?.id === leagueId);
-    if (filtro === "quentes") current = current.filter((jogo: any) => getHeat(jogo) >= 62);
-    if (filtro === "sinal") current = current.filter((jogo: any) => (jogo.totalOportunidades ?? 0) > 0);
-
-    return [...current].sort((a: any, b: any) => {
-      if (sort === "signals") return (b.totalOportunidades ?? 0) - (a.totalOportunidades ?? 0);
-      if (sort === "ev") return (b.melhorEV ?? 0) - (a.melhorEV ?? 0);
-      return getHeat(b) - getHeat(a);
-    });
-  }, [filtro, jogos, leagueId, sort]);
+  const selecionado = selectedQuery.data?.fixture;
+  const radar = selectedQuery.data?.radar || [];
+  const oportunidades = selectedQuery.data?.oportunidades || [];
+  const recenteAlertas = (alertas.data || []).slice(0, 6);
 
   return (
-    <RaphaLayout title="Ao Vivo" subtitle="Monitoramento pesado em tempo real com gols, cartões, escanteios, sinais e visão gráfica do jogo.">
-      <div className="space-y-4">
-        <div className="glass-panel hero-glow rounded-[30px] border p-4 md:p-6">
-          <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
-            <div className="max-w-3xl">
-              <div className="mb-3 flex flex-wrap gap-2">
-                <span className="chip chip-live"><Radar className="size-3.5" /> Radar ao vivo</span>
-                <span className="chip chip-success"><Sparkles className="size-3.5" /> Detalhe operacional</span>
-              </div>
-              <h1 className="text-3xl font-black tracking-tight md:text-5xl">Central de intensidade esportiva</h1>
-              <p className="mt-3 text-base text-muted-foreground text-balance">
-                Agora com muito mais detalhe útil para decisão: quem marcou, cartões, escanteios, pressão, sinais e leitura instantânea do momento do jogo.
-              </p>
+    <RaphaLayout
+      title="Ao Vivo"
+      subtitle="Leitura operacional. Mais contexto, menos cliques, painel lateral mais limpo."
+    >
+      <div className="grid gap-4 xl:grid-cols-[1fr_420px]">
+        <section className="space-y-4">
+          <div className="grid gap-3 md:grid-cols-3">
+            <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+              <div className="text-[11px] uppercase tracking-[0.28em] text-slate-500">Partidas ativas</div>
+              <div className="mt-2 text-3xl font-black text-white">{dashboard.data?.totalJogos ?? 0}</div>
             </div>
-
-            <div className="grid min-w-[280px] gap-3 sm:grid-cols-4">
-              {[
-                { label: "Jogos", value: data?.totalJogos ?? 0, icon: Trophy, tone: "text-primary" },
-                { label: "Sinais", value: data?.totalOportunidades ?? 0, icon: Activity, tone: "text-cyan-300" },
-                { label: "Quentes", value: filtered.filter(item => getHeat(item) >= 62).length, icon: Flame, tone: "text-red-300" },
-                { label: "Atualização", value: isRefetching ? "..." : "OK", icon: Waves, tone: "text-amber-300" },
-              ].map(item => (
-                <div key={item.label} className="sports-surface rounded-[24px] p-4">
-                  <div className="flex items-center justify-between">
-                    <p className="text-sm text-muted-foreground">{item.label}</p>
-                    <item.icon className={`size-4 ${item.tone}`} />
-                  </div>
-                  <div className="metric-number mt-3">{item.value}</div>
-                </div>
-              ))}
+            <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+              <div className="text-[11px] uppercase tracking-[0.28em] text-slate-500">Sinais do motor</div>
+              <div className="mt-2 text-3xl font-black text-white">{dashboard.data?.totalOportunidades ?? 0}</div>
             </div>
-          </div>
-        </div>
-
-        <section className="section-shell space-y-4">
-          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-            <div className="flex flex-wrap gap-2">
-              <Button variant="outline" onClick={() => void refetch()} disabled={isRefetching}>
-                <RefreshCw className={`size-4 ${isRefetching ? "animate-spin" : ""}`} />
-                Atualizar
-              </Button>
-              {(["todos", "quentes", "sinal"] as Filtro[]).map(item => (
-                <button key={item} onClick={() => setFiltro(item)} className={`chip ${filtro === item ? "chip-success" : "hover:border-white/20"}`}>
-                  {item === "todos" ? "Todos" : item === "quentes" ? "Só quentes" : "Com sinal"}
-                </button>
-              ))}
-            </div>
-
-            <div className="flex flex-wrap gap-2">
-              <select
-                value={leagueId ?? ""}
-                onChange={event => setLeagueId(event.target.value ? Number(event.target.value) : null)}
-                className="rounded-full border border-white/10 bg-white/[0.04] px-4 py-2 text-sm outline-none"
-              >
-                <option value="">Todas as ligas</option>
-                {leagues.map(league => (
-                  <option key={league.id} value={league.id}>{league.name}</option>
-                ))}
-              </select>
-
-              <select
-                value={sort}
-                onChange={event => setSort(event.target.value as "heat" | "signals" | "ev")}
-                className="rounded-full border border-white/10 bg-white/[0.04] px-4 py-2 text-sm outline-none"
-              >
-                <option value="heat">Ordenar por calor</option>
-                <option value="signals">Ordenar por sinais</option>
-                <option value="ev">Ordenar por EV</option>
-              </select>
+            <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+              <div className="text-[11px] uppercase tracking-[0.28em] text-slate-500">Alertas relevantes</div>
+              <div className="mt-2 text-3xl font-black text-white">{alertas.data?.length ?? 0}</div>
             </div>
           </div>
 
-          {error ? (
-            <div className="rounded-[24px] border border-red-500/20 bg-red-500/10 p-5 text-red-200">
-              <div className="flex items-center gap-2 font-semibold"><AlertCircle className="size-4" /> Erro ao carregar jogos ao vivo</div>
-              <p className="mt-2 text-sm text-red-100/70">Confira a conectividade da API e tente novamente.</p>
-            </div>
-          ) : isLoading ? (
-            <div className="rounded-[24px] border border-white/10 bg-white/[0.03] p-8 text-center text-muted-foreground">
-              Carregando radar ao vivo...
-            </div>
-          ) : filtered.length === 0 ? (
-            <div className="rounded-[24px] border border-dashed border-white/12 p-8 text-center text-muted-foreground">
-              Nenhuma partida encontrada para os filtros atuais.
-            </div>
-          ) : (
-            <div className="grid gap-4 xl:grid-cols-2 2xl:grid-cols-3">
-              {filtered.map((jogo: any) => (
-                <MatchCard key={jogo.fixture?.fixture?.id ?? jogo.fixture?.id} jogo={jogo} onOpen={() => setSelectedFixtureId(jogo.fixture?.fixture?.id ?? jogo.fixture?.id ?? null)} />
-              ))}
-            </div>
-          )}
+          <div className="grid gap-3 2xl:grid-cols-2">
+            {jogos.map(({ raw, resumo }: any) => (
+              <CompactMatchCard
+                key={resumo.id}
+                match={resumo}
+                ativo={selectedFixtureId === resumo.id}
+                onClick={() => setSelectedFixtureId(resumo.id)}
+              />
+            ))}
+          </div>
         </section>
 
-        <div className="rounded-[26px] border border-white/10 bg-white/[0.03] p-5">
-          <div className="flex items-start gap-3">
-            <ShieldAlert className="mt-0.5 size-5 text-amber-300" />
-            <div>
-              <p className="text-sm font-semibold">Sugestão para o próximo passo visual</p>
-              <p className="mt-1 text-sm text-muted-foreground">
-                Com a quota de 75 mil requisições por 24h, vale trabalhar atualização em ciclos inteligentes: lista geral a cada 10–15s, detalhe do jogo aberto a cada 5–10s e estatísticas profundas sob demanda.
-              </p>
+        <aside className="space-y-4 xl:sticky xl:top-[112px] xl:h-[calc(100vh-130px)] xl:overflow-y-auto pr-1">
+          <div className="rounded-[26px] border border-white/10 bg-[linear-gradient(180deg,rgba(10,16,30,0.96),rgba(7,11,22,0.98))] p-4">
+            <div className="mb-4 flex items-start justify-between gap-3">
+              <div>
+                <div className="text-[11px] uppercase tracking-[0.32em] text-cyan-300">Centro do jogo</div>
+                <h3 className="mt-2 text-xl font-black text-white">
+                  {selecionado ? `${selecionado.teams.home.name} × ${selecionado.teams.away.name}` : "Selecione uma partida"}
+                </h3>
+              </div>
+              {selectedFixtureId ? (
+                <button
+                  type="button"
+                  onClick={() => setSelectedFixtureId(null)}
+                  className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-white/[0.03] text-slate-300 hover:bg-white/[0.06]"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              ) : null}
             </div>
-          </div>
-        </div>
-      </div>
 
-      <MatchModal fixtureId={selectedFixtureId} open={!!selectedFixtureId} onClose={() => setSelectedFixtureId(null)} />
+            {selecionado ? (
+              <>
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="rounded-2xl border border-white/8 bg-white/[0.03] p-3">
+                    <div className="text-[10px] uppercase tracking-[0.22em] text-slate-500">Placar</div>
+                    <div className="mt-2 font-mono text-4xl font-black text-white">
+                      {selecionado.goals.home ?? 0}<span className="mx-1 text-slate-500">×</span>{selecionado.goals.away ?? 0}
+                    </div>
+                    <div className="mt-1 text-sm text-slate-400">{selecionado.fixture.status.elapsed ?? 0}' • {selecionado.league.name}</div>
+                  </div>
+                  <div className="rounded-2xl border border-white/8 bg-white/[0.03] p-3">
+                    <div className="text-[10px] uppercase tracking-[0.22em] text-slate-500">Volume do jogo</div>
+                    <div className="mt-3 grid grid-cols-2 gap-2 text-sm text-slate-300">
+                      <div><Flag className="mr-1 inline h-3.5 w-3.5 text-cyan-300" /> {numeroStat(selecionado.statistics, 0, "Corner Kicks")} × {numeroStat(selecionado.statistics, 1, "Corner Kicks")}</div>
+                      <div><ShieldAlert className="mr-1 inline h-3.5 w-3.5 text-amber-300" /> {selecionado.events?.filter((e: any) => e.type === "Card").length ?? 0} cartões</div>
+                      <div><Target className="mr-1 inline h-3.5 w-3.5 text-emerald-300" /> {numeroStat(selecionado.statistics, 0, "Shots on Goal")} × {numeroStat(selecionado.statistics, 1, "Shots on Goal")}</div>
+                      <div><Activity className="mr-1 inline h-3.5 w-3.5 text-fuchsia-300" /> {numeroStat(selecionado.statistics, 0, "Dangerous Attacks") + numeroStat(selecionado.statistics, 1, "Dangerous Attacks")} ataques</div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mt-4 grid gap-3">
+                  <div className="rounded-2xl border border-white/8 bg-white/[0.03] p-3">
+                    <div className="mb-2 text-[10px] uppercase tracking-[0.22em] text-slate-500">Radar Inteligente</div>
+                    <div className="space-y-2">
+                      {radar.length > 0 ? radar.map((item: any, index: number) => (
+                        <div key={`${item.titulo}-${index}`} className={`rounded-2xl border p-3 ${corUrgencia(item.urgencia)}`}>
+                          <div className="flex items-center justify-between gap-2">
+                            <div className="font-semibold">{item.titulo}</div>
+                            <div className="text-xs">{item.confianca}%</div>
+                          </div>
+                          <div className="mt-1 text-sm text-slate-200/90">{item.explicacao}</div>
+                        </div>
+                      )) : <div className="rounded-2xl border border-dashed border-white/10 p-3 text-sm text-slate-400">Sem radar calculado ainda.</div>}
+                    </div>
+                  </div>
+
+                  <div className="rounded-2xl border border-white/8 bg-white/[0.03] p-3">
+                    <div className="mb-2 text-[10px] uppercase tracking-[0.22em] text-slate-500">Mercados encontrados</div>
+                    <div className="space-y-2">
+                      {oportunidades.slice(0, 5).map((op: any, index: number) => (
+                        <div key={`${op.mercado}-${index}`} className="rounded-2xl border border-white/8 bg-white/[0.03] p-3">
+                          <div className="flex items-center justify-between gap-2">
+                            <div className="font-semibold text-white">{String(op.mercado || "Sinal").replace(/over/ig, "Mais de").replace(/under/ig, "Menos de")}</div>
+                            <div className="rounded-full bg-emerald-500/10 px-2 py-1 text-xs font-semibold text-emerald-300">{op.confianca}%</div>
+                          </div>
+                          <div className="mt-1 text-sm text-slate-300">{Array.isArray(op.motivos) ? op.motivos.join(" • ") : "Leitura do motor ao vivo"}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="rounded-2xl border border-white/8 bg-white/[0.03] p-3">
+                    <div className="mb-2 flex items-center gap-2 text-[10px] uppercase tracking-[0.22em] text-slate-500">
+                      <BellRing className="h-3.5 w-3.5 text-cyan-300" /> Central de Alertas
+                    </div>
+                    <div className="space-y-2">
+                      {recenteAlertas.map((alerta: any, idx: number) => (
+                        <div key={`${alerta.fixtureId}-${idx}`} className={`rounded-2xl border p-3 ${corUrgencia(alerta.prioridade)}`}>
+                          <div className="flex items-center justify-between gap-2">
+                            <div className="font-semibold">{alerta.titulo}</div>
+                            <div className="text-xs">{alerta.minuto ? `${alerta.minuto}'` : "agora"}</div>
+                          </div>
+                          <div className="mt-1 text-sm text-slate-200/90">{alerta.resumo}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="rounded-2xl border border-white/8 bg-white/[0.03] p-3">
+                    <div className="mb-2 text-[10px] uppercase tracking-[0.22em] text-slate-500">Linha de eventos</div>
+                    <div className="space-y-2">
+                      {(selecionado.events || []).slice(-8).reverse().map((event: any, idx: number) => (
+                        <div key={`${event.type}-${idx}`} className="flex items-start gap-3 rounded-2xl border border-white/8 bg-white/[0.03] p-3">
+                          <div className="mt-0.5 rounded-full bg-white/10 px-2 py-1 text-xs font-semibold text-slate-300">{event.time?.elapsed || 0}'</div>
+                          <div className="min-w-0 flex-1">
+                            <div className="text-sm font-semibold text-white">{event.player?.name || event.team?.name || "Evento"}</div>
+                            <div className="text-sm text-slate-400">{event.detail || event.type}</div>
+                          </div>
+                          <ChevronRight className="h-4 w-4 text-slate-500" />
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </>
+            ) : (
+              <div className="rounded-2xl border border-dashed border-white/10 p-6 text-sm text-slate-400">
+                Clique em um jogo para abrir o painel lateral compacto.
+              </div>
+            )}
+          </div>
+        </aside>
+      </div>
     </RaphaLayout>
   );
 }

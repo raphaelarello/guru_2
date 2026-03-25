@@ -1,612 +1,188 @@
-import { useState, useMemo } from "react";
-import { trpc } from "@/lib/trpc";
+
+import { useMemo, useState } from "react";
 import RaphaLayout from "@/components/RaphaLayout";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import {
-  Calendar, Clock, Trophy, Target, ChevronDown, ChevronUp,
-  RefreshCw, Loader2, AlertCircle, BarChart2, Zap
-} from "lucide-react";
-import type { PreMatchOdd } from "../../../server/football";
-import { FiltroAvancado, FILTROS_PADRAO, type FiltrosState } from "@/components/FiltroAvancado";
-import { getInfoLiga } from "@shared/ligas";
+import { trpc } from "@/lib/trpc";
+import CompactMatchCard from "@/components/live/CompactMatchCard";
+import { CalendarDays, ChevronLeft, ChevronRight, Filter, Flag, Radio, TimerReset } from "lucide-react";
 
-// ─── Helpers de data ─────────────────────────────────────────────────────────
-function hojeISO() {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+function isoAddDays(baseIso: string, delta: number) {
+  const d = new Date(`${baseIso}T12:00:00`);
+  d.setDate(d.getDate() + delta);
+  return d.toISOString().slice(0, 10);
 }
-function formatDataBR(iso: string) {
-  const [y, m, d] = iso.split("-");
-  const nomes = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
-  const dt = new Date(parseInt(y), parseInt(m) - 1, parseInt(d));
-  const hoje = hojeISO();
+
+function labelData(iso: string) {
+  const hoje = new Date().toISOString().slice(0, 10);
   if (iso === hoje) return "Hoje";
-  const amanha = new Date(); amanha.setDate(amanha.getDate() + 1);
-  const amanhaISO = `${amanha.getFullYear()}-${String(amanha.getMonth() + 1).padStart(2, "0")}-${String(amanha.getDate()).padStart(2, "0")}`;
-  if (iso === amanhaISO) return "Amanhã";
-  return `${nomes[dt.getDay()]} ${d}/${m}`;
-}
-function gerarDatas(): string[] {
-  const datas: string[] = [];
-  for (let i = -2; i <= 5; i++) {
-    const d = new Date();
-    d.setDate(d.getDate() + i);
-    datas.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`);
-  }
-  return datas;
+  const amanha = isoAddDays(hoje, 1);
+  if (iso === amanha) return "Amanhã";
+  return new Date(`${iso}T12:00:00`).toLocaleDateString("pt-BR", { weekday: "short", day: "2-digit", month: "2-digit" });
 }
 
-// ─── Helpers ─────────────────────────────────────────────────────────────────
-
-function formatHora(dateStr: string) {
-  try {
-    return new Date(dateStr).toLocaleTimeString("pt-BR", {
-      hour: "2-digit", minute: "2-digit", timeZone: "America/Sao_Paulo",
-    });
-  } catch {
-    return "--:--";
-  }
-}
-
-function getOddPrincipal(odds: PreMatchOdd | null, betName: string, value: string): string {
-  if (!odds) return "—";
-  for (const bk of odds.bookmakers || []) {
-    const bet = bk.bets?.find((b) => b.name.toLowerCase().includes(betName.toLowerCase()));
-    if (bet) {
-      const v = bet.values?.find((x) => x.value.toLowerCase().includes(value.toLowerCase()) && !x.suspended);
-      if (v) return parseFloat(v.odd).toFixed(2);
+function getEventosResumo(match: any) {
+  const eventos = Array.isArray(match.events) ? match.events : [];
+  let amarelosCasa = 0, amarelosFora = 0, vermelhosCasa = 0, vermelhosFora = 0;
+  const golsCasa = [], golsFora = [];
+  for (const event of eventos) {
+    const casa = event.team?.name === match.homeTeam?.name;
+    if (event.type === "Goal") {
+      const item = { jogador: event.player || "Gol", minuto: `${event.minute || 0}'`, tipo: event.detail || "Gol" };
+      if (casa) golsCasa.push(item); else golsFora.push(item);
+    }
+    if (event.type === "Card") {
+      const red = String(event.detail || "").toLowerCase().includes("red");
+      if (casa) red ? vermelhosCasa++ : amarelosCasa++;
+      else red ? vermelhosFora++ : amarelosFora++;
     }
   }
-  return "—";
+  return { golsCasa, golsFora, amarelosCasa, amarelosFora, vermelhosCasa, vermelhosFora };
 }
-
-function StatusBadge({ status }: { status: { short: string; elapsed?: number | null } }) {
-  const s = status.short;
-  if (s === "NS") return <Badge className="bg-slate-700 text-slate-300 text-xs">Não iniciado</Badge>;
-  if (s === "FT") return <Badge className="bg-slate-600 text-slate-300 text-xs">Encerrado</Badge>;
-  if (s === "HT") return <Badge className="bg-yellow-600 text-yellow-100 text-xs">Intervalo</Badge>;
-  if (["1H", "2H", "ET", "P"].includes(s)) {
-    return <Badge className="bg-green-600 text-white text-xs animate-pulse">{status.elapsed ?? s}'</Badge>;
-  }
-  return <Badge className="bg-slate-700 text-slate-300 text-xs">{s}</Badge>;
-}
-
-// ─── Modal de detalhes do jogo ────────────────────────────────────────────────
-
-function ModalJogoHoje({
-  fixtureId,
-  titulo,
-  onClose,
-}: {
-  fixtureId: number;
-  titulo: string;
-  onClose: () => void;
-}) {
-  const { data: pred, isLoading: loadPred } = trpc.football.predictions.useQuery({ fixtureId });
-  const { data: odds, isLoading: loadOdds } = trpc.football.preMatchOdds.useQuery({ fixtureId });
-
-  const oddsData = Array.isArray(odds) ? odds[0] : odds;
-
-  return (
-    <Dialog open onOpenChange={onClose}>
-      <DialogContent className="max-w-2xl bg-[#0f1117] border-[#1e2533] text-white max-h-[85vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle className="text-[#00ff88] flex items-center gap-2">
-            <Calendar className="w-5 h-5" /> {titulo}
-          </DialogTitle>
-        </DialogHeader>
-
-        <Tabs defaultValue="predicao">
-          <TabsList className="bg-[#1a1f2e] w-full">
-            <TabsTrigger value="predicao" className="flex-1 data-[state=active]:bg-[#00ff88] data-[state=active]:text-black">
-              Predição IA
-            </TabsTrigger>
-            <TabsTrigger value="odds" className="flex-1 data-[state=active]:bg-[#00ff88] data-[state=active]:text-black">
-              Odds
-            </TabsTrigger>
-          </TabsList>
-
-          {/* Predição */}
-          <TabsContent value="predicao" className="mt-4 space-y-4">
-            {loadPred ? (
-              <div className="flex justify-center py-8"><Loader2 className="w-8 h-8 animate-spin text-[#00ff88]" /></div>
-            ) : pred ? (
-              <>
-                <div className="bg-[#1a1f2e] rounded-lg p-4 border border-[#00ff88]/20">
-                  <p className="text-[#00ff88] font-semibold mb-1">Conselho da IA</p>
-                  <p className="text-gray-300 text-sm">{pred.predictions?.advice || "Sem conselho disponível"}</p>
-                </div>
-
-                {/* Percentuais */}
-                <div className="grid grid-cols-3 gap-3">
-                  {[
-                    { label: "Casa", val: pred.predictions?.percent?.home, color: "#00ff88" },
-                    { label: "Empate", val: pred.predictions?.percent?.draw, color: "#fbbf24" },
-                    { label: "Fora", val: pred.predictions?.percent?.away, color: "#60a5fa" },
-                  ].map(({ label, val, color }) => (
-                    <div key={label} className="bg-[#1a1f2e] rounded-lg p-3 text-center border border-[#2a3040]">
-                      <p className="text-xs text-gray-400 mb-1">{label}</p>
-                      <p className="text-2xl font-bold" style={{ color }}>{val || "—"}</p>
-                    </div>
-                  ))}
-                </div>
-
-                {/* Comparação */}
-                {pred.comparison && (
-                  <div className="bg-[#1a1f2e] rounded-lg p-4 border border-[#2a3040]">
-                    <p className="text-gray-400 text-xs mb-3 font-semibold uppercase tracking-wide">Comparação de Times</p>
-                    <div className="space-y-2">
-                      {Object.entries(pred.comparison).map(([key, val]) => {
-                        const v = val as { home: string; away: string };
-                        return (
-                          <div key={key} className="flex items-center gap-2 text-xs">
-                            <span className="text-gray-400 w-24 capitalize">{key.replace(/_/g, " ")}</span>
-                            <div className="flex-1 flex gap-1 items-center">
-                              <span className="text-[#00ff88] w-10 text-right">{v.home}</span>
-                              <div className="flex-1 h-1.5 bg-[#2a3040] rounded-full overflow-hidden">
-                                <div
-                                  className="h-full bg-gradient-to-r from-[#00ff88] to-[#60a5fa] rounded-full"
-                                  style={{ width: v.home }}
-                                />
-                              </div>
-                              <span className="text-[#60a5fa] w-10">{v.away}</span>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
-
-                {/* Últimos 5 jogos */}
-                {(pred.teams?.home?.last_5 || pred.teams?.away?.last_5) && (
-                  <div className="grid grid-cols-2 gap-3">
-                    {[
-                      { time: pred.teams?.home, label: "Casa" },
-                      { time: pred.teams?.away, label: "Fora" },
-                    ].map(({ time, label }) => (
-                      <div key={label} className="bg-[#1a1f2e] rounded-lg p-3 border border-[#2a3040]">
-                        <p className="text-xs text-gray-400 mb-2">{label} — Últimos 5</p>
-                        <p className="text-lg font-bold text-white">{time?.last_5?.form || "—"}</p>
-                        <div className="text-xs text-gray-400 mt-1 space-y-0.5">
-                          <p>Ataque: <span className="text-[#00ff88]">{time?.last_5?.att || "—"}</span></p>
-                          <p>Defesa: <span className="text-red-400">{time?.last_5?.def || "—"}</span></p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </>
-            ) : (
-              <div className="text-center py-8 text-gray-500">
-                <AlertCircle className="w-8 h-8 mx-auto mb-2" />
-                <p>Predição não disponível para este jogo</p>
-              </div>
-            )}
-          </TabsContent>
-
-          {/* Odds */}
-          <TabsContent value="odds" className="mt-4 space-y-3">
-            {loadOdds ? (
-              <div className="flex justify-center py-8"><Loader2 className="w-8 h-8 animate-spin text-[#00ff88]" /></div>
-            ) : oddsData ? (
-              <>
-                {(oddsData.bookmakers || []).slice(0, 3).map((bk) => (
-                  <div key={bk.id} className="bg-[#1a1f2e] rounded-lg p-4 border border-[#2a3040]">
-                    <p className="text-[#00ff88] text-sm font-semibold mb-3">{bk.name}</p>
-                    <div className="space-y-2">
-                      {(bk.bets || []).slice(0, 5).map((bet) => (
-                        <div key={bet.id}>
-                          <p className="text-xs text-gray-400 mb-1">{bet.name}</p>
-                          <div className="flex flex-wrap gap-2">
-                            {(bet.values || []).map((v, i) => (
-                              <div
-                                key={i}
-                                className={`px-2 py-1 rounded text-xs font-mono ${v.suspended ? "bg-red-900/30 text-red-400" : "bg-[#0f1117] text-[#00ff88] border border-[#00ff88]/30"}`}
-                              >
-                                {v.value}: <span className="font-bold">{parseFloat(v.odd).toFixed(2)}</span>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                ))}
-              </>
-            ) : (
-              <div className="text-center py-8 text-gray-500">
-                <AlertCircle className="w-8 h-8 mx-auto mb-2" />
-                <p>Odds não disponíveis para este jogo</p>
-              </div>
-            )}
-          </TabsContent>
-        </Tabs>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
-// ─── Card de jogo ─────────────────────────────────────────────────────────────
-
-function JogoCard({
-  fixture,
-  odds,
-  onClick,
-}: {
-  fixture: {
-    fixture: { id: number; date: string; status: { short: string; elapsed?: number | null } };
-    league: { id: number; name: string; logo: string; country: string };
-    teams: { home: { name: string; logo: string }; away: { name: string; logo: string } };
-    goals?: { home: number | null; away: number | null };
-  };
-  odds: PreMatchOdd | null;
-  onClick: () => void;
-}) {
-  const home1x2 = getOddPrincipal(odds, "Match Winner", "Home");
-  const draw1x2 = getOddPrincipal(odds, "Match Winner", "Draw");
-  const away1x2 = getOddPrincipal(odds, "Match Winner", "Away");
-  const over25 = getOddPrincipal(odds, "Goals Over/Under", "Over 2.5");
-  const btts = getOddPrincipal(odds, "Both Teams Score", "Yes");
-  const ligaInfo = getInfoLiga(fixture.league.id, fixture.league.name);
-
-  return (
-    <div
-      className="bg-[#1a1f2e] border border-[#2a3040] rounded-xl p-4 hover:border-[#00ff88]/40 transition-all cursor-pointer group"
-      onClick={onClick}
-    >
-      <div className="flex items-center justify-between mb-3">
-        <div className="flex items-center gap-2">
-          <img src={fixture.league.logo} alt={fixture.league.name} className="w-5 h-5 object-contain" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
-          <span className="text-base leading-none">{ligaInfo.bandeira}</span>
-          <span className="text-xs text-gray-400 truncate max-w-[140px]">{ligaInfo.nome}</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <StatusBadge status={fixture.fixture.status} />
-          <span className="text-xs text-gray-500 flex items-center gap-1">
-            <Clock className="w-3 h-3" />
-            {formatHora(fixture.fixture.date)}
-          </span>
-        </div>
-      </div>
-
-      {/* Times */}
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center gap-2 flex-1">
-          <img src={fixture.teams.home.logo} alt={fixture.teams.home.name} className="w-8 h-8 object-contain" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
-          <span className="text-sm font-semibold text-white truncate">{fixture.teams.home.name}</span>
-        </div>
-        <div className="px-3 text-center">
-          {fixture.fixture.status.short === "NS" ? (
-            <span className="text-gray-500 text-sm font-mono">vs</span>
-          ) : (
-            <span className="text-white font-bold text-lg font-mono">
-              {fixture.goals?.home ?? 0} — {fixture.goals?.away ?? 0}
-            </span>
-          )}
-        </div>
-        <div className="flex items-center gap-2 flex-1 justify-end">
-          <span className="text-sm font-semibold text-white truncate text-right">{fixture.teams.away.name}</span>
-          <img src={fixture.teams.away.logo} alt={fixture.teams.away.name} className="w-8 h-8 object-contain" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
-        </div>
-      </div>
-
-      {/* Odds resumidas */}
-      {odds && (
-        <div className="grid grid-cols-5 gap-1.5 text-center text-xs">
-          {[
-            { label: "1", val: home1x2, color: "#00ff88" },
-            { label: "X", val: draw1x2, color: "#fbbf24" },
-            { label: "2", val: away1x2, color: "#60a5fa" },
-            { label: "A2.5", val: over25, color: "#a78bfa" },
-            { label: "AM", val: btts, color: "#f472b6" },
-          ].map(({ label, val, color }) => (
-            <div key={label} className="bg-[#0f1117] rounded p-1.5 border border-[#2a3040] group-hover:border-[#00ff88]/20 transition-colors">
-              <p className="text-gray-500 text-[10px] mb-0.5">{label}</p>
-              <p className="font-mono font-bold" style={{ color: val !== "—" ? color : "#4b5563" }}>{val}</p>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {!odds && (
-        <div className="text-center text-xs text-gray-600 py-1">Odds não disponíveis</div>
-      )}
-
-      <div className="mt-3 text-center">
-        <span className="text-xs text-[#00ff88]/60 group-hover:text-[#00ff88] transition-colors">
-          Ver predições e odds completas →
-        </span>
-      </div>
-    </div>
-  );
-}
-
-// ─── Página principal ─────────────────────────────────────────────────────────
 
 export default function JogosHoje() {
-  const [filtros, setFiltros] = useState<FiltrosState>(FILTROS_PADRAO);
-  const [ligasExpandidas, setLigasExpandidas] = useState<Set<number>>(new Set());
-  const [jogoSelecionado, setJogoSelecionado] = useState<{ id: number; titulo: string } | null>(null);
-  const [dataSelecionada, setDataSelecionada] = useState(hojeISO);
-  const [abaVista, setAbaVista] = useState<"todos" | "aovivo" | "proximos" | "encerrados">("todos");
+  const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
+  const [filtro, setFiltro] = useState<"todos" | "ao-vivo" | "proximos" | "encerrados">("todos");
+  const [ligaAtiva, setLigaAtiva] = useState<string>("todas");
 
-  const { data, isLoading, error, refetch, isFetching } = trpc.football.jogosHoje.useQuery(
-    { date: dataSelecionada },
-    { staleTime: 5 * 60 * 1000 }
-  );
+  const query = trpc.matches.getByDate.useQuery({ date }, { refetchInterval: 30000 });
+  const live = trpc.matches.getLive.useQuery(undefined, { refetchInterval: 15000 });
 
-  const todasLigas = data?.ligas ?? [];
-  const ligasDisponiveis = useMemo(() => todasLigas.map(l => l.liga.id), [todasLigas]);
+  const liveIds = useMemo(() => new Set((live.data || []).map((m: any) => m.id)), [live.data]);
 
-  const totalAoVivo = useMemo(() =>
-    todasLigas.reduce((acc, l) => acc + l.jogos.filter(j => ["1H","2H","HT","ET","P"].includes(j.fixture.status.short)).length, 0),
-  [todasLigas]);
-  const totalProximos = useMemo(() =>
-    todasLigas.reduce((acc, l) => acc + l.jogos.filter(j => j.fixture.status.short === "NS").length, 0),
-  [todasLigas]);
-  const totalEncerrados = useMemo(() =>
-    todasLigas.reduce((acc, l) => acc + l.jogos.filter(j => j.fixture.status.short === "FT").length, 0),
-  [todasLigas]);
+  const jogos = useMemo(() => {
+    const base = (query.data || []).map((match: any) => ({
+      id: match.id,
+      homeTeam: match.homeTeam,
+      awayTeam: match.awayTeam,
+      homeScore: match.homeScore,
+      awayScore: match.awayScore,
+      minute: match.minute,
+      status: match.status,
+      stadium: match.stadium,
+      league: match.league,
+      eventosResumo: getEventosResumo(match),
+      estatisticasResumo: {
+        escanteiosCasa: 0,
+        escanteiosFora: 0,
+        posseCasa: 0,
+        posseFora: 0,
+        chutesGolCasa: 0,
+        chutesGolFora: 0,
+        pressaoCasa: 50,
+        pressaoFora: 50,
+      },
+      oportunidadesResumo: [],
+    }));
 
-  const ligasFiltradas = useMemo(() => {
-    return todasLigas
-      .map(({ liga, jogos }) => {
-        let jogosFiltradosAba = jogos;
-        if (abaVista === "aovivo") {
-          jogosFiltradosAba = jogos.filter(j => ["1H", "2H", "HT", "ET", "P"].includes(j.fixture.status.short));
-        } else if (abaVista === "proximos") {
-          jogosFiltradosAba = [...jogos]
-            .filter(j => j.fixture.status.short === "NS")
-            .sort((a, b) => new Date(a.fixture.date).getTime() - new Date(b.fixture.date).getTime());
-        } else if (abaVista === "encerrados") {
-          jogosFiltradosAba = [...jogos]
-            .filter(j => j.fixture.status.short === "FT")
-            .sort((a, b) => new Date(b.fixture.date).getTime() - new Date(a.fixture.date).getTime());
-        }
-        return { liga, jogos: jogosFiltradosAba };
-      })
-      .filter(({ liga, jogos }) => {
-        if (jogos.length === 0) return false;
-        if (filtros.ligas.length > 0 && !filtros.ligas.includes(liga.id)) return false;
-        if (filtros.oddsMin > 1.0 || filtros.oddsMax < 50.0) {
-          const temOdd = jogos.some(j => {
-            const odds = data?.oddsMap?.[j.fixture.id];
-            if (!odds) return false;
-            const home = parseFloat(getOddPrincipal(odds, "Match Winner", "Home"));
-            return !isNaN(home) && home >= filtros.oddsMin && home <= filtros.oddsMax;
-          });
-          if (!temOdd) return false;
-        }
-        return true;
-      });
-  }, [todasLigas, filtros, data?.oddsMap, abaVista]);
-
-  const toggleLiga = (id: number) => {
-    setLigasExpandidas((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
+    return base.filter((jogo: any) => {
+      if (ligaAtiva !== "todas" && jogo.league?.name !== ligaAtiva) return false;
+      if (filtro === "ao-vivo") return liveIds.has(jogo.id) || ["1H", "2H", "HT", "ET", "P"].includes(jogo.status);
+      if (filtro === "proximos") return jogo.status === "NS";
+      if (filtro === "encerrados") return jogo.status === "FT";
+      return true;
     });
-  };
+  }, [query.data, liveIds, filtro, ligaAtiva]);
+
+  const ligas = useMemo(() => {
+    const unique = new Set((query.data || []).map((m: any) => m.league?.name).filter(Boolean));
+    return ["todas", ...Array.from(unique)];
+  }, [query.data]);
+
+  const tabs = [
+    { key: "todos", label: "Todos", icon: Filter },
+    { key: "ao-vivo", label: "Ao Vivo", icon: Radio },
+    { key: "proximos", label: "Próximos", icon: CalendarDays },
+    { key: "encerrados", label: "Encerrados", icon: TimerReset },
+  ] as const;
 
   return (
-    <RaphaLayout title="Jogos" subtitle="Calendário operacional com filtros por data, liga, ao vivo, próximos e encerrados.">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
-        <div>
-          <h1 className="text-2xl font-bold text-white flex items-center gap-2">
-            <Calendar className="w-6 h-6 text-[#00ff88]" />
-            Jogos — {formatDataBR(dataSelecionada)}
-          </h1>
-          <p className="text-gray-400 text-sm mt-1">
-            {data ? `${data.total} jogos encontrados` : "Carregando partidas..."}
-            {data?.timestamp && (
-              <span className="ml-2 text-gray-600">
-                · Atualizado às {new Date(data.timestamp).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
-              </span>
-            )}
-          </p>
+    <RaphaLayout
+      title="Jogos"
+      subtitle="Filtros clicáveis, datas no topo e leitura rápida para navegar por dia, liga e status."
+    >
+      <div className="space-y-4">
+        <div className="rounded-[26px] border border-white/10 bg-white/[0.03] p-4">
+          <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+            <div className="flex items-center gap-2">
+              <button type="button" onClick={() => setDate((d) => isoAddDays(d, -1))} className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-white/[0.03] text-slate-300 hover:bg-white/[0.06]">
+                <ChevronLeft className="h-4 w-4" />
+              </button>
+              <div className="rounded-full border border-white/10 bg-white/[0.03] px-4 py-2 text-sm font-semibold text-white">
+                {labelData(date)}
+              </div>
+              <button type="button" onClick={() => setDate((d) => isoAddDays(d, 1))} className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-white/[0.03] text-slate-300 hover:bg-white/[0.06]">
+                <ChevronRight className="h-4 w-4" />
+              </button>
+              <input
+                type="date"
+                value={date}
+                onChange={(e) => setDate(e.target.value)}
+                className="rounded-full border border-white/10 bg-white/[0.03] px-4 py-2 text-sm text-slate-200 outline-none"
+              />
+            </div>
+
+            <div className="flex flex-wrap gap-2">
+              {tabs.map((tab) => {
+                const Icon = tab.icon;
+                const ativo = filtro === tab.key;
+                return (
+                  <button
+                    key={tab.key}
+                    type="button"
+                    onClick={() => setFiltro(tab.key)}
+                    className={[
+                      "inline-flex items-center gap-2 rounded-full border px-3 py-2 text-sm font-semibold transition-all",
+                      ativo
+                        ? "border-emerald-400/30 bg-emerald-500/12 text-emerald-300"
+                        : "border-white/8 bg-white/[0.03] text-slate-200 hover:bg-white/[0.06]",
+                    ].join(" ")}
+                  >
+                    <Icon className="h-4 w-4" />
+                    {tab.label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          <div className="mt-3 flex flex-wrap gap-2">
+            {ligas.map((liga) => (
+              <button
+                key={String(liga)}
+                type="button"
+                onClick={() => setLigaAtiva(String(liga))}
+                className={[
+                  "inline-flex items-center gap-2 rounded-full border px-3 py-2 text-sm transition-all",
+                  ligaAtiva === liga
+                    ? "border-cyan-400/30 bg-cyan-500/12 text-cyan-200"
+                    : "border-white/8 bg-white/[0.03] text-slate-300 hover:bg-white/[0.06]",
+                ].join(" ")}
+              >
+                <Flag className="h-3.5 w-3.5" />
+                {liga === "todas" ? "Todas as ligas" : String(liga)}
+              </button>
+            ))}
+          </div>
         </div>
-        <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => refetch()}
-            disabled={isFetching}
-            className="border-[#2a3040] text-gray-400 hover:text-[#00ff88] hover:border-[#00ff88] h-8"
-          >
-            <RefreshCw className={`w-3.5 h-3.5 mr-1.5 ${isFetching ? "animate-spin" : ""}`} />
-            Atualizar
-          </Button>
-        </div>
-      </div>
 
-      {/* Seletor de datas */}
-      <div className="flex gap-1.5 overflow-x-auto pb-2 mb-4">
-        {gerarDatas().map(d => (
-          <button
-            key={d}
-            onClick={() => { setDataSelecionada(d); setLigasExpandidas(new Set()); }}
-            className={`flex-shrink-0 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
-              dataSelecionada === d
-                ? "bg-[#00ff88] text-black font-bold shadow-lg shadow-[#00ff88]/20"
-                : "bg-[#1a1f2e] text-gray-400 hover:text-white border border-[#2a3040] hover:border-[#00ff88]/40"
-            }`}
-          >
-            {formatDataBR(d)}
-          </button>
-        ))}
-      </div>
-
-      {/* Botões de navegação rápida */}
-      <div className="flex gap-2 mb-4 flex-wrap">
-        {[
-          { key: "todos", label: "Todos", count: data?.total ?? 0, icon: "📅" },
-          { key: "aovivo", label: "Ao Vivo", count: totalAoVivo, icon: "🔴" },
-          { key: "proximos", label: "Próximos", count: totalProximos, icon: "⏰" },
-          { key: "encerrados", label: "Encerrados", count: totalEncerrados, icon: "✅" },
-        ].map(({ key, label, count, icon }) => (
-          <button
-            key={key}
-            onClick={() => setAbaVista(key as any)}
-            className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold transition-all border ${
-              abaVista === key
-                ? key === "aovivo"
-                  ? "bg-green-500/20 text-green-400 border-green-500/40"
-                  : key === "proximos"
-                  ? "bg-blue-500/20 text-blue-400 border-blue-500/40"
-                  : key === "encerrados"
-                  ? "bg-amber-500/20 text-amber-300 border-amber-500/40"
-                  : "bg-[#00ff88]/20 text-[#00ff88] border-[#00ff88]/40"
-                : "bg-[#1a1f2e] text-gray-400 border-[#2a3040] hover:text-white"
-            }`}
-          >
-            <span>{icon}</span>
-            <span>{label}</span>
-            {count > 0 && (
-              <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-gray-700 text-gray-300`}>{count}</span>
-            )}
-          </button>
-        ))}
-      </div>
-
-      {/* Filtros Avançados */}
-      {todasLigas.length > 0 && (
-        <div className="mb-4">
-          <FiltroAvancado
-            filtros={filtros}
-            onChange={setFiltros}
-            ligasDisponiveis={ligasDisponiveis}
-            mostrarOdds
-          />
-          <p className="text-xs text-gray-500 mt-1">{ligasFiltradas.reduce((acc, l) => acc + l.jogos.length, 0)} jogo(s) encontrado(s) em {ligasFiltradas.length} liga(s)</p>
-        </div>
-      )}
-
-      {/* Métricas */}
-      {data && (
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-          {[
-            { icon: <Trophy className="w-5 h-5" />, label: "Total de Jogos", val: data.total, color: "#00ff88" },
-            { icon: <BarChart2 className="w-5 h-5" />, label: "Ligas", val: todasLigas.length, color: "#60a5fa" },
-            { icon: <Target className="w-5 h-5" />, label: "Com Odds", val: Object.keys(data.oddsMap).length, color: "#a78bfa" },
-            { icon: <Zap className="w-5 h-5" />, label: "Ao Vivo", val: todasLigas.reduce((acc, l) => acc + l.jogos.filter(j => ["1H","2H","HT","ET","P"].includes(j.fixture.status.short)).length, 0), color: "#fbbf24" },
-          ].map(({ icon, label, val, color }) => (
-            <Card key={label} className="bg-[#1a1f2e] border-[#2a3040]">
-              <CardContent className="p-4 flex items-center gap-3">
-                <div className="p-2 rounded-lg" style={{ backgroundColor: `${color}20`, color }}>{icon}</div>
-                <div>
-                  <p className="text-xs text-gray-400">{label}</p>
-                  <p className="text-2xl font-bold" style={{ color }}>{val}</p>
-                </div>
-              </CardContent>
-            </Card>
+        <div className="grid gap-3 2xl:grid-cols-2">
+          {jogos.map((jogo: any) => (
+            <CompactMatchCard
+              key={jogo.id}
+              match={jogo}
+              compact
+              onClick={() => {
+                window.location.href = liveIds.has(jogo.id) ? `/ao-vivo?jogo=${jogo.id}` : `/ao-vivo?jogo=${jogo.id}`;
+              }}
+            />
           ))}
         </div>
-      )}
 
-      {/* Loading */}
-      {isLoading && (
-        <div className="flex flex-col items-center justify-center py-20 gap-4">
-          <Loader2 className="w-10 h-10 animate-spin text-[#00ff88]" />
-          <p className="text-gray-400">Buscando jogos do dia na API Football...</p>
-        </div>
-      )}
-
-      {/* Erro */}
-      {error && (
-        <div className="bg-red-900/20 border border-red-500/30 rounded-xl p-6 text-center">
-          <AlertCircle className="w-8 h-8 text-red-400 mx-auto mb-2" />
-          <p className="text-red-400 font-semibold">Erro ao carregar jogos</p>
-          <p className="text-red-300/70 text-sm mt-1">{error.message}</p>
-          <Button variant="outline" size="sm" onClick={() => refetch()} className="mt-4 border-red-500/30 text-red-400">
-            Tentar novamente
-          </Button>
-        </div>
-      )}
-
-      {/* Jogos agrupados por liga */}
-      {!isLoading && !error && ligasFiltradas.length === 0 && (
-        <div className="text-center py-20 text-gray-500">
-          <Calendar className="w-12 h-12 mx-auto mb-3 opacity-30" />
-          <p className="text-lg">Nenhum jogo encontrado</p>
-          <p className="text-sm mt-1">Tente outra data ou remova os filtros</p>
-        </div>
-      )}
-
-      <div className="space-y-4">
-        {ligasFiltradas.map(({ liga, jogos }) => {
-          const expandida = ligasExpandidas.has(liga.id);
-          const jogosVisiveis = expandida ? jogos : jogos.slice(0, 3);
-
-          return (
-            <Card key={liga.id} className="bg-[#1a1f2e] border-[#2a3040]">
-              <CardHeader
-                className="pb-3 cursor-pointer hover:bg-[#1e2533] rounded-t-xl transition-colors"
-                onClick={() => toggleLiga(liga.id)}
-              >
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <img src={liga.logo} alt={liga.name} className="w-7 h-7 object-contain" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
-                    <div>
-                      <CardTitle className="text-white text-base">{liga.name}</CardTitle>
-                      <p className="text-xs text-gray-500">{liga.country}</p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Badge className="bg-[#0f1117] text-[#00ff88] border border-[#00ff88]/30">
-                      {jogos.length} jogo{jogos.length !== 1 ? "s" : ""}
-                    </Badge>
-                    {expandida ? <ChevronUp className="w-4 h-4 text-gray-400" /> : <ChevronDown className="w-4 h-4 text-gray-400" />}
-                  </div>
-                </div>
-              </CardHeader>
-              <CardContent className="pt-0">
-                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
-                  {jogosVisiveis.map((fixture) => {
-                    const oddsData = data?.oddsMap?.[fixture.fixture.id];
-                    const odds = oddsData ?? null;
-                    return (
-                      <JogoCard
-                        key={fixture.fixture.id}
-                        fixture={fixture as Parameters<typeof JogoCard>[0]["fixture"]}
-                        odds={odds}
-                        onClick={() => setJogoSelecionado({
-                          id: fixture.fixture.id,
-                          titulo: `${fixture.teams.home.name} vs ${fixture.teams.away.name}`,
-                        })}
-                      />
-                    );
-                  })}
-                </div>
-                {jogos.length > 3 && (
-                  <button
-                    className="mt-3 w-full text-xs text-gray-500 hover:text-[#00ff88] transition-colors py-2"
-                    onClick={() => toggleLiga(liga.id)}
-                  >
-                    {expandida ? "Mostrar menos" : `Ver mais ${jogos.length - 3} jogo(s)`}
-                  </button>
-                )}
-              </CardContent>
-            </Card>
-          );
-        })}
+        {jogos.length === 0 ? (
+          <div className="rounded-[26px] border border-dashed border-white/10 p-8 text-center text-sm text-slate-400">
+            Nenhum jogo encontrado para os filtros escolhidos.
+          </div>
+        ) : null}
       </div>
-
-      {/* Modal de detalhes */}
-      {jogoSelecionado && (
-        <ModalJogoHoje
-          fixtureId={jogoSelecionado.id}
-          titulo={jogoSelecionado.titulo}
-          onClose={() => setJogoSelecionado(null)}
-        />
-      )}
     </RaphaLayout>
   );
 }

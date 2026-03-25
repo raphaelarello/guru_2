@@ -3,7 +3,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Brain, TrendingUp, CheckCircle, AlertCircle, RefreshCw, Star } from 'lucide-react';
-import RaphaLayout from '@/components/RaphaLayout';
 import { toast } from 'sonner';
 
 interface Recomendacao {
@@ -192,7 +191,6 @@ export default function Recomendacoes() {
   };
 
   return (
-    <RaphaLayout title="Recomendações" subtitle="Sugestões e insights em formato mais claro, rápido e visual.">
     <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 p-6">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
@@ -347,6 +345,5 @@ export default function Recomendacoes() {
         </div>
       </div>
     </div>
-    </RaphaLayout>
   );
 }

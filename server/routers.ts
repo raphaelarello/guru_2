@@ -50,6 +50,7 @@ import {
 } from "./football";
 import { getArtilheirosAvancado } from "./artilheiros-premium";
 import { matchesRouter } from "./routers/matches";
+import { gerarAlertasCentral, resumirRadar } from "./services/motorCentral";
 
 export const appRouter = router({
   system: systemRouter,
@@ -312,6 +313,37 @@ export const appRouter = router({
         timestamp: Date.now(),
       };
     }),
+
+
+/** Central de alertas em tempo real */
+centralAlertas: publicProcedure.query(async () => {
+  const fixtures = await getLiveFixtures();
+  return gerarAlertasCentral(fixtures);
+}),
+
+/** Radar resumido por partida para o motor de pitacos */
+radarJogo: publicProcedure
+  .input(z.object({ fixtureId: z.number() }))
+  .query(async ({ input }) => {
+    const [fixture, stats, odds, prediction] = await Promise.allSettled([
+      getFixtureById(input.fixtureId),
+      getFixtureStatistics(input.fixtureId),
+      getLiveOdds(input.fixtureId),
+      getFixturePredictions(input.fixtureId),
+    ]);
+
+    const f = fixture.status === "fulfilled" ? fixture.value : null;
+    const s = stats.status === "fulfilled" ? stats.value : [];
+    const o = odds.status === "fulfilled" ? odds.value : null;
+    const p = prediction.status === "fulfilled" ? prediction.value : null;
+
+    if (!f) return { fixture: null, radar: [] };
+
+    const oportunidades = analisarOportunidades(f, s, o, p);
+    const radar = resumirRadar(f, s, oportunidades);
+    return { fixture: f, radar, oportunidades };
+  }),
+
   }),
 
   // ═══════════════════════════════════════════════════════════════════════
