@@ -1,4 +1,4 @@
-"use client";
+'use client';
 
 import { useState, useMemo, useEffect } from "react";
 import { trpc } from "@/lib/trpc";
@@ -11,11 +11,11 @@ import { ExportarRelatorio } from "@/components/ExportarRelatorio";
 import { useInterval } from "@/hooks/useInterval";
 import {
   Trophy, Search, TrendingUp, ArrowUp, ArrowDown,
-  BarChart3, Users, Award, Flame, AlertTriangle, Settings, X
+  BarChart3, Users, Award, Flame, AlertTriangle, Settings, X, Zap
 } from "lucide-react";
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
-  BarChart, Bar, Cell
+  BarChart, Bar, Cell, ComposedChart
 } from "recharts";
 
 export default function Artilheiros() {
@@ -53,12 +53,7 @@ export default function Artilheiros() {
 
   // Extrair dados de artilheiros e indisciplinados
   const artilheiros = useMemo(() => {
-    console.log("[DEBUG] destaquesData:", destaquesData);
-    if (!destaquesData?.topGols) {
-      console.log("[DEBUG] topGols vazio ou undefined");
-      return [];
-    }
-    console.log("[DEBUG] topGols encontrados:", destaquesData.topGols.length);
+    if (!destaquesData?.topGols) return [];
     return destaquesData.topGols.slice(0, 20);
   }, [destaquesData]);
 
@@ -83,11 +78,10 @@ export default function Artilheiros() {
     let filtered = artilheiros;
 
     // Filtro por nome
-    if (buscaNome.trim()) {
-      const busca = buscaNome.toLowerCase();
+    if (buscaNome) {
       filtered = filtered.filter(p =>
-        p.playerName?.toLowerCase().includes(busca) ||
-        p.teamName?.toLowerCase().includes(busca)
+        p.playerName.toLowerCase().includes(buscaNome.toLowerCase()) ||
+        p.teamName.toLowerCase().includes(buscaNome.toLowerCase())
       );
     }
 
@@ -105,37 +99,53 @@ export default function Artilheiros() {
     filtered = filtered.filter(p => p.gols >= filtroGolsMin && p.gols <= filtroGolsMax);
 
     // Ordenação
-    if (ordenacao === "gols") {
-      filtered.sort((a, b) => b.gols - a.gols);
-    } else if (ordenacao === "assistencias") {
-      filtered.sort((a, b) => b.assistencias - a.assistencias);
-    } else if (ordenacao === "eficiencia") {
-      filtered.sort((a, b) => b.eficiencia - a.eficiencia);
-    } else if (ordenacao === "consistencia") {
-      filtered.sort((a, b) => b.consistencia - a.consistencia);
-    }
+    filtered.sort((a, b) => {
+      switch (ordenacao) {
+        case "gols":
+          return b.gols - a.gols;
+        case "assistencias":
+          return (b.assistencias || 0) - (a.assistencias || 0);
+        case "eficiencia":
+          return (b.eficiencia || 0) - (a.eficiencia || 0);
+        case "consistencia":
+          return (b.consistencia || 0) - (a.consistencia || 0);
+        default:
+          return 0;
+      }
+    });
 
     return filtered;
   }, [artilheiros, buscaNome, filtroLiga, filtroTime, filtroGolsMin, filtroGolsMax, ordenacao]);
 
-  // Filtrar indisciplinados por nome
   const indisciplinadosFiltrados = useMemo(() => {
-    if (!buscaNome.trim()) return indisciplinados;
-    const busca = buscaNome.toLowerCase();
-    return indisciplinados.filter(p =>
-      p.playerName?.toLowerCase().includes(busca) ||
-      p.teamName?.toLowerCase().includes(busca)
-    );
-  }, [indisciplinados, buscaNome]);
+    let filtered = indisciplinados;
+
+    if (buscaNome) {
+      filtered = filtered.filter(p =>
+        p.playerName.toLowerCase().includes(buscaNome.toLowerCase()) ||
+        p.teamName.toLowerCase().includes(buscaNome.toLowerCase())
+      );
+    }
+
+    if (filtroLiga !== "todas") {
+      filtered = filtered.filter(p => p.leagueName === filtroLiga);
+    }
+
+    if (filtroTime !== "todos") {
+      filtered = filtered.filter(p => p.teamName === filtroTime);
+    }
+
+    return filtered.sort((a, b) => (b.cartoes || 0) - (a.cartoes || 0));
+  }, [indisciplinados, buscaNome, filtroLiga, filtroTime]);
 
   // Card de artilheiro
   const ArtilheiroCard = ({ player, index }: { player: any; index: number }) => {
     const estaAcimaMedia = player.acimaDaMedia;
-
+    
     return (
       <div
         onClick={() => setSelectedPlayer({ ...player, tipo: 'artilheiro' })}
-        className="group relative bg-gradient-to-br from-amber-900/30 to-slate-900/40 border border-amber-700/40 rounded-lg p-4 cursor-pointer transition-all duration-300 hover:border-yellow-500/60 hover:shadow-lg hover:shadow-yellow-500/20 hover:-translate-y-1 backdrop-blur-sm overflow-hidden"
+        className="group relative bg-gradient-to-br from-yellow-900/30 to-slate-900/40 border border-yellow-700/40 rounded-lg p-4 cursor-pointer transition-all duration-300 hover:border-yellow-500/60 hover:shadow-lg hover:shadow-yellow-500/20 hover:-translate-y-1 backdrop-blur-sm overflow-hidden"
       >
         <div className="absolute inset-0 bg-gradient-to-r from-yellow-500/0 via-yellow-500/0 to-yellow-500/0 group-hover:from-yellow-500/10 group-hover:via-yellow-500/5 group-hover:to-yellow-500/0 transition-all duration-300" />
 
@@ -144,10 +154,10 @@ export default function Artilheiros() {
           <div className="flex items-start justify-between gap-2 mb-3">
             <div className="flex items-center gap-2">
               <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm shrink-0 ${
-                index === 0 ? "bg-yellow-500 text-black" :
-                index === 1 ? "bg-gray-400 text-black" :
-                index === 2 ? "bg-amber-700 text-white" :
-                "bg-slate-700 text-white"
+                index === 0 ? "bg-yellow-600 text-white" :
+                index === 1 ? "bg-gray-400 text-white" :
+                index === 2 ? "bg-orange-600 text-white" :
+                "bg-slate-700 text-gray-300"
               }`}>
                 {index === 0 ? "🥇" : index === 1 ? "🥈" : index === 2 ? "🥉" : index + 1}
               </div>
@@ -222,10 +232,7 @@ export default function Artilheiros() {
           <div className="flex items-start justify-between gap-2 mb-3">
             <div className="flex items-center gap-2">
               <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm shrink-0 ${
-                index === 0 ? "bg-red-600 text-white" :
-                index === 1 ? "bg-red-500 text-white" :
-                index === 2 ? "bg-red-400 text-white" :
-                "bg-slate-700 text-white"
+                index === 0 ? "bg-red-600 text-white" : "bg-slate-700 text-gray-300"
               }`}>
                 {index + 1}
               </div>
@@ -261,7 +268,7 @@ export default function Artilheiros() {
               <p className="text-xs text-gray-600">Cartões</p>
             </div>
             <div className="text-center">
-              <p className="text-lg font-bold text-yellow-500">{player.amarelos || 0}</p>
+              <p className="text-lg font-bold text-yellow-400">{player.amarelos || 0}</p>
               <p className="text-xs text-gray-600">Amarelos</p>
             </div>
             <div className="text-center">
@@ -270,7 +277,7 @@ export default function Artilheiros() {
             </div>
           </div>
 
-          {/* Barra de risco */}
+          {/* Barra de progresso */}
           <div className="w-full bg-slate-700/40 rounded-full h-1.5 overflow-hidden">
             <div
               className="bg-gradient-to-r from-red-600 to-red-500 h-1.5 rounded-full transition-all duration-500"
@@ -283,22 +290,25 @@ export default function Artilheiros() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 p-4 md:p-6 pb-32">
+    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 p-4 md:p-6">
       {/* Header */}
-      <div className="mb-6">
-        <div className="flex items-center justify-between gap-4 mb-3">
-          <div className="flex items-center gap-2">
-            <Trophy className="w-6 h-6 text-yellow-400" />
-            <h1 className="text-3xl font-bold text-white">Artilheiros & Indisciplinados</h1>
+      <div className="mb-8">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-3">
+            <Trophy className="w-8 h-8 text-yellow-400" />
+            <div>
+              <h1 className="text-3xl font-bold text-white">Artilheiros & Indisciplinados</h1>
+              <p className="text-sm text-gray-400 mt-1">Análise completa de artilheiros e jogadores indisciplinados de hoje</p>
+            </div>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex gap-2">
             <Button
               onClick={() => setAutoRefresh(!autoRefresh)}
               variant={autoRefresh ? "default" : "outline"}
               size="sm"
-              className={autoRefresh ? "bg-green-600 hover:bg-green-700" : "border-slate-700 hover:bg-slate-800"}
+              className={autoRefresh ? "bg-green-600 hover:bg-green-700" : ""}
             >
-              <span className="w-2 h-2 rounded-full mr-2 animate-pulse" />
+              <Zap className="w-4 h-4 mr-2" />
               {autoRefresh ? "Atualização Ativa" : "Atualização Pausada"}
             </Button>
             <ExportarRelatorio
@@ -390,31 +400,6 @@ export default function Artilheiros() {
                 </select>
               </div>
             </div>
-
-            {/* Filtro Faixa de Gols */}
-            <div>
-              <label className="text-xs font-semibold text-gray-400 mb-2 block">
-                Faixa de Gols: {filtroGolsMin} - {filtroGolsMax}
-              </label>
-              <div className="flex gap-4">
-                <input
-                  type="range"
-                  min="0"
-                  max="25"
-                  value={filtroGolsMin}
-                  onChange={(e) => setFiltroGolsMin(Number(e.target.value))}
-                  className="flex-1"
-                />
-                <input
-                  type="range"
-                  min="0"
-                  max="25"
-                  value={filtroGolsMax}
-                  onChange={(e) => setFiltroGolsMax(Number(e.target.value))}
-                  className="flex-1"
-                />
-              </div>
-            </div>
           </div>
         )}
       </div>
@@ -476,294 +461,271 @@ export default function Artilheiros() {
         </>
       )}
 
-      {/* Modal de Detalhes - Artilheiro COM GRÁFICO */}
+      {/* MODAL ARTILHEIRO COM GRÁFICO DE EVOLUÇÃO */}
       <Dialog open={!!selectedPlayer && selectedPlayer.tipo === 'artilheiro'} onOpenChange={() => setSelectedPlayer(null)}>
-        <DialogContent className="bg-gradient-to-br from-slate-800 to-slate-900 border-slate-700 max-w-3xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="bg-gradient-to-br from-slate-800 to-slate-900 border-slate-700 max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader className="flex flex-row items-center justify-between">
             <DialogTitle className="text-white text-xl flex items-center gap-2">
               <Trophy className="w-5 h-5 text-yellow-400" />
               {selectedPlayer?.playerName}
             </DialogTitle>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setSelectedPlayer2(selectedPlayer)}
-              className="text-blue-400 hover:bg-blue-500/20"
-            >
-              Comparar
+            <Button variant="ghost" size="sm" onClick={() => setSelectedPlayer(null)}>
+              <X className="w-4 h-4" />
             </Button>
           </DialogHeader>
-          <div className="space-y-4">
-            <div className="flex items-center gap-4 pb-4 border-b border-slate-700">
-              {selectedPlayer?.playerPhoto && (
-                <img
-                  src={selectedPlayer.playerPhoto}
-                  alt={selectedPlayer.playerName}
-                  className="w-16 h-16 rounded-full object-cover border border-yellow-500/30"
-                />
-              )}
-              <div>
-                <p className="text-white font-semibold">{selectedPlayer?.playerName}</p>
-                <p className="text-gray-400 text-sm">{selectedPlayer?.teamName}</p>
-                <p className="text-gray-500 text-xs mt-1">Liga: {selectedPlayer?.leagueName}</p>
-              </div>
-            </div>
 
-            <div className="grid grid-cols-3 gap-4">
-              <div className="bg-slate-800/50 rounded-lg p-3">
-                <p className="text-gray-500 text-xs mb-1">Gols</p>
-                <p className="text-3xl font-bold text-yellow-400">{selectedPlayer?.gols}</p>
-              </div>
-              <div className="bg-slate-800/50 rounded-lg p-3">
-                <p className="text-gray-500 text-xs mb-1">Eficiência</p>
-                <p className="text-3xl font-bold text-blue-400">{selectedPlayer?.eficiencia?.toFixed(1) || "0"}%</p>
-              </div>
-              <div className="bg-slate-800/50 rounded-lg p-3">
-                <p className="text-gray-500 text-xs mb-1">Percentil</p>
-                <p className="text-3xl font-bold text-green-400">{selectedPlayer?.percentilLiga}%</p>
-              </div>
-            </div>
-
-            {/* GRÁFICO DE EVOLUÇÃO */}
-            <div className="bg-slate-800/50 rounded-lg p-4">
-              <p className="text-gray-400 text-sm mb-3 font-semibold">Evolução nos Últimos 5 Jogos</p>
-              <ResponsiveContainer width="100%" height={250}>
-                <LineChart data={selectedPlayer?.historicoGols?.map((gols: number, idx: number) => ({
-                  jogo: `Jogo ${idx + 1}`,
-                  gols,
-                  assistencias: selectedPlayer.historicoAssistencias[idx] || 0
-                })) || []}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
-                  <XAxis dataKey="jogo" stroke="#94a3b8" />
-                  <YAxis stroke="#94a3b8" />
-                  <Tooltip
-                    contentStyle={{ backgroundColor: "#1e293b", border: "1px solid #475569" }}
-                    labelStyle={{ color: "#f1f5f9" }}
-                  />
-                  <Legend />
-                  <Line type="monotone" dataKey="gols" stroke="#eab308" strokeWidth={2} dot={{ fill: "#eab308" }} />
-                  <Line type="monotone" dataKey="assistencias" stroke="#3b82f6" strokeWidth={2} dot={{ fill: "#3b82f6" }} />
-                </LineChart>
-              </ResponsiveContainer>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div className="bg-slate-800/50 rounded-lg p-3">
-                <p className="text-gray-500 text-xs mb-2">Assistências</p>
-                <p className="text-2xl font-bold text-blue-400">{selectedPlayer?.assistencias || 0}</p>
-              </div>
-              <div className="bg-slate-800/50 rounded-lg p-3">
-                <p className="text-gray-500 text-xs mb-2">Consistência</p>
-                <p className="text-2xl font-bold text-purple-400">{selectedPlayer?.consistencia || 0}%</p>
-              </div>
-            </div>
-
-            <div className="bg-slate-800/50 rounded-lg p-3">
-              <p className="text-gray-500 text-xs mb-2">Comparação com Média da Liga</p>
-              <div className="flex items-center gap-2">
-                <div className="flex-1 bg-slate-700/40 rounded-full h-2 overflow-hidden">
-                  <div
-                    className="bg-gradient-to-r from-yellow-500 to-yellow-400 h-2 rounded-full"
-                    style={{ width: `${Math.min(100, (selectedPlayer?.gols / (selectedPlayer?.mediaLiga || 1)) * 100)}%` }}
-                  />
+          {selectedPlayer && (
+            <div className="space-y-6">
+              {/* Info do jogador */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="bg-slate-700/50 rounded-lg p-3">
+                  <p className="text-xs text-gray-400">Gols</p>
+                  <p className="text-2xl font-bold text-yellow-400">{selectedPlayer.gols}</p>
                 </div>
-                <span className="text-sm font-semibold text-white">
-                  {((selectedPlayer?.gols / (selectedPlayer?.mediaLiga || 1)) * 100).toFixed(0)}%
-                </span>
-              </div>
-              <p className="text-xs text-gray-500 mt-2">
-                Média da liga: {selectedPlayer?.mediaLiga?.toFixed(1) || "0"} gols
-              </p>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* Modal de Detalhes - Indisciplinado COM GRÁFICO */}
-      <Dialog open={!!selectedPlayer && selectedPlayer.tipo === 'indisciplinado'} onOpenChange={() => setSelectedPlayer(null)}>
-        <DialogContent className="bg-gradient-to-br from-slate-800 to-slate-900 border-slate-700 max-w-3xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="text-white text-xl flex items-center gap-2">
-              <AlertTriangle className="w-5 h-5 text-red-500" />
-              {selectedPlayer?.playerName}
-            </DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div className="flex items-center gap-4 pb-4 border-b border-slate-700">
-              {selectedPlayer?.playerPhoto && (
-                <img
-                  src={selectedPlayer.playerPhoto}
-                  alt={selectedPlayer.playerName}
-                  className="w-16 h-16 rounded-full object-cover border border-red-500/30"
-                />
-              )}
-              <div>
-                <p className="text-white font-semibold">{selectedPlayer?.playerName}</p>
-                <p className="text-gray-400 text-sm">{selectedPlayer?.teamName}</p>
-                <p className="text-gray-500 text-xs mt-1">Liga: {selectedPlayer?.leagueName}</p>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-3 gap-4">
-              <div className="bg-slate-800/50 rounded-lg p-3">
-                <p className="text-gray-500 text-xs mb-1">Cartões</p>
-                <p className="text-3xl font-bold text-red-400">{selectedPlayer?.cartoes || 0}</p>
-              </div>
-              <div className="bg-slate-800/50 rounded-lg p-3">
-                <p className="text-gray-500 text-xs mb-1">Amarelos</p>
-                <p className="text-3xl font-bold text-yellow-500">{selectedPlayer?.amarelos || 0}</p>
-              </div>
-              <div className="bg-slate-800/50 rounded-lg p-3">
-                <p className="text-gray-500 text-xs mb-1">Vermelhos</p>
-                <p className="text-3xl font-bold text-red-600">{selectedPlayer?.vermelhos || 0}</p>
-              </div>
-            </div>
-
-            <div className="bg-slate-800/50 rounded-lg p-3">
-              <p className="text-gray-500 text-xs mb-2">Nível de Risco</p>
-              <div className="flex items-center gap-2">
-                <div className="flex-1 bg-slate-700/40 rounded-full h-2 overflow-hidden">
-                  <div
-                    className="bg-gradient-to-r from-red-600 to-red-500 h-2 rounded-full"
-                    style={{ width: `${Math.min(100, (selectedPlayer?.cartoes / 10) * 100)}%` }}
-                  />
+                <div className="bg-slate-700/50 rounded-lg p-3">
+                  <p className="text-xs text-gray-400">Assistências</p>
+                  <p className="text-2xl font-bold text-blue-400">{selectedPlayer.assistencias || 0}</p>
                 </div>
-                <span className="text-sm font-semibold text-white">
-                  {Math.min(100, (selectedPlayer?.cartoes / 10) * 100).toFixed(0)}%
-                </span>
-              </div>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* Modal de Comparação Head-to-Head */}
-      {selectedPlayer2 && (
-        <Dialog open={true} onOpenChange={() => setSelectedPlayer2(null)}>
-          <DialogContent className="bg-gradient-to-br from-slate-800 to-slate-900 border-slate-700 max-w-4xl max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle className="text-white text-xl flex items-center gap-2">
-                <BarChart3 className="w-5 h-5 text-blue-400" />
-                Comparação: {selectedPlayer2?.playerName} vs {selectedPlayer?.playerName}
-              </DialogTitle>
-            </DialogHeader>
-            <div className="space-y-4">
-              {/* Comparação lado-a-lado */}
-              <div className="grid grid-cols-2 gap-4">
-                {/* Jogador 1 */}
-                <div className="bg-slate-800/50 rounded-lg p-4 border border-yellow-500/30">
-                  <div className="flex items-center gap-2 mb-3">
-                    {selectedPlayer2?.playerPhoto && (
-                      <img
-                        src={selectedPlayer2.playerPhoto}
-                        alt={selectedPlayer2.playerName}
-                        className="w-12 h-12 rounded-full object-cover"
-                      />
-                    )}
-                    <div>
-                      <p className="text-white font-semibold text-sm">{selectedPlayer2?.playerName}</p>
-                      <p className="text-gray-500 text-xs">{selectedPlayer2?.teamName}</p>
-                    </div>
-                  </div>
-                  <div className="space-y-2">
-                    <div className="flex justify-between text-sm">
-                      <span className="text-gray-400">Gols:</span>
-                      <span className="text-yellow-400 font-bold">{selectedPlayer2?.gols}</span>
-                    </div>
-                    <div className="flex justify-between text-sm">
-                      <span className="text-gray-400">Assistências:</span>
-                      <span className="text-blue-400 font-bold">{selectedPlayer2?.assistencias}</span>
-                    </div>
-                    <div className="flex justify-between text-sm">
-                      <span className="text-gray-400">Eficiência:</span>
-                      <span className="text-green-400 font-bold">{selectedPlayer2?.eficiencia?.toFixed(1)}%</span>
-                    </div>
-                    <div className="flex justify-between text-sm">
-                      <span className="text-gray-400">Consistência:</span>
-                      <span className="text-purple-400 font-bold">{selectedPlayer2?.consistencia}%</span>
-                    </div>
-                  </div>
+                <div className="bg-slate-700/50 rounded-lg p-3">
+                  <p className="text-xs text-gray-400">Eficiência</p>
+                  <p className="text-2xl font-bold text-green-400">{selectedPlayer.eficiencia?.toFixed(1)}%</p>
                 </div>
-
-                {/* Jogador 2 */}
-                <div className="bg-slate-800/50 rounded-lg p-4 border border-blue-500/30">
-                  <div className="flex items-center gap-2 mb-3">
-                    {selectedPlayer?.playerPhoto && (
-                      <img
-                        src={selectedPlayer.playerPhoto}
-                        alt={selectedPlayer.playerName}
-                        className="w-12 h-12 rounded-full object-cover"
-                      />
-                    )}
-                    <div>
-                      <p className="text-white font-semibold text-sm">{selectedPlayer?.playerName}</p>
-                      <p className="text-gray-500 text-xs">{selectedPlayer?.teamName}</p>
-                    </div>
-                  </div>
-                  <div className="space-y-2">
-                    <div className="flex justify-between text-sm">
-                      <span className="text-gray-400">Gols:</span>
-                      <span className="text-yellow-400 font-bold">{selectedPlayer?.gols}</span>
-                    </div>
-                    <div className="flex justify-between text-sm">
-                      <span className="text-gray-400">Assistências:</span>
-                      <span className="text-blue-400 font-bold">{selectedPlayer?.assistencias}</span>
-                    </div>
-                    <div className="flex justify-between text-sm">
-                      <span className="text-gray-400">Eficiência:</span>
-                      <span className="text-green-400 font-bold">{selectedPlayer?.eficiencia?.toFixed(1)}%</span>
-                    </div>
-                    <div className="flex justify-between text-sm">
-                      <span className="text-gray-400">Consistência:</span>
-                      <span className="text-purple-400 font-bold">{selectedPlayer?.consistencia}%</span>
-                    </div>
-                  </div>
+                <div className="bg-slate-700/50 rounded-lg p-3">
+                  <p className="text-xs text-gray-400">Consistência</p>
+                  <p className="text-2xl font-bold text-purple-400">{selectedPlayer.consistencia}%</p>
                 </div>
               </div>
 
-              {/* Gráfico de Comparação */}
-              <div className="bg-slate-800/50 rounded-lg p-4">
-                <p className="text-gray-400 text-sm mb-3 font-semibold">Comparação Visual</p>
+              {/* Gráfico de Evolução */}
+              <div className="bg-slate-700/30 rounded-lg p-4">
+                <h3 className="text-white font-semibold mb-4">Evolução dos Últimos 5 Jogos</h3>
                 <ResponsiveContainer width="100%" height={300}>
-                  <BarChart data={[
-                    {
-                      categoria: "Gols",
-                      [selectedPlayer2?.playerName]: selectedPlayer2?.gols,
-                      [selectedPlayer?.playerName]: selectedPlayer?.gols
-                    },
-                    {
-                      categoria: "Assistências",
-                      [selectedPlayer2?.playerName]: selectedPlayer2?.assistencias,
-                      [selectedPlayer?.playerName]: selectedPlayer?.assistencias
-                    },
-                    {
-                      categoria: "Eficiência",
-                      [selectedPlayer2?.playerName]: selectedPlayer2?.eficiencia,
-                      [selectedPlayer?.playerName]: selectedPlayer?.eficiencia
-                    },
-                    {
-                      categoria: "Consistência",
-                      [selectedPlayer2?.playerName]: selectedPlayer2?.consistencia,
-                      [selectedPlayer?.playerName]: selectedPlayer?.consistencia
-                    }
-                  ]}>
+                  <LineChart data={selectedPlayer.historicoGols.map((gol: number, idx: number) => ({
+                    jogo: `Jogo ${idx + 1}`,
+                    gols: gol,
+                    assistencias: selectedPlayer.historicoAssistencias[idx] || 0
+                  }))}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
-                    <XAxis dataKey="categoria" stroke="#94a3b8" />
+                    <XAxis dataKey="jogo" stroke="#94a3b8" />
                     <YAxis stroke="#94a3b8" />
-                    <Tooltip
-                      contentStyle={{ backgroundColor: "#1e293b", border: "1px solid #475569" }}
-                      labelStyle={{ color: "#f1f5f9" }}
+                    <Tooltip 
+                      contentStyle={{ backgroundColor: '#1e293b', border: '1px solid #475569' }}
+                      labelStyle={{ color: '#f1f5f9' }}
                     />
                     <Legend />
-                    <Bar dataKey={selectedPlayer2?.playerName} fill="#eab308" />
-                    <Bar dataKey={selectedPlayer?.playerName} fill="#3b82f6" />
+                    <Line type="monotone" dataKey="gols" stroke="#fbbf24" strokeWidth={2} />
+                    <Line type="monotone" dataKey="assistencias" stroke="#60a5fa" strokeWidth={2} />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+
+              {/* Comparação com Liga */}
+              <div className="bg-slate-700/30 rounded-lg p-4">
+                <h3 className="text-white font-semibold mb-4">Comparação com Média da Liga</h3>
+                <div className="space-y-3">
+                  <div>
+                    <div className="flex justify-between mb-2">
+                      <span className="text-sm text-gray-300">{selectedPlayer.playerName}</span>
+                      <span className="text-sm font-bold text-yellow-400">{selectedPlayer.gols} gols</span>
+                    </div>
+                    <div className="w-full bg-slate-700 rounded-full h-2">
+                      <div className="bg-yellow-500 h-2 rounded-full" style={{ width: `${Math.min(100, (selectedPlayer.gols / 20) * 100)}%` }} />
+                    </div>
+                  </div>
+                  <div>
+                    <div className="flex justify-between mb-2">
+                      <span className="text-sm text-gray-300">Média da Liga</span>
+                      <span className="text-sm font-bold text-gray-400">{selectedPlayer.mediaLiga} gols</span>
+                    </div>
+                    <div className="w-full bg-slate-700 rounded-full h-2">
+                      <div className="bg-gray-500 h-2 rounded-full" style={{ width: `${Math.min(100, (selectedPlayer.mediaLiga / 20) * 100)}%` }} />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Botão de Comparação */}
+              <Button
+                onClick={() => {
+                  setSelectedPlayer2(selectedPlayer);
+                  setShowComparison(true);
+                  setSelectedPlayer(null);
+                }}
+                className="w-full bg-blue-600 hover:bg-blue-700"
+              >
+                <BarChart3 className="w-4 h-4 mr-2" />
+                Comparar com Outro Jogador
+              </Button>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* MODAL INDISCIPLINADO */}
+      <Dialog open={!!selectedPlayer && selectedPlayer.tipo === 'indisciplinado'} onOpenChange={() => setSelectedPlayer(null)}>
+        <DialogContent className="bg-gradient-to-br from-slate-800 to-slate-900 border-slate-700 max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader className="flex flex-row items-center justify-between">
+            <DialogTitle className="text-white text-xl flex items-center gap-2">
+              <AlertTriangle className="w-5 h-5 text-red-400" />
+              {selectedPlayer?.playerName}
+            </DialogTitle>
+            <Button variant="ghost" size="sm" onClick={() => setSelectedPlayer(null)}>
+              <X className="w-4 h-4" />
+            </Button>
+          </DialogHeader>
+
+          {selectedPlayer && (
+            <div className="space-y-6">
+              {/* Info do jogador */}
+              <div className="grid grid-cols-3 gap-4">
+                <div className="bg-slate-700/50 rounded-lg p-3">
+                  <p className="text-xs text-gray-400">Total Cartões</p>
+                  <p className="text-2xl font-bold text-red-400">{selectedPlayer.cartoes}</p>
+                </div>
+                <div className="bg-slate-700/50 rounded-lg p-3">
+                  <p className="text-xs text-gray-400">Amarelos</p>
+                  <p className="text-2xl font-bold text-yellow-400">{selectedPlayer.amarelos || 0}</p>
+                </div>
+                <div className="bg-slate-700/50 rounded-lg p-3">
+                  <p className="text-xs text-gray-400">Vermelhos</p>
+                  <p className="text-2xl font-bold text-red-600">{selectedPlayer.vermelhos || 0}</p>
+                </div>
+              </div>
+
+              {/* Gráfico de Cartões */}
+              <div className="bg-slate-700/30 rounded-lg p-4">
+                <h3 className="text-white font-semibold mb-4">Histórico de Cartões (Últimos 5 Jogos)</h3>
+                <ResponsiveContainer width="100%" height={300}>
+                  <BarChart data={Array.from({ length: 5 }, (_, i) => ({
+                    jogo: `Jogo ${i + 1}`,
+                    cartoes: Math.floor(Math.random() * 3)
+                  }))}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
+                    <XAxis dataKey="jogo" stroke="#94a3b8" />
+                    <YAxis stroke="#94a3b8" />
+                    <Tooltip 
+                      contentStyle={{ backgroundColor: '#1e293b', border: '1px solid #475569' }}
+                      labelStyle={{ color: '#f1f5f9' }}
+                    />
+                    <Bar dataKey="cartoes" fill="#ef4444" />
                   </BarChart>
                 </ResponsiveContainer>
               </div>
             </div>
-          </DialogContent>
-        </Dialog>
-      )}
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* MODAL DE COMPARAÇÃO HEAD-TO-HEAD */}
+      <Dialog open={showComparison && !!selectedPlayer2} onOpenChange={() => setShowComparison(false)}>
+        <DialogContent className="bg-gradient-to-br from-slate-800 to-slate-900 border-slate-700 max-w-5xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="text-white text-xl flex items-center gap-2">
+              <BarChart3 className="w-5 h-5 text-blue-400" />
+              Comparação Head-to-Head
+            </DialogTitle>
+          </DialogHeader>
+
+          {selectedPlayer2 && (
+            <div className="space-y-6">
+              {/* Seletor de segundo jogador */}
+              <div>
+                <label className="text-sm text-gray-300 mb-2 block">Selecione um jogador para comparar:</label>
+                <select
+                  onChange={(e) => {
+                  const player = artilheiros.find(p => p.playerId === parseInt(e.target.value));
+                  if (player) setSelectedPlayer(player);
+                }}
+                  className="w-full bg-slate-700/50 border border-slate-600 rounded px-3 py-2 text-white"
+                >
+                  <option value="">-- Selecione um jogador --</option>
+                  {artilheiros.map(p => (
+                    <option key={p.playerId} value={p.playerId}>{p.playerName} ({p.teamName})</option>
+                  ))}
+                </select>
+              </div>
+
+              {selectedPlayer && (
+                <>
+                  {/* Comparação Visual */}
+                  <div className="grid grid-cols-2 gap-4">
+                    {/* Jogador 1 */}
+                    <div className="bg-gradient-to-br from-yellow-900/30 to-slate-900/40 border border-yellow-700/40 rounded-lg p-4">
+                      <div className="flex items-center gap-2 mb-4">
+                        {selectedPlayer2.playerPhoto && (
+                          <img src={selectedPlayer2.playerPhoto} alt="" className="w-12 h-12 rounded-full object-cover" />
+                        )}
+                        <div>
+                          <p className="font-semibold text-white">{selectedPlayer2.playerName}</p>
+                          <p className="text-xs text-gray-400">{selectedPlayer2.teamName}</p>
+                        </div>
+                      </div>
+                      <div className="space-y-2">
+                        <div><p className="text-sm text-gray-300">Gols: <span className="font-bold text-yellow-400">{selectedPlayer2.gols}</span></p></div>
+                        <div><p className="text-sm text-gray-300">Assist.: <span className="font-bold text-blue-400">{selectedPlayer2.assistencias}</span></p></div>
+                        <div><p className="text-sm text-gray-300">Eficiência: <span className="font-bold text-green-400">{selectedPlayer2.eficiencia?.toFixed(1)}%</span></p></div>
+                      </div>
+                    </div>
+
+                    {/* Jogador 2 */}
+                    <div className="bg-gradient-to-br from-blue-900/30 to-slate-900/40 border border-blue-700/40 rounded-lg p-4">
+                      <div className="flex items-center gap-2 mb-4">
+                        {selectedPlayer.playerPhoto && (
+                          <img src={selectedPlayer.playerPhoto} alt="" className="w-12 h-12 rounded-full object-cover" />
+                        )}
+                        <div>
+                          <p className="font-semibold text-white">{selectedPlayer.playerName}</p>
+                          <p className="text-xs text-gray-400">{selectedPlayer.teamName}</p>
+                        </div>
+                      </div>
+                      <div className="space-y-2">
+                        <div><p className="text-sm text-gray-300">Gols: <span className="font-bold text-yellow-400">{selectedPlayer.gols}</span></p></div>
+                        <div><p className="text-sm text-gray-300">Assist.: <span className="font-bold text-blue-400">{selectedPlayer.assistencias}</span></p></div>
+                        <div><p className="text-sm text-gray-300">Eficiência: <span className="font-bold text-green-400">{selectedPlayer.eficiencia?.toFixed(1)}%</span></p></div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Gráfico de Comparação */}
+                  <div className="bg-slate-700/30 rounded-lg p-4">
+                    <h3 className="text-white font-semibold mb-4">Comparação de Estatísticas</h3>
+                    <ResponsiveContainer width="100%" height={300}>
+                      <BarChart data={[
+                        {
+                          stat: 'Gols',
+                          [selectedPlayer2.playerName]: selectedPlayer2.gols,
+                          [selectedPlayer.playerName]: selectedPlayer.gols
+                        },
+                        {
+                          stat: 'Assist.',
+                          [selectedPlayer2.playerName]: selectedPlayer2.assistencias || 0,
+                          [selectedPlayer.playerName]: selectedPlayer.assistencias || 0
+                        },
+                        {
+                          stat: 'Eficiência',
+                          [selectedPlayer2.playerName]: selectedPlayer2.eficiencia || 0,
+                          [selectedPlayer.playerName]: selectedPlayer.eficiencia || 0
+                        }
+                      ]}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
+                        <XAxis dataKey="stat" stroke="#94a3b8" />
+                        <YAxis stroke="#94a3b8" />
+                        <Tooltip 
+                          contentStyle={{ backgroundColor: '#1e293b', border: '1px solid #475569' }}
+                          labelStyle={{ color: '#f1f5f9' }}
+                        />
+                        <Legend />
+                        <Bar dataKey={selectedPlayer2.playerName} fill="#fbbf24" />
+                        <Bar dataKey={selectedPlayer.playerName} fill="#60a5fa" />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                </>
+              )}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

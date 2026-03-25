@@ -555,3 +555,13 @@
 - [x] Implementar lógica de exportação PDF com tabelas e gráficos
 - [x] Integrar botão de exportação na página Artilheiros
 - [x] Testar atualização automática e exportações
+
+
+### Fase 42 — Modais com Gráficos, Comparação Head-to-Head e API Football Real
+- [x] Implementar modais com line chart de evolução dos últimos 5 jogos
+- [x] Adicionar gráficos nos modais de artilheiros e indisciplinados
+- [x] Criar modal de comparação head-to-head entre 2 jogadores com gráfico de barras
+- [x] Integrar API Football real para dados de artilheiros (sem dados simulados)
+- [x] Implementar cache inteligente para não exceder limite de 7500 req/dia
+- [x] Gerenciar requisições entre 1h e 7h da manhã (horário Brasil)
+- [x] Testar todas as 3 funcionalidades
