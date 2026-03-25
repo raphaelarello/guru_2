@@ -12,6 +12,7 @@ import {
   Trophy, Search, ChevronRight, Star, Globe, Users,
   Calendar, TrendingUp, Zap, Target, ArrowRight, Shield
 } from "lucide-react";
+import RaphaLayout from "@/components/RaphaLayout";
 
 const TEMPORADA_ATUAL = 2024;
 
@@ -95,6 +96,7 @@ export default function Ligas() {
   }, [tabela, totalGols]);
 
   return (
+    <RaphaLayout title="Ligas" subtitle="Competições organizadas com filtros, destaques e visão muito mais premium.">
     <div className="p-4 md:p-6 space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between flex-wrap gap-3">
@@ -564,5 +566,6 @@ export default function Ligas() {
         </div>
       </div>
     </div>
+    </RaphaLayout>
   );
 }

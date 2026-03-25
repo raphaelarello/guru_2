@@ -1,378 +1,283 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Link, useLocation } from "wouter";
-import { AnimatePresence, motion } from "framer-motion";
+import { useLocation } from "wouter";
 import { useAuth } from "@/_core/hooks/useAuth";
 import {
   Activity,
-  BarChart2,
-  Bell,
+  BellRing,
   Bot,
   Calendar,
   ChevronRight,
   Clock3,
   Flame,
-  LayoutDashboard,
+  Home,
   LogOut,
   Menu,
+  Radio,
   Settings,
   ShieldCheck,
   Sparkles,
   Trophy,
   Users,
-  Wifi,
-  WifiOff,
+  Wallet,
   X,
-  Zap,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { cn } from "@/lib/utils";
-import { trpc } from "@/lib/trpc";
 import { useSSE } from "@/hooks/useSSE";
 import { useNotifications } from "@/hooks/useNotifications";
+import { cn } from "@/lib/utils";
 
-const mainNav = [
-  { path: "/painel", label: "Painel", icon: LayoutDashboard, badge: "HQ" },
-  { path: "/ao-vivo", label: "Ao Vivo", icon: Activity, badge: "Live" },
-  { path: "/jogos-hoje", label: "Jogos de Hoje", icon: Calendar },
+const primaryNav = [
+  { path: "/painel", label: "Painel", icon: Home },
+  { path: "/ao-vivo", label: "Ao Vivo", icon: Radio, badge: "LIVE" },
+  { path: "/jogos-hoje", label: "Jogos", icon: Calendar },
   { path: "/pitacos", label: "Pitacos", icon: Sparkles },
-  { path: "/apostas", label: "Apostas", icon: Zap },
-  { path: "/destaques", label: "Destaques", icon: Flame },
-  { path: "/estatisticas", label: "Estatísticas", icon: BarChart2 },
-  { path: "/times", label: "Times", icon: Users },
-  { path: "/ligas", label: "Ligas", icon: Trophy },
-  { path: "/configuracoes", label: "Configurações", icon: Settings },
+  { path: "/bots", label: "Bots", icon: Bot },
+  { path: "/apostas", label: "Kelly", icon: Wallet },
 ];
 
-const quickNav = [
-  { path: "/bots", label: "Bots IA", icon: Bot },
-  { path: "/auditoria", label: "Auditoria", icon: ShieldCheck },
-  { path: "/historico-ao-vivo", label: "Histórico", icon: Clock3 },
+const secondaryNav = [
+  { path: "/times", label: "Times", icon: Users },
+  { path: "/ligas", label: "Ligas", icon: Trophy },
+  { path: "/estatisticas", label: "Estatísticas", icon: Activity },
+  { path: "/configuracoes", label: "Configurações", icon: Settings },
 ];
 
 interface RaphaLayoutProps {
   children: React.ReactNode;
   title?: string;
-  eyebrow?: string;
-  actions?: React.ReactNode;
+  subtitle?: string;
 }
 
-function initialsFromName(name?: string | null) {
+function initials(name?: string | null) {
   if (!name) return "RG";
   return name
     .split(" ")
-    .filter(Boolean)
     .slice(0, 2)
-    .map((part) => part[0]?.toUpperCase())
+    .map(p => p[0]?.toUpperCase())
     .join("");
 }
 
-export default function RaphaLayout({
-  children,
-  title = "Rapha Guru",
-  eyebrow = "Sistema esportivo premium",
-  actions,
-}: RaphaLayoutProps) {
-  const [location, navigate] = useLocation();
+export default function RaphaLayout({ children, title, subtitle }: RaphaLayoutProps) {
+  const [location] = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
-  const { user, isAuthenticated, logout } = useAuth();
-  const counts = useNotifications();
+  const { user, isAuthenticated, logout, loading } = useAuth();
+  const notificationCounts = useNotifications();
   const { connected, naoLidas } = useSSE({ enabled: isAuthenticated });
-  const alertasQuery = trpc.alertas.list.useQuery(undefined, { enabled: isAuthenticated });
-  const alertasPendentes = alertasQuery.data?.filter((a) => a.resultado === "pendente").length ?? 0;
 
-  const unreadCount = naoLidas + (counts.alertas || 0) + alertasPendentes;
+  const pageMeta = useMemo(() => {
+    const item = [...primaryNav, ...secondaryNav].find(entry => location.startsWith(entry.path));
+    return {
+      label: title ?? item?.label ?? "Rapha Guru",
+      subtitle:
+        subtitle ??
+        (location === "/ao-vivo"
+          ? "Monitoramento em tempo real com destaque para jogos quentes."
+          : location === "/pitacos"
+          ? "Predições, confiança e valor em uma experiência mais premium."
+          : "Painel esportivo moderno, rápido e orientado a ação."),
+    };
+  }, [location, subtitle, title]);
 
-  const topStatus = useMemo(
-    () => [
-      {
-        label: connected ? "Ao vivo conectado" : "Reconectando",
-        value: connected ? "Realtime" : "Offline",
-        icon: connected ? Wifi : WifiOff,
-        tone: connected ? "text-emerald-300" : "text-red-300",
-      },
-      {
-        label: "Alertas",
-        value: String(alertasPendentes),
-        icon: Bell,
-        tone: unreadCount > 0 ? "text-cyan-300" : "text-slate-300",
-      },
-      {
-        label: "Sinais",
-        value: String(counts.pitacos || 0),
-        icon: Sparkles,
-        tone: "text-lime-300",
-      },
-    ],
-    [connected, unreadCount, counts.pitacos, alertasPendentes],
+  const shell = (
+    <aside className="flex h-full w-full flex-col rounded-[30px] border border-white/10 bg-black/20 p-4 backdrop-blur-xl">
+      <div className="hero-glow sports-surface rounded-[28px] p-4">
+        <div className="mb-3 flex items-center gap-3">
+          <div className="flex size-11 items-center justify-center rounded-2xl bg-primary/20 text-primary shadow-[0_0_24px_rgba(124,255,93,0.18)]">
+            <Flame className="size-5" />
+          </div>
+          <div>
+            <p className="text-[11px] uppercase tracking-[0.28em] text-primary/80">Rapha Guru</p>
+            <h1 className="text-lg font-black">Sports Intelligence</h1>
+          </div>
+        </div>
+        <p className="text-sm text-muted-foreground text-balance">
+          Produto esportivo mais rápido, visual e vivo para operação diária.
+        </p>
+      </div>
+
+      <div className="mt-5 space-y-2">
+        <p className="px-3 text-[11px] font-semibold uppercase tracking-[0.24em] text-muted-foreground">Core</p>
+        {primaryNav.map(item => {
+          const Icon = item.icon;
+          const active = location === item.path || location.startsWith(`${item.path}/`);
+          const count =
+            item.path === "/bots"
+              ? notificationCounts.bots
+              : item.path === "/ao-vivo"
+              ? notificationCounts.aoVivo
+              : item.path === "/pitacos"
+              ? notificationCounts.pitacos
+              : 0;
+
+          return (
+            <a
+              key={item.path}
+              href={item.path}
+              className={cn(
+                "group flex items-center gap-3 rounded-2xl border px-3 py-3 text-sm font-semibold transition-all",
+                active
+                  ? "border-primary/30 bg-primary text-primary-foreground shadow-[0_12px_30px_rgba(124,255,93,0.16)]"
+                  : "border-transparent bg-white/[0.03] text-slate-200 hover:border-white/10 hover:bg-white/[0.06]"
+              )}
+            >
+              <span
+                className={cn(
+                  "flex size-9 items-center justify-center rounded-xl border transition-colors",
+                  active ? "border-black/10 bg-black/15" : "border-white/10 bg-black/15 group-hover:border-primary/25"
+                )}
+              >
+                <Icon className="size-4" />
+              </span>
+              <span className="flex-1">{item.label}</span>
+              {item.badge && (
+                <span className={cn("chip text-[10px]", active ? "border-black/10 bg-black/15 text-white" : "chip-live")}>
+                  {item.badge}
+                </span>
+              )}
+              {!!count && !item.badge && <span className="chip chip-success">{count}</span>}
+            </a>
+          );
+        })}
+      </div>
+
+      <div className="mt-5 space-y-2">
+        <p className="px-3 text-[11px] font-semibold uppercase tracking-[0.24em] text-muted-foreground">Explorar</p>
+        {secondaryNav.map(item => {
+          const Icon = item.icon;
+          const active = location === item.path || location.startsWith(`${item.path}/`);
+          return (
+            <a
+              key={item.path}
+              href={item.path}
+              className={cn(
+                "group flex items-center gap-3 rounded-2xl border px-3 py-3 text-sm font-semibold transition-all",
+                active
+                  ? "border-primary/25 bg-primary/10 text-primary"
+                  : "border-transparent bg-white/[0.02] text-slate-300 hover:border-white/10 hover:bg-white/[0.05]"
+              )}
+            >
+              <span className={cn("flex size-9 items-center justify-center rounded-xl border", active ? "border-primary/25 bg-primary/10" : "border-white/10 bg-black/15")}>
+                <Icon className="size-4" />
+              </span>
+              <span className="flex-1">{item.label}</span>
+              <ChevronRight className="size-4 opacity-40 transition-transform group-hover:translate-x-0.5" />
+            </a>
+          );
+        })}
+      </div>
+
+      <div className="mt-auto space-y-3 rounded-[24px] border border-white/10 bg-white/[0.03] p-4">
+        <div className="flex items-center justify-between">
+          <span className="chip chip-info">
+            <Clock3 className="size-3.5" />
+            Tempo real
+          </span>
+          <span className={cn("chip", connected ? "chip-success" : "border-amber-500/30 bg-amber-500/10 text-amber-300")}>
+            {connected ? "Conectado" : "Reconectando"}
+          </span>
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <div className="rounded-2xl border border-white/10 bg-black/15 p-3">
+            <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">Alertas</p>
+            <p className="mt-2 text-2xl font-black">{naoLidas}</p>
+          </div>
+          <div className="rounded-2xl border border-white/10 bg-black/15 p-3">
+            <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">Bots</p>
+            <p className="mt-2 text-2xl font-black">{notificationCounts.bots}</p>
+          </div>
+        </div>
+      </div>
+    </aside>
   );
 
-  if (!isAuthenticated) {
+  if (!isAuthenticated && !loading) {
     return (
-      <div className="flex min-h-screen items-center justify-center px-4">
-        <motion.div
-          initial={{ opacity: 0, y: 28 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="glass-card-strong gradient-outline relative w-full max-w-lg overflow-hidden rounded-[28px] p-8 text-center"
-        >
-          <div className="pointer-events-none absolute inset-0 field-lines opacity-25" />
-          <div className="relative space-y-5">
-            <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-3xl bg-lime-400/15 text-lime-300 shadow-[0_0_50px_rgba(163,230,53,0.12)]">
-              <Trophy className="h-8 w-8" />
+      <div className="min-h-screen p-4 md:p-8">
+        <div className="mx-auto flex min-h-[calc(100vh-2rem)] max-w-5xl items-center justify-center rounded-[32px] border border-white/10 bg-black/20 p-8 backdrop-blur-xl">
+          <div className="hero-glow sports-surface max-w-xl rounded-[32px] p-8 text-center">
+            <div className="mx-auto flex size-16 items-center justify-center rounded-[22px] bg-primary/20 text-primary">
+              <ShieldCheck className="size-8" />
             </div>
-            <div className="space-y-2">
-              <p className="sport-chip mx-auto w-fit border-lime-400/30 bg-lime-400/10 text-lime-200">Rapha Guru</p>
-              <h1 className="sport-title">Inteligência esportiva com cara de produto premium</h1>
-              <p className="mx-auto max-w-md text-sm leading-6 text-slate-300">
-                Redesenhamos a casca para deixar o sistema mais veloz, visual e memorável, mantendo sua operação intacta.
-              </p>
-            </div>
-            <Button
-              size="lg"
-              className="h-12 rounded-2xl bg-lime-400 px-6 text-slate-950 hover:bg-lime-300"
-              onClick={() => {
-                window.location.href = "/api/oauth/login";
-              }}
-            >
+            <h1 className="mt-6 text-4xl font-black tracking-tight">Rapha Guru</h1>
+            <p className="mt-3 text-lg text-muted-foreground text-balance">
+              Acesso premium ao seu cockpit esportivo. Visual novo, navegação mais rápida e leitura muito mais clara.
+            </p>
+            <Button className="mt-8" size="lg" onClick={() => (window.location.href = "/api/oauth/login")}>
               Entrar no sistema
-              <ChevronRight className="h-4 w-4" />
             </Button>
           </div>
-        </motion.div>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="relative min-h-screen overflow-hidden">
-      <div className="pointer-events-none absolute inset-0">
-        <div className="absolute -left-24 top-16 h-80 w-80 rounded-full bg-cyan-400/10 blur-[120px]" />
-        <div className="absolute right-0 top-0 h-96 w-96 rounded-full bg-lime-400/10 blur-[140px]" />
-        <div className="absolute bottom-0 left-1/3 h-72 w-72 rounded-full bg-blue-500/10 blur-[120px]" />
-      </div>
+    <div className="min-h-screen p-3 md:p-5">
+      <div className="mx-auto flex min-h-[calc(100vh-1.5rem)] max-w-[1800px] gap-4">
+        <div className="hidden w-[310px] shrink-0 xl:block">{shell}</div>
 
-      <div className="relative mx-auto flex min-h-screen max-w-[1800px]">
-        <AnimatePresence>
-          {(mobileOpen || typeof window === "undefined") && (
-            <motion.button
-              initial={{ opacity: 0 }}
-              animate={{ opacity: mobileOpen ? 1 : 0 }}
-              exit={{ opacity: 0 }}
-              onClick={() => setMobileOpen(false)}
-              className={cn(
-                "fixed inset-0 z-40 bg-slate-950/70 backdrop-blur-sm lg:hidden",
-                !mobileOpen && "pointer-events-none",
-              )}
-            />
-          )}
-        </AnimatePresence>
+        {mobileOpen && (
+          <div className="fixed inset-0 z-50 bg-black/60 xl:hidden" onClick={() => setMobileOpen(false)}>
+            <div className="h-full w-[320px] p-3" onClick={e => e.stopPropagation()}>
+              {shell}
+            </div>
+          </div>
+        )}
 
-        <motion.aside
-          initial={false}
-          animate={{ x: mobileOpen ? 0 : -20, opacity: mobileOpen || typeof window === "undefined" ? 1 : 1 }}
-          className={cn(
-            "glass-card-strong fixed inset-y-3 left-3 z-50 flex w-[290px] flex-col overflow-hidden rounded-[30px] border-white/10 lg:sticky lg:left-0 lg:top-0 lg:z-10 lg:m-3 lg:h-[calc(100vh-24px)] lg:translate-x-0",
-            mobileOpen ? "translate-x-0" : "-translate-x-[110%] lg:translate-x-0",
-          )}
-        >
-          <div className="border-b border-white/8 p-5">
-            <div className="flex items-center justify-between gap-3">
-              <div>
-                <p className="sport-chip w-fit bg-lime-400/10 text-lime-200">Sports OS</p>
-                <h1 className="mt-3 text-2xl font-black tracking-[-0.05em] text-white">Rapha Guru</h1>
-                <p className="mt-1 text-sm text-slate-400">Radar ao vivo, insights e execução rápida.</p>
-              </div>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="rounded-2xl lg:hidden"
-                onClick={() => setMobileOpen(false)}
-              >
-                <X className="h-5 w-5" />
+        <div className="flex min-w-0 flex-1 flex-col gap-4">
+          <header className="glass-panel sticky top-3 z-40 rounded-[28px] border px-4 py-3 md:px-5">
+            <div className="flex items-center gap-3">
+              <Button variant="outline" size="icon" className="xl:hidden" onClick={() => setMobileOpen(v => !v)}>
+                {mobileOpen ? <X className="size-4" /> : <Menu className="size-4" />}
               </Button>
-            </div>
-          </div>
 
-          <div className="space-y-6 overflow-y-auto px-4 py-5">
-            <div className="space-y-2">
-              <p className="px-3 text-[11px] font-bold uppercase tracking-[0.24em] text-slate-500">Navegação</p>
-              <nav className="space-y-2">
-                {mainNav.map((item) => {
-                  const isActive = location === item.path || (location === "/" && item.path === "/painel");
-                  const Icon = item.icon;
-                  return (
-                    <Link key={item.path} href={item.path}>
-                      <a
-                        onClick={() => setMobileOpen(false)}
-                        className={cn(
-                          "group flex items-center justify-between rounded-2xl border px-3 py-3 transition-all duration-300",
-                          isActive
-                            ? "border-lime-400/35 bg-lime-400/12 text-white shadow-[0_0_40px_rgba(163,230,53,0.10)]"
-                            : "border-white/6 bg-white/[0.025] text-slate-300 hover:border-white/12 hover:bg-white/[0.05]",
-                        )}
-                      >
-                        <span className="flex items-center gap-3">
-                          <span
-                            className={cn(
-                              "flex h-10 w-10 items-center justify-center rounded-2xl border transition-all",
-                              isActive
-                                ? "border-lime-400/35 bg-lime-400/15 text-lime-200"
-                                : "border-white/8 bg-slate-900/70 text-slate-400 group-hover:text-white",
-                            )}
-                          >
-                            <Icon className="h-4 w-4" />
-                          </span>
-                          <span>
-                            <span className="block text-sm font-semibold">{item.label}</span>
-                            <span className="block text-xs text-slate-500">
-                              {item.path === "/ao-vivo"
-                                ? "Monitoramento em tempo real"
-                                : item.path === "/pitacos"
-                                ? "Recomendações e sinais"
-                                : "Navegação principal"}
-                            </span>
-                          </span>
-                        </span>
-                        {item.badge ? (
-                          <span className="rounded-full border border-white/10 bg-white/5 px-2 py-1 text-[10px] font-bold uppercase tracking-[0.15em] text-slate-300">
-                            {item.badge}
-                          </span>
-                        ) : (
-                          <ChevronRight className="h-4 w-4 text-slate-600 transition-transform group-hover:translate-x-0.5" />
-                        )}
-                      </a>
-                    </Link>
-                  );
-                })}
-              </nav>
-            </div>
-
-            <div className="space-y-2">
-              <p className="px-3 text-[11px] font-bold uppercase tracking-[0.24em] text-slate-500">Atalhos</p>
-              <div className="grid grid-cols-1 gap-2">
-                {quickNav.map((item) => {
-                  const Icon = item.icon;
-                  return (
-                    <Link key={item.path} href={item.path}>
-                      <a
-                        onClick={() => setMobileOpen(false)}
-                        className="flex items-center gap-3 rounded-2xl border border-white/8 bg-white/[0.03] px-3 py-3 text-sm text-slate-300 transition hover:border-cyan-400/30 hover:bg-cyan-400/8 hover:text-white"
-                      >
-                        <span className="flex h-9 w-9 items-center justify-center rounded-xl border border-white/8 bg-slate-950/70 text-cyan-300">
-                          <Icon className="h-4 w-4" />
-                        </span>
-                        {item.label}
-                      </a>
-                    </Link>
-                  );
-                })}
+              <div className="min-w-0 flex-1">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="chip chip-live animate-pulse-ring">
+                    <Radio className="size-3" />
+                    LIVE UI
+                  </span>
+                  <span className="chip chip-info">
+                    <BellRing className="size-3.5" />
+                    {naoLidas} notificações
+                  </span>
+                </div>
+                <div className="mt-3 flex flex-col gap-1 md:flex-row md:items-end md:justify-between">
+                  <div className="min-w-0">
+                    <h2 className="truncate text-2xl font-black md:text-3xl">{pageMeta.label}</h2>
+                    <p className="text-sm text-muted-foreground">{pageMeta.subtitle}</p>
+                  </div>
+                  <div className="hidden items-center gap-2 md:flex">
+                    <span className="chip">
+                      <Activity className="size-3.5" />
+                      Operação ativa
+                    </span>
+                    <span className={cn("chip", connected ? "chip-success" : "border-amber-500/30 bg-amber-500/10 text-amber-300")}>
+                      {connected ? "SSE OK" : "Reconectando"}
+                    </span>
+                  </div>
+                </div>
               </div>
-            </div>
-          </div>
 
-          <div className="border-t border-white/8 p-4">
-            <div className="glass-card rounded-[24px] p-3">
-              <div className="flex items-center gap-3">
-                <Avatar className="h-11 w-11 border border-white/10 bg-slate-900/80">
-                  <AvatarFallback className="bg-slate-800 text-slate-100">
-                    {initialsFromName((user as any)?.name || (user as any)?.email)}
-                  </AvatarFallback>
+              <div className="hidden items-center gap-3 md:flex">
+                <div className="rounded-2xl border border-white/10 bg-white/[0.04] px-3 py-2 text-right">
+                  <p className="text-[11px] uppercase tracking-[0.2em] text-muted-foreground">Usuário</p>
+                  <p className="max-w-[160px] truncate text-sm font-semibold">{(user as any)?.name ?? "Operador"}</p>
+                </div>
+                <Avatar className="size-11 border border-white/10">
+                  <AvatarFallback className="bg-primary/20 text-primary">{initials((user as any)?.name)}</AvatarFallback>
                 </Avatar>
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-semibold text-white">{(user as any)?.name || "Operador"}</p>
-                  <p className="truncate text-xs text-slate-400">{(user as any)?.email || "Sessão autenticada"}</p>
-                </div>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="rounded-xl text-slate-300 hover:bg-red-500/10 hover:text-red-300"
-                  onClick={() => logout?.()}
-                >
-                  <LogOut className="h-4 w-4" />
+                <Button variant="outline" size="icon" onClick={() => void logout()}>
+                  <LogOut className="size-4" />
                 </Button>
-              </div>
-            </div>
-          </div>
-        </motion.aside>
-
-        <div className="flex min-w-0 flex-1 flex-col px-3 pb-3 pt-3 lg:pl-0">
-          <header className="glass-card-strong sticky top-3 z-30 overflow-hidden rounded-[28px] px-4 py-4 sm:px-5">
-            <div className="pointer-events-none absolute inset-0 field-lines opacity-[0.08]" />
-            <div className="relative flex flex-col gap-4">
-              <div className="flex items-center justify-between gap-3">
-                <div className="flex items-center gap-3">
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="rounded-2xl border border-white/10 bg-white/5 lg:hidden"
-                    onClick={() => setMobileOpen(true)}
-                  >
-                    <Menu className="h-5 w-5" />
-                  </Button>
-                  <div>
-                    <p className="text-xs font-bold uppercase tracking-[0.22em] text-slate-500">{eyebrow}</p>
-                    <h2 className="mt-1 text-2xl font-black tracking-[-0.05em] text-white sm:text-3xl">{title}</h2>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  {actions}
-                  <Link href="/notificacoes">
-                    <a className="relative flex h-11 w-11 items-center justify-center rounded-2xl border border-white/10 bg-white/5 text-slate-200 transition hover:border-cyan-400/35 hover:bg-cyan-400/10">
-                      <Bell className="h-5 w-5" />
-                      {unreadCount > 0 && (
-                        <span className="absolute -right-1.5 -top-1.5 min-w-[1.35rem] rounded-full bg-red-500 px-1.5 py-0.5 text-center text-[10px] font-bold text-white">
-                          {unreadCount > 99 ? "99+" : unreadCount}
-                        </span>
-                      )}
-                    </a>
-                  </Link>
-                </div>
-              </div>
-
-              <div className="grid gap-3 xl:grid-cols-[1.6fr_1fr]">
-                <div className="glass-card rounded-[24px] px-4 py-3">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="sport-chip border-red-400/30 bg-red-500/10 text-red-200">
-                      <span className="live-dot" />
-                      cobertura ao vivo
-                    </span>
-                    <span className="text-sm text-slate-300">
-                      Interface redesenhada para leitura rápida, tomada de decisão e sensação de produto premium.
-                    </span>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-3 gap-2">
-                  {topStatus.map((item) => {
-                    const Icon = item.icon;
-                    return (
-                      <div key={item.label} className="glass-card rounded-[22px] px-3 py-3">
-                        <div className="flex items-center justify-between gap-2">
-                          <Icon className={cn("h-4 w-4", item.tone)} />
-                          <span className={cn("text-sm font-black tracking-[-0.04em]", item.tone)}>{item.value}</span>
-                        </div>
-                        <p className="mt-2 text-[11px] uppercase tracking-[0.18em] text-slate-500">{item.label}</p>
-                      </div>
-                    );
-                  })}
-                </div>
               </div>
             </div>
           </header>
 
-          <main className="min-h-0 flex-1 py-4">
-            <motion.div
-              key={location}
-              initial={{ opacity: 0, y: 14 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.28, ease: "easeOut" }}
-              className="min-h-[calc(100vh-170px)]"
-            >
-              {children}
-            </motion.div>
-          </main>
+          <main className="min-h-0 flex-1">{children}</main>
         </div>
       </div>
     </div>

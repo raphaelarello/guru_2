@@ -6,6 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Download, TrendingUp, TrendingDown, Target } from 'lucide-react';
+import RaphaLayout from '@/components/RaphaLayout';
 
 // Dados simulados de evolução dos últimos 30 dias
 const dadosEvolucao = [
@@ -74,6 +75,7 @@ export default function Estatisticas() {
   };
 
   return (
+    <RaphaLayout title="Estatísticas" subtitle="Leitura visual de performance, tendências e evolução do modelo.">
     <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 p-4 md:p-8">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
@@ -268,5 +270,6 @@ export default function Estatisticas() {
         </Card>
       </div>
     </div>
+    </RaphaLayout>
   );
 }
