@@ -302,12 +302,119 @@ export default function Bots() {
               </CardContent>
             </Card>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-6">
+              {/* ─── RANKING DE PERFORMANCE ─────────────────────────────────────────────── */}
+              {(() => {
+                const comSinais = bots.filter(b => b.totalSinais > 0).sort((a, b) => {
+                  const taxaA = a.totalSinais > 0 ? (a.totalAcertos / a.totalSinais) * 100 : 0;
+                  const taxaB = b.totalSinais > 0 ? (b.totalAcertos / b.totalSinais) * 100 : 0;
+                  return taxaB - taxaA;
+                });
+                if (comSinais.length === 0) return null;
+                const top3 = comSinais.slice(0, 3);
+                const medalhas = [
+                  { emoji: "🥇", label: "1º Lugar", bg: "from-yellow-500/20 to-amber-500/10", border: "border-yellow-500/50", text: "text-yellow-400", stroke: "#eab308" },
+                  { emoji: "🥈", label: "2º Lugar", bg: "from-slate-400/20 to-slate-500/10", border: "border-slate-400/50", text: "text-slate-300", stroke: "#94a3b8" },
+                  { emoji: "🥉", label: "3º Lugar", bg: "from-amber-700/20 to-amber-800/10", border: "border-amber-700/50", text: "text-amber-600", stroke: "#b45309" },
+                ];
+                return (
+                  <div className="bg-card border border-border rounded-2xl overflow-hidden">
+                    <div className="flex items-center gap-3 px-5 py-4 border-b border-border bg-gradient-to-r from-primary/5 to-transparent">
+                      <Trophy className="w-5 h-5 text-yellow-400" />
+                      <div>
+                        <h3 className="font-bold text-foreground text-sm">Ranking de Performance</h3>
+                        <p className="text-[11px] text-muted-foreground">Atualizado automaticamente com cada resultado</p>
+                      </div>
+                      <span className="ml-auto text-[10px] text-muted-foreground bg-muted/50 px-2 py-1 rounded-full">{comSinais.length} bot(s) com dados</span>
+                    </div>
+
+                    {/* Pódio Top 3 */}
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 p-4">
+                      {top3.map((bot, idx) => {
+                        const taxa = bot.totalSinais > 0 ? Math.round((bot.totalAcertos / bot.totalSinais) * 100) : 0;
+                        const historico = (bot.historicoPerformance as Array<{data: string; taxa: number}> | null) ?? [];
+                        const m = medalhas[idx];
+                        const sparkW = 80; const sparkH = 28;
+                        const maxTaxa = Math.max(...historico.map(h => h.taxa), 100);
+                        const pts = historico.slice(-10);
+                        const pontos = pts.map((h, i) => {
+                          const x = pts.length <= 1 ? sparkW / 2 : (i / (pts.length - 1)) * sparkW;
+                          const y = sparkH - (h.taxa / maxTaxa) * sparkH;
+                          return `${x},${y}`;
+                        }).join(" ");
+                        return (
+                          <div key={bot.id} className={`relative bg-gradient-to-br ${m.bg} border-2 ${m.border} rounded-xl p-4 shadow-lg`}>
+                            <div className="absolute -top-3 left-1/2 -translate-x-1/2">
+                              <span className="text-2xl">{m.emoji}</span>
+                            </div>
+                            <div className="mt-3 text-center">
+                              <p className={`text-[10px] font-bold ${m.text} uppercase tracking-wider mb-1`}>{m.label}</p>
+                              <p className="font-bold text-foreground text-sm truncate">{bot.nome}</p>
+                              <div className={`text-3xl font-black ${m.text} my-2`}>{taxa}%</div>
+                              <p className="text-[10px] text-muted-foreground">{bot.totalAcertos}/{bot.totalSinais} acertos</p>
+                              {historico.length >= 2 && (
+                                <div className="mt-2 flex justify-center">
+                                  <svg width={sparkW} height={sparkH} className="opacity-80">
+                                    <polyline points={pontos} fill="none" stroke={m.stroke} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                                    {pts.map((h, i) => {
+                                      const x = pts.length <= 1 ? sparkW / 2 : (i / (pts.length - 1)) * sparkW;
+                                      const y = sparkH - (h.taxa / maxTaxa) * sparkH;
+                                      return <circle key={i} cx={x} cy={y} r="2.5" fill={m.stroke} />;
+                                    })}
+                                  </svg>
+                                </div>
+                              )}
+                              <div className={`mt-2 text-[10px] font-semibold px-2 py-0.5 rounded-full inline-block ${
+                                taxa >= 70 ? "bg-green-500/20 text-green-400" :
+                                taxa >= 50 ? "bg-yellow-500/20 text-yellow-400" :
+                                "bg-red-500/20 text-red-400"
+                              }`}>
+                                {taxa >= 70 ? "🔥 Excelente" : taxa >= 50 ? "⚡ Bom" : "📉 Abaixo"}
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    {/* Tabela do restante */}
+                    {comSinais.length > 3 && (
+                      <div className="px-4 pb-4">
+                        <p className="text-[11px] text-muted-foreground mb-2 font-medium">Demais bots</p>
+                        <div className="space-y-1.5">
+                          {comSinais.slice(3).map((bot, idx) => {
+                            const taxa = bot.totalSinais > 0 ? Math.round((bot.totalAcertos / bot.totalSinais) * 100) : 0;
+                            return (
+                              <div key={bot.id} className="flex items-center gap-3 bg-muted/20 rounded-lg px-3 py-2">
+                                <span className="text-xs text-muted-foreground w-5 text-center font-bold">#{idx + 4}</span>
+                                <span className="flex-1 text-xs text-foreground font-medium truncate">{bot.nome}</span>
+                                <div className="flex items-center gap-2">
+                                  <div className="w-20 h-1.5 bg-muted rounded-full overflow-hidden">
+                                    <div className="h-full bg-primary rounded-full transition-all" style={{ width: `${taxa}%` }} />
+                                  </div>
+                                  <span className={`text-xs font-bold w-10 text-right ${
+                                    taxa >= 70 ? "text-green-400" : taxa >= 50 ? "text-yellow-400" : "text-red-400"
+                                  }`}>{taxa}%</span>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
+
+              {/* ─── CARDS DE BOTS ────────────────────────────────────────────────────────── */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {bots.map(bot => {
                 const filtros = bot.filtros as FiltrosBot | null;
                 const temFiltros = filtros && (filtros.ligasIds?.length > 0 || filtros.minutoMin > 0 || filtros.minutoMax < 90 || filtros.oddsMin > 1.20 || filtros.oddsMax < 10);
+                const taxa = bot.totalSinais > 0 ? Math.round((bot.totalAcertos / bot.totalSinais) * 100) : 0;
+                const isTopPerformer = bot.totalSinais >= 5 && taxa >= 70;
                 return (
-                  <Card key={bot.id} className={`bg-card border-border transition-all ${bot.ativo ? "border-primary/30 neon-glow" : ""}`}>
+                  <Card key={bot.id} className={`bg-card border-border transition-all ${bot.ativo ? "border-primary/30 neon-glow" : ""} ${isTopPerformer ? "ring-1 ring-yellow-500/30" : ""}`}>
                     <CardContent className="p-4">
                       <div className="flex items-start justify-between mb-3">
                         <div className="flex items-center gap-3">
@@ -315,8 +422,13 @@ export default function Bots() {
                             <Bot className={`w-5 h-5 ${bot.ativo ? "text-primary" : "text-muted-foreground"}`} />
                           </div>
                           <div>
-                            <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-2 flex-wrap">
                               <h3 className="font-semibold text-foreground">{bot.nome}</h3>
+                              {isTopPerformer && (
+                                <span className="text-[10px] bg-yellow-500/20 text-yellow-400 border border-yellow-500/30 px-1.5 py-0.5 rounded-full font-bold flex items-center gap-1">
+                                  🏆 Top Performer
+                                </span>
+                              )}
                               {temFiltros && (
                                 <Tooltip>
                                   <TooltipTrigger>
@@ -341,10 +453,27 @@ export default function Bots() {
                           <p className="text-[10px] text-muted-foreground">Acertos</p>
                         </div>
                         <div className="bg-muted/50 rounded-lg p-2 text-center">
-                          <p className="text-sm font-bold text-primary">{bot.confiancaMinima}%</p>
-                          <p className="text-[10px] text-muted-foreground">Confiança</p>
+                          <p className={`text-sm font-bold ${taxa >= 70 ? "text-green-400" : taxa >= 50 ? "text-yellow-400" : bot.totalSinais === 0 ? "text-primary" : "text-red-400"}`}>
+                            {bot.totalSinais === 0 ? `${bot.confiancaMinima}%` : `${taxa}%`}
+                          </p>
+                          <p className="text-[10px] text-muted-foreground">{bot.totalSinais === 0 ? "Confiança" : "Taxa"}</p>
                         </div>
                       </div>
+                      {/* Barra de performance */}
+                      {bot.totalSinais > 0 && (
+                        <div className="mb-3">
+                          <div className="flex justify-between text-[10px] text-muted-foreground mb-1">
+                            <span>Performance</span>
+                            <span className={taxa >= 70 ? "text-green-400" : taxa >= 50 ? "text-yellow-400" : "text-red-400"}>{taxa}%</span>
+                          </div>
+                          <div className="h-1.5 bg-muted rounded-full overflow-hidden">
+                            <div
+                              className={`h-full rounded-full transition-all ${taxa >= 70 ? "bg-green-500" : taxa >= 50 ? "bg-yellow-500" : "bg-red-500"}`}
+                              style={{ width: `${taxa}%` }}
+                            />
+                          </div>
+                        </div>
+                      )}
                       {/* Filtros resumidos */}
                       {temFiltros && filtros && (
                         <div className="flex flex-wrap gap-1 mb-3">
@@ -353,6 +482,7 @@ export default function Bots() {
                           {filtros.oddsMin > 1.20 && <span className="badge-green text-[10px]">Odd ≥ {filtros.oddsMin}</span>}
                           {filtros.evMin > 0 && <span className="badge-green text-[10px]">EV ≥ {filtros.evMin}%</span>}
                           {filtros.apenasAoVivo && <span className="badge-red text-[10px]">Só Ao Vivo</span>}
+                          {filtros.ligasIds?.length === 0 && <span className="text-[10px] text-green-400/70">🌍 Todas as ligas</span>}
                         </div>
                       )}
                       <div className="flex items-center justify-between">
@@ -370,6 +500,7 @@ export default function Bots() {
                   </Card>
                 );
               })}
+              </div>
             </div>
           )}
         </TabsContent>
@@ -544,13 +675,55 @@ export default function Bots() {
               </button>
               {mostrarFiltrosAvancados && (
                 <div className="p-4 space-y-5">
-                  {/* Ligas */}
+                  {/* Ligas — Toggle visual */}
                   <div>
-                    <Label className="text-foreground text-sm flex items-center gap-2 mb-2">
-                      🏆 Ligas Específicas
-                      <span className="text-[10px] text-muted-foreground">(vazio = todas as ligas)</span>
+                    <Label className="text-foreground text-sm mb-3 block font-semibold">
+                      🏆 Cobertura de Ligas
                     </Label>
-                    <FiltroLigas ligasSelecionadas={novoFiltros.ligasIds} onChange={v => setNovoFiltros(p => ({ ...p, ligasIds: v }))} placeholder="Selecionar ligas..." />
+                    <div className="grid grid-cols-2 gap-2 mb-3">
+                      <button
+                        type="button"
+                        onClick={() => setNovoFiltros(p => ({ ...p, ligasIds: [] }))}
+                        className={`flex flex-col items-center gap-1.5 p-3 rounded-xl border-2 transition-all cursor-pointer ${
+                          novoFiltros.ligasIds.length === 0
+                            ? "border-green-500 bg-green-500/10 text-green-400"
+                            : "border-border bg-muted/20 text-muted-foreground hover:border-border/80"
+                        }`}
+                      >
+                        <span className="text-2xl">🌍</span>
+                        <span className="text-xs font-bold">Todas as Ligas</span>
+                        <span className="text-[10px] opacity-70">Monitorar tudo</span>
+                        {novoFiltros.ligasIds.length === 0 && (
+                          <span className="text-[10px] text-green-400 font-bold">✔ Ativo</span>
+                        )}
+                      </button>
+                      <button
+                        type="button"
+                        className={`flex flex-col items-center gap-1.5 p-3 rounded-xl border-2 transition-all cursor-pointer ${
+                          novoFiltros.ligasIds.length > 0
+                            ? "border-primary bg-primary/10 text-primary"
+                            : "border-border bg-muted/20 text-muted-foreground hover:border-primary/30"
+                        }`}
+                      >
+                        <span className="text-2xl">🎯</span>
+                        <span className="text-xs font-bold">Ligas Específicas</span>
+                        <span className="text-[10px] opacity-70">
+                          {novoFiltros.ligasIds.length > 0 ? `${novoFiltros.ligasIds.length} selecionada(s)` : "Escolher abaixo"}
+                        </span>
+                        {novoFiltros.ligasIds.length > 0 && (
+                          <span className="text-[10px] text-primary font-bold">✔ Ativo</span>
+                        )}
+                      </button>
+                    </div>
+                    <FiltroLigas ligasSelecionadas={novoFiltros.ligasIds} onChange={v => setNovoFiltros(p => ({ ...p, ligasIds: v }))} placeholder="Buscar e adicionar ligas específicas..." />
+                    <p className={`text-[11px] mt-1.5 flex items-center gap-1 ${
+                      novoFiltros.ligasIds.length === 0 ? "text-green-400" : "text-primary"
+                    }`}>
+                      {novoFiltros.ligasIds.length === 0
+                        ? <><span>✅</span> Bot ativo para todas as ligas disponíveis</>
+                        : <><span>🎯</span> Bot filtrado para {novoFiltros.ligasIds.length} liga(s) específica(s)</>
+                      }
+                    </p>
                   </div>
 
                   {/* Minuto de jogo */}

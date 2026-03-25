@@ -178,3 +178,21 @@
 - [x] Pitacos: cálculo automático de score de precisão ponderado
 - [x] Pitacos: aba "Análise de Precisão" com radar chart + ranking + evolução do score
 - [x] Pitacos: resultado geral (green/red) determinado automaticamente pelo score
+
+## Fase 21 — Bots Premium + Análise por Liga + Integração Bots→Palpites
+- [x] Bots: toggle visual "Todas as Ligas / Ligas Específicas" no modal de configuração
+- [x] Bots: ranking visual de performance com pódio animado (Top 3 com sparklines SVG)
+- [x] Bots: badge "Top Performer" nos cards com taxa ≥ 70% e ≥ 5 sinais
+- [x] Bots: barra de performance individual em cada card (verde/amarelo/vermelho)
+- [x] Bots: tabela de demais bots com barra de progresso e cor por performance
+- [x] Bots: cronService atualiza `totalSinais` ao criar alerta
+- [x] Bots: schema com campos `taxaAcerto` e `historicoPerformance` (migração aplicada)
+- [x] Pitacos: sub-aba "Por Liga" na Análise de Precisão
+- [x] Pitacos: procedure `statsByLiga` retorna taxa de acerto, score médio e odd média por liga
+- [x] Pitacos: gráfico de barras horizontais com taxa de acerto por liga
+- [x] Pitacos: gráfico de barras com score médio por liga
+- [x] Pitacos: tabela completa com taxa, score, odd média e greens/reds por liga
+- [x] Pitacos: cards de destaque "Melhor Liga" e "Pior Liga"
+- [x] Pitacos: botão Exportar relatório (.txt) com resumo geral + por liga
+- [x] Alertas: ao marcar green/red, cria palpite automático com mercados do template do bot
+- [x] Alertas: atualiza `taxaAcerto` e `historicoPerformance` do bot ao resolver alerta

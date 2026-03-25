@@ -4,7 +4,7 @@ import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
 import { protectedProcedure, publicProcedure, router } from "./_core/trpc";
 import {
-  getBotsByUserId, createBot, updateBot, deleteBot,
+  getBotsByUserId, getBotById, createBot, updateBot, deleteBot,
   getCanaisByUserId, upsertCanal, updateCanal,
   getAlertasByUserId, createAlerta, updateAlerta,
   getBancaByUserId, upsertBanca,
@@ -483,8 +483,64 @@ export const appRouter = router({
       .input(z.object({
         id: z.number(),
         resultado: z.enum(["pendente", "green", "red", "void"]),
+        criarPitacoAuto: z.boolean().optional().default(true),
       }))
-      .mutation(({ ctx, input }) => updateAlerta(input.id, ctx.user.id, { resultado: input.resultado })),
+      .mutation(async ({ ctx, input }) => {
+        const alerta = await updateAlerta(input.id, ctx.user.id, { resultado: input.resultado });
+        if (!alerta) return alerta;
+
+        // Auto-criar palpite quando resultado é definido
+        if (input.criarPitacoAuto && (input.resultado === "green" || input.resultado === "red")) {
+          try {
+            const tipoMercado = detectarTipoMercado(alerta.mercado);
+            await createPitaco({
+              userId: ctx.user.id,
+              jogo: alerta.jogo,
+              liga: alerta.liga ?? undefined,
+              mercado: alerta.mercado,
+              odd: alerta.odd,
+              confianca: alerta.confianca,
+              resultado: input.resultado,
+              mercadosPrevistos: [{
+                tipo: tipoMercado,
+                label: alerta.mercado,
+                valorPrevisto: "sim",
+                valorReal: input.resultado === "green" ? "sim" : "nao",
+                acertou: input.resultado === "green",
+                peso: 2,
+              }],
+              scorePrevisao: input.resultado === "green" ? "100" : "0",
+              analise: `Gerado automaticamente pelo bot (ID: ${alerta.botId ?? "manual"})`,
+            });
+          } catch (e) {
+            console.error("[auto-pitaco]", e);
+          }
+        }
+
+        // Atualizar performance do bot
+        if (alerta.botId && (input.resultado === "green" || input.resultado === "red")) {
+          try {
+            const bot = await getBotById(alerta.botId, ctx.user.id);
+            if (bot) {
+              const novoTotal = (bot.totalSinais ?? 0) + 1;
+              const novosAcertos = (bot.totalAcertos ?? 0) + (input.resultado === "green" ? 1 : 0);
+              const novaTaxa = novoTotal > 0 ? Math.round((novosAcertos / novoTotal) * 100) : 0;
+              const historico = ((bot.historicoPerformance as Array<{data: string; taxa: number}> | null) ?? []);
+              historico.push({ data: new Date().toISOString().slice(0, 10), taxa: novaTaxa });
+              await updateBot(alerta.botId, ctx.user.id, {
+                totalSinais: novoTotal,
+                totalAcertos: novosAcertos,
+                taxaAcerto: String(novaTaxa),
+                historicoPerformance: historico.slice(-90),
+              });
+            }
+          } catch (e) {
+            console.error("[bot-performance]", e);
+          }
+        }
+
+        return alerta;
+      }),
   }),
 
   // ═══════════════════════════════════════════════════════════════════════
@@ -679,7 +735,64 @@ export const appRouter = router({
         rankingMercados: mercadosOrdenados,
       };
     }),
+
+    statsByLiga: protectedProcedure.query(async ({ ctx }) => {
+      const todos = await getPitacosByUserId(ctx.user.id, 500);
+      const finalizados = todos.filter(p => p.resultado === "green" || p.resultado === "red");
+      if (finalizados.length === 0) return [];
+
+      const porLiga: Record<string, {
+        liga: string; total: number; greens: number; reds: number;
+        taxaAcerto: number; scoreMedio: number; mercadosMaisAcertados: string[];
+      }> = {};
+
+      for (const p of finalizados) {
+        const liga = p.liga || "Sem liga";
+        if (!porLiga[liga]) porLiga[liga] = { liga, total: 0, greens: 0, reds: 0, taxaAcerto: 0, scoreMedio: 0, mercadosMaisAcertados: [] };
+        porLiga[liga].total++;
+        if (p.resultado === "green") porLiga[liga].greens++;
+        else porLiga[liga].reds++;
+      }
+
+      for (const liga of Object.keys(porLiga)) {
+        const l = porLiga[liga];
+        l.taxaAcerto = l.total > 0 ? (l.greens / l.total) * 100 : 0;
+        const comScore = finalizados.filter(p => (p.liga || "Sem liga") === liga && p.scorePrevisao);
+        l.scoreMedio = comScore.length > 0
+          ? comScore.reduce((acc, p) => acc + parseFloat(p.scorePrevisao ?? "0"), 0) / comScore.length
+          : 0;
+        // Mercados mais acertados nessa liga
+        const mercadoAcertos: Record<string, number> = {};
+        for (const pitaco of finalizados.filter(p => (p.liga || "Sem liga") === liga)) {
+          const mercados = (pitaco.mercadosPrevistos as Array<{ tipo: string; acertou?: boolean }> | null) ?? [];
+          for (const m of mercados) {
+            if (m.acertou) mercadoAcertos[m.tipo] = (mercadoAcertos[m.tipo] ?? 0) + 1;
+          }
+        }
+        l.mercadosMaisAcertados = Object.entries(mercadoAcertos)
+          .sort((a, b) => b[1] - a[1])
+          .slice(0, 3)
+          .map(([tipo]) => tipo);
+      }
+
+      return Object.values(porLiga)
+        .filter(l => l.total >= 1)
+        .sort((a, b) => b.taxaAcerto - a.taxaAcerto);
+    }),
   }),
 });
+function detectarTipoMercado(mercado: string): string {
+  const m = mercado.toLowerCase();
+  if (m.includes("gol") || m.includes("over") || m.includes("under") || m.includes("0.5") || m.includes("1.5") || m.includes("2.5")) return "gols";
+  if (m.includes("btts") || m.includes("ambas")) return "btts";
+  if (m.includes("escanteio") || m.includes("corner")) return "escanteios";
+  if (m.includes("cartão") || m.includes("cartao") || m.includes("card")) return "cartoes";
+  if (m.includes("posse") || m.includes("possession")) return "posse";
+  if (m.includes("chute") || m.includes("shot")) return "chutes";
+  if (m.includes("pênalti") || m.includes("penalty")) return "penalti";
+  if (m.includes("minuto") || m.includes("minute") || m.includes("tempo")) return "tempo_gol";
+  if (m.includes("empate") || m.includes("draw") || m.includes("vitoria") || m.includes("win")) return "resultado";
+  return "outros";
+}
 
 export type AppRouter = typeof appRouter;

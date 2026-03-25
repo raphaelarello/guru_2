@@ -381,6 +381,10 @@ async function processarTodosBots(): Promise<void> {
               resultado: "pendente",
             });
 
+            // Atualizar contador de sinais do bot
+            await db.update(bots)
+              .set({ totalSinais: sql`${bots.totalSinais} + 1` })
+              .where(eq(bots.id, bot.id));
             // Enviar para canais
             await enviarAlertaCanais(userId, {
               jogo: jogoNome,

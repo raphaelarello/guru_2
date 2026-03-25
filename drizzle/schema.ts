@@ -40,6 +40,8 @@ export const bots = mysqlTable("bots", {
   regras: json("regras"),
   filtros: json("filtros"), // filtros avançados: ligas, minuto, placar, odds, etc.
   canal: varchar("canal", { length: 100 }).default("painel"),
+  taxaAcerto: decimal("taxaAcerto", { precision: 5, scale: 2 }).default("0"),
+  historicoPerformance: json("historicoPerformance"), // [{data: string, taxa: number}]
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });

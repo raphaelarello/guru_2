@@ -85,6 +85,13 @@ export async function createBot(data: InsertBot) {
   return result[0];
 }
 
+export async function getBotById(id: number, userId: number) {
+  const db = await getDb();
+  if (!db) return null;
+  const result = await db.select().from(bots).where(and(eq(bots.id, id), eq(bots.userId, userId))).limit(1);
+  return result[0] ?? null;
+}
+
 export async function updateBot(id: number, userId: number, data: Partial<InsertBot>) {
   const db = await getDb();
   if (!db) throw new Error("DB not available");

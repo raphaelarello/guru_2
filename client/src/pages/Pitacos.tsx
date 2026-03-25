@@ -9,7 +9,7 @@ import { Slider } from "@/components/ui/slider";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { MessageSquare, Plus, Target, TrendingUp, Trophy, Zap, Search, ChevronDown, ChevronUp, Edit3, Check, X, BarChart3, Star, Trash2, RefreshCw } from "lucide-react";
+import { MessageSquare, Plus, Target, TrendingUp, Trophy, Zap, Search, ChevronDown, ChevronUp, Edit3, Check, X, BarChart3, Star, Trash2, RefreshCw, Download, Globe } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
 import {
@@ -17,7 +17,7 @@ import {
   calcularScore, getScoreLabel, detectarTipoMercado, ICONES_MERCADO,
   type MercadoPrevisto
 } from "@/components/ScorePrecisao";
-import { RadarChart, Radar, PolarGrid, PolarAngleAxis, ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip as RTooltip, CartesianGrid } from "recharts";
+import { RadarChart, Radar, PolarGrid, PolarAngleAxis, ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip as RTooltip, CartesianGrid, BarChart, Bar, Cell } from "recharts";
 
 // ─── Templates de mercados para preenchimento rápido ─────────────────────────
 const MERCADOS_RAPIDOS = [
@@ -65,6 +65,8 @@ export default function Pitacos() {
 
   const pitacosQuery = trpc.pitacos.list.useQuery();
   const statsQuery = trpc.pitacos.stats.useQuery();
+  const statsByLigaQuery = trpc.pitacos.statsByLiga.useQuery();
+  const [abaAnalise, setAbaAnalise] = useState<"geral" | "liga">("geral");
   const utils = trpc.useUtils();
 
   const criarPitaco = trpc.pitacos.create.useMutation({
@@ -173,9 +175,50 @@ export default function Pitacos() {
             <BarChart3 className="w-4 h-4 mr-2" />Análise de Precisão
           </Button>
         </div>
-        <Button className="bg-primary text-primary-foreground" onClick={() => setModalNovo(true)}>
-          <Plus className="w-4 h-4 mr-2" />Novo Palpite Multi-Mercado
-        </Button>
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            className="border-border"
+            onClick={() => {
+              const stats = statsQuery.data;
+              const byLiga = statsByLigaQuery.data ?? [];
+              const linhas = [
+                "RELATÓRIO DE PRECISÃO — RAPHA GURU",
+                `Gerado em: ${new Date().toLocaleDateString("pt-BR")}`,
+                "",
+                "=== RESUMO GERAL ===",
+                `Total de Palpites: ${stats?.totalPalpites ?? 0}`,
+                `Greens: ${stats?.greens ?? 0} | Reds: ${stats?.reds ?? 0}`,
+                `Taxa de Acerto: ${stats?.taxaAcerto?.toFixed(1) ?? 0}%`,
+                `Score Médio de Precisão: ${stats?.scoreMedio?.toFixed(1) ?? 0}/100`,
+                "",
+                "=== RANKING DE MERCADOS ===",
+                ...(stats?.rankingMercados ?? []).map((m: any, i: number) =>
+                  `${i + 1}. ${m.label}: ${m.acertos}/${m.total} acertos (${m.taxa.toFixed(1)}%)`
+                ),
+                "",
+                "=== PERFORMANCE POR LIGA ===",
+                ...byLiga.map((l: any, i: number) =>
+                  `${i + 1}. ${l.liga}: ${l.greens}/${l.total} greens (${l.taxaAcerto.toFixed(1)}%) | Score Médio: ${l.scoreMedio.toFixed(1)}`
+                ),
+              ];
+              const blob = new Blob([linhas.join("\n")], { type: "text/plain;charset=utf-8" });
+              const url = URL.createObjectURL(blob);
+              const a = document.createElement("a");
+              a.href = url;
+              a.download = `relatorio-precisao-${new Date().toISOString().slice(0, 10)}.txt`;
+              a.click();
+              URL.revokeObjectURL(url);
+              toast.success("Relatório exportado!");
+            }}
+          >
+            <Download className="w-4 h-4 mr-2" />Exportar
+          </Button>
+          <Button className="bg-primary text-primary-foreground" onClick={() => setModalNovo(true)}>
+            <Plus className="w-4 h-4 mr-2" />Novo Palpite Multi-Mercado
+          </Button>
+        </div>
       </div>
 
       {!abaStats ? (
@@ -329,7 +372,41 @@ export default function Pitacos() {
         </>
       ) : (
         /* ─── ABA ANÁLISE DE PRECISÃO ─── */
-        <AnalisePrecisao stats={stats} radarData={radarData} linhaScore={linhaScore} />
+        <div className="space-y-4">
+          {/* Sub-abas */}
+          <div className="flex gap-2">
+            <button
+              onClick={() => setAbaAnalise("geral")}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                abaAnalise === "geral"
+                  ? "bg-primary text-primary-foreground"
+                  : "bg-muted/50 text-muted-foreground hover:bg-muted"
+              }`}
+            >
+              <BarChart3 className="w-4 h-4" />Visão Geral
+            </button>
+            <button
+              onClick={() => setAbaAnalise("liga")}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                abaAnalise === "liga"
+                  ? "bg-primary text-primary-foreground"
+                  : "bg-muted/50 text-muted-foreground hover:bg-muted"
+              }`}
+            >
+              <Globe className="w-4 h-4" />Por Liga
+              {(statsByLigaQuery.data?.length ?? 0) > 0 && (
+                <span className="text-[10px] bg-primary/20 text-primary px-1.5 rounded-full">
+                  {statsByLigaQuery.data?.length}
+                </span>
+              )}
+            </button>
+          </div>
+          {abaAnalise === "geral" ? (
+            <AnalisePrecisao stats={stats} radarData={radarData} linhaScore={linhaScore} />
+          ) : (
+            <ComparativoPorLiga data={statsByLigaQuery.data ?? []} isLoading={statsByLigaQuery.isLoading} />
+          )}
+        </div>
       )}
 
       {/* ─── MODAL NOVO PALPITE MULTI-MERCADO ─── */}
@@ -730,6 +807,165 @@ function AnalisePrecisao({ stats, radarData, linhaScore }: { stats: any; radarDa
           )}
         </div>
       )}
+    </div>
+  );
+}
+
+// ─── Componente Comparativo Por Liga ─────────────────────────────────────────
+const CORES_BARRAS = ["#6366f1", "#22c55e", "#f59e0b", "#ef4444", "#8b5cf6", "#06b6d4", "#f97316", "#ec4899"];
+
+function ComparativoPorLiga({ data, isLoading }: { data: any[]; isLoading: boolean }) {
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-16">
+        <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
+  if (data.length === 0) {
+    return (
+      <Card className="bg-card border-border border-dashed">
+        <CardContent className="p-12 text-center">
+          <Globe className="w-10 h-10 text-muted-foreground mx-auto mb-3" />
+          <h3 className="font-semibold text-foreground mb-1">Nenhum dado por liga ainda</h3>
+          <p className="text-sm text-muted-foreground">Adicione palpites com o campo "Liga" preenchido para ver a análise comparativa.</p>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  const sorted = [...data].sort((a, b) => b.taxaAcerto - a.taxaAcerto);
+  const melhorLiga = sorted[0];
+  const piorLiga = sorted[sorted.length - 1];
+
+  return (
+    <div className="space-y-5">
+      {/* Cards de destaque */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <Card className="bg-gradient-to-br from-green-500/10 to-emerald-500/5 border-green-500/30">
+          <CardContent className="p-4">
+            <p className="text-[11px] text-green-400 font-bold uppercase tracking-wider mb-1">🏆 Melhor Liga</p>
+            <p className="font-bold text-foreground">{melhorLiga.liga}</p>
+            <p className="text-2xl font-black text-green-400">{melhorLiga.taxaAcerto.toFixed(1)}%</p>
+            <p className="text-[11px] text-muted-foreground">{melhorLiga.greens}/{melhorLiga.total} greens</p>
+          </CardContent>
+        </Card>
+        <Card className="bg-card border-border">
+          <CardContent className="p-4">
+            <p className="text-[11px] text-primary font-bold uppercase tracking-wider mb-1">📊 Score Médio Geral</p>
+            <p className="font-bold text-foreground">Todas as Ligas</p>
+            <p className="text-2xl font-black text-primary">
+              {data.length > 0 ? (data.reduce((acc, l) => acc + l.scoreMedio, 0) / data.length).toFixed(1) : "0"}/100
+            </p>
+            <p className="text-[11px] text-muted-foreground">{data.reduce((acc, l) => acc + l.total, 0)} palpites totais</p>
+          </CardContent>
+        </Card>
+        <Card className="bg-gradient-to-br from-red-500/10 to-rose-500/5 border-red-500/30">
+          <CardContent className="p-4">
+            <p className="text-[11px] text-red-400 font-bold uppercase tracking-wider mb-1">📉 Pior Liga</p>
+            <p className="font-bold text-foreground">{piorLiga.liga}</p>
+            <p className="text-2xl font-black text-red-400">{piorLiga.taxaAcerto.toFixed(1)}%</p>
+            <p className="text-[11px] text-muted-foreground">{piorLiga.greens}/{piorLiga.total} greens</p>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Gráfico de barras — Taxa de acerto por liga */}
+      <Card className="bg-card border-border">
+        <CardHeader className="pb-2">
+          <CardTitle className="text-sm text-foreground">Taxa de Acerto por Liga</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <ResponsiveContainer width="100%" height={Math.max(200, sorted.length * 40)}>
+            <BarChart data={sorted} layout="vertical" margin={{ left: 8, right: 40, top: 4, bottom: 4 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" horizontal={false} />
+              <XAxis type="number" domain={[0, 100]} tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }} tickFormatter={v => `${v}%`} />
+              <YAxis type="category" dataKey="liga" tick={{ fill: "hsl(var(--foreground))", fontSize: 11 }} width={100} />
+              <RTooltip
+                contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "8px" }}
+                formatter={(value: any) => [`${Number(value).toFixed(1)}%`, "Taxa de Acerto"]}
+              />
+              <Bar dataKey="taxaAcerto" radius={[0, 4, 4, 0]}>
+                {sorted.map((_, i) => (
+                  <Cell key={i} fill={CORES_BARRAS[i % CORES_BARRAS.length]} />
+                ))}
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
+        </CardContent>
+      </Card>
+
+      {/* Gráfico de barras — Score médio por liga */}
+      <Card className="bg-card border-border">
+        <CardHeader className="pb-2">
+          <CardTitle className="text-sm text-foreground">Score Médio de Precisão por Liga</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <ResponsiveContainer width="100%" height={Math.max(200, sorted.length * 40)}>
+            <BarChart data={[...sorted].sort((a, b) => b.scoreMedio - a.scoreMedio)} layout="vertical" margin={{ left: 8, right: 40, top: 4, bottom: 4 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" horizontal={false} />
+              <XAxis type="number" domain={[0, 100]} tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }} />
+              <YAxis type="category" dataKey="liga" tick={{ fill: "hsl(var(--foreground))", fontSize: 11 }} width={100} />
+              <RTooltip
+                contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "8px" }}
+                formatter={(value: any) => [`${Number(value).toFixed(1)}/100`, "Score Médio"]}
+              />
+              <Bar dataKey="scoreMedio" radius={[0, 4, 4, 0]}>
+                {[...sorted].sort((a, b) => b.scoreMedio - a.scoreMedio).map((_, i) => (
+                  <Cell key={i} fill={CORES_BARRAS[i % CORES_BARRAS.length]} />
+                ))}
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
+        </CardContent>
+      </Card>
+
+      {/* Tabela detalhada */}
+      <Card className="bg-card border-border">
+        <CardHeader className="pb-2">
+          <CardTitle className="text-sm text-foreground">Tabela Completa por Liga</CardTitle>
+        </CardHeader>
+        <CardContent className="p-0">
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs">
+              <thead>
+                <tr className="border-b border-border bg-muted/30">
+                  <th className="text-left px-4 py-2 text-muted-foreground font-medium">#</th>
+                  <th className="text-left px-4 py-2 text-muted-foreground font-medium">Liga</th>
+                  <th className="text-center px-3 py-2 text-muted-foreground font-medium">Palpites</th>
+                  <th className="text-center px-3 py-2 text-muted-foreground font-medium">Greens</th>
+                  <th className="text-center px-3 py-2 text-muted-foreground font-medium">Reds</th>
+                  <th className="text-center px-3 py-2 text-muted-foreground font-medium">Taxa</th>
+                  <th className="text-center px-3 py-2 text-muted-foreground font-medium">Score Médio</th>
+                  <th className="text-center px-3 py-2 text-muted-foreground font-medium">Odd Média</th>
+                </tr>
+              </thead>
+              <tbody>
+                {sorted.map((liga, i) => (
+                  <tr key={liga.liga} className="border-b border-border/50 hover:bg-muted/20 transition-colors">
+                    <td className="px-4 py-2.5 text-muted-foreground font-bold">{i + 1}</td>
+                    <td className="px-4 py-2.5 font-semibold text-foreground">{liga.liga}</td>
+                    <td className="px-3 py-2.5 text-center text-foreground">{liga.total}</td>
+                    <td className="px-3 py-2.5 text-center text-green-400 font-bold">{liga.greens}</td>
+                    <td className="px-3 py-2.5 text-center text-red-400 font-bold">{liga.reds}</td>
+                    <td className="px-3 py-2.5 text-center">
+                      <span className={`font-bold ${liga.taxaAcerto >= 60 ? "text-green-400" : liga.taxaAcerto >= 40 ? "text-yellow-400" : "text-red-400"}`}>
+                        {liga.taxaAcerto.toFixed(1)}%
+                      </span>
+                    </td>
+                    <td className="px-3 py-2.5 text-center">
+                      <span className={`font-bold ${liga.scoreMedio >= 70 ? "text-green-400" : liga.scoreMedio >= 50 ? "text-yellow-400" : "text-red-400"}`}>
+                        {liga.scoreMedio.toFixed(1)}
+                      </span>
+                    </td>
+                    <td className="px-3 py-2.5 text-center text-primary font-medium">{liga.oddMedia.toFixed(2)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }
