@@ -50,6 +50,14 @@ export default function Bots() {
   const botsQuery = trpc.bots.list.useQuery();
   const utils = trpc.useUtils();
 
+  const processarBots = trpc.bots.processar.useMutation({
+    onSuccess: (data) => {
+      utils.bots.list.invalidate();
+      toast.success(data.mensagem, { description: data.alertasGerados > 0 ? "Verifique a Fila de Sinais" : undefined });
+    },
+    onError: (err) => toast.error("Erro ao processar bots", { description: err.message }),
+  });
+
   const criarBot = trpc.bots.create.useMutation({
     onSuccess: () => { utils.bots.list.invalidate(); setModalNovo(false); setModalTemplates(false); toast.success("Bot criado com sucesso!"); setNovoBot({ nome: "", descricao: "", templateId: "", confiancaMinima: 75, limiteDiario: 10 }); },
     onError: () => toast.error("Erro ao criar bot"),
@@ -88,6 +96,16 @@ export default function Bots() {
             <Button variant="outline" size="sm" className="border-border" onClick={() => setModalTemplates(true)}>
               <Layers className="w-4 h-4 mr-2" />
               Carregar Template
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              className="border-green-400/50 text-green-400 hover:bg-green-400/10"
+              onClick={() => processarBots.mutate()}
+              disabled={processarBots.isPending}
+            >
+              <Zap className={`w-4 h-4 mr-2 ${processarBots.isPending ? "animate-spin" : ""}`} />
+              {processarBots.isPending ? "Processando..." : "Processar Agora"}
             </Button>
             <Button size="sm" className="bg-primary text-primary-foreground" onClick={() => setModalNovo(true)}>
               <Plus className="w-4 h-4 mr-2" />

@@ -1,85 +1,363 @@
-import { useState, useEffect } from "react";
-import RaphaLayout from "@/components/RaphaLayout";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useState, useCallback, useEffect } from "react";
+import { trpc } from "@/lib/trpc";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Card, CardContent } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Radio, TrendingUp, Zap, Target, Clock, Search, Filter, RefreshCw, ChevronRight } from "lucide-react";
+import { Progress } from "@/components/ui/progress";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Activity, RefreshCw, Clock, Target, TrendingUp, Zap,
+  AlertCircle, ChevronRight, Circle, ArrowRight, Swords, Star, Flag
+} from "lucide-react";
 import { toast } from "sonner";
 
-// Dados simulados de jogos ao vivo com análise de IA
-const JOGOS_AO_VIVO = [
-  { id: 1, casa: "Manchester City", fora: "Arsenal", liga: "Premier League", minuto: 67, placar: "2-1", oportunidades: [{ mercado: "Over 0.5 FT", odd: 1.05, ev: 8.2, confianca: 94, motivos: ["Placar já 2-1", "Média 3.2 gols/jogo", "Pressão alta Arsenal"] }, { mercado: "BTTS", odd: 1.45, ev: 12.5, confianca: 88, motivos: ["Arsenal marcou fora", "City defesa vulnerável", "Ambos com gols hoje"] }], status: "quente" },
-  { id: 2, casa: "Real Madrid", fora: "Barcelona", liga: "La Liga", minuto: 34, placar: "0-0", oportunidades: [{ mercado: "Over 2.5 FT", odd: 1.85, ev: 15.3, confianca: 82, motivos: ["Clássico histórico alto scoring", "Ambos precisam vencer", "Pressão ofensiva alta"] }], status: "morno" },
-  { id: 3, casa: "PSG", fora: "Lyon", liga: "Ligue 1", minuto: 78, placar: "3-0", oportunidades: [{ mercado: "Goleada PSG", odd: 1.12, ev: 6.8, confianca: 96, motivos: ["Já 3-0 no 78'", "PSG dominante", "Lyon sem reação"] }], status: "quente" },
-  { id: 4, casa: "Bayern Munich", fora: "Borussia Dortmund", liga: "Bundesliga", minuto: 45, placar: "1-1", oportunidades: [{ mercado: "BTTS Alta Pressão", odd: 1.55, ev: 18.7, confianca: 91, motivos: ["Clássico alemão", "Ambos marcaram", "2ª tempo mais aberto"] }, { mercado: "Over 3.5 FT", odd: 2.10, ev: 22.1, confianca: 75, motivos: ["Histórico 4+ gols", "Pressão ofensiva ambos", "Defesas abertas"] }], status: "quente" },
-  { id: 5, casa: "Flamengo", fora: "Palmeiras", liga: "Brasileirão", minuto: 55, placar: "1-0", oportunidades: [{ mercado: "Over 1.5 FT", odd: 1.35, ev: 11.2, confianca: 87, motivos: ["Flamengo pressionando", "Palmeiras buscando empate", "Média alta ambos"] }], status: "morno" },
-  { id: 6, casa: "Inter Milan", fora: "Juventus", liga: "Serie A", minuto: 22, placar: "0-0", oportunidades: [{ mercado: "Ambos Marcam", odd: 1.75, ev: 14.8, confianca: 79, motivos: ["Derby italiano", "Histórico BTTS 68%", "Ambos em forma ofensiva"] }], status: "frio" },
-  { id: 7, casa: "Atlético Madrid", fora: "Sevilla", liga: "La Liga", minuto: 61, placar: "2-0", oportunidades: [{ mercado: "Over 0.5 FT", odd: 1.02, ev: 3.1, confianca: 99, motivos: ["Já 2-0", "Certeza matemática quase"] }], status: "quente" },
-  { id: 8, casa: "Chelsea", fora: "Liverpool", liga: "Premier League", minuto: 38, placar: "1-2", oportunidades: [{ mercado: "Over 3.5 FT", odd: 1.95, ev: 19.4, confianca: 83, motivos: ["Já 3 gols em 38'", "Ritmo alto", "Chelsea buscando empate"] }, { mercado: "Liverpool Vence", odd: 1.65, ev: 13.2, confianca: 80, motivos: ["Liverpool 2-1 fora", "Histórico forte fora", "Chelsea inconsistente"] }], status: "quente" },
-  { id: 9, casa: "Corinthians", fora: "São Paulo", liga: "Brasileirão", minuto: 70, placar: "0-0", oportunidades: [{ mercado: "Empate FT", odd: 2.80, ev: 25.6, confianca: 71, motivos: ["Derby sem gols", "Ambos defensivos", "Histórico 40% empate"] }], status: "frio" },
-  { id: 10, casa: "Tottenham", fora: "Newcastle", liga: "Premier League", minuto: 15, placar: "0-1", oportunidades: [{ mercado: "Tottenham Vira", odd: 3.20, ev: 28.4, confianca: 68, motivos: ["Tottenham em casa", "Newcastle 1-0 cedo", "Histórico viradas Spurs"] }], status: "morno" },
-  { id: 11, casa: "Ajax", fora: "PSV", liga: "Eredivisie", minuto: 52, placar: "2-2", oportunidades: [{ mercado: "Over 4.5 FT", odd: 2.40, ev: 21.8, confianca: 77, motivos: ["Já 4 gols", "Ambos ofensivos", "Liga holandesa alta pontuação"] }, { mercado: "BTTS", odd: 1.20, ev: 9.5, confianca: 95, motivos: ["Ambos já marcaram", "Certeza quase"] }], status: "quente" },
-  { id: 12, casa: "Porto", fora: "Benfica", liga: "Primeira Liga", minuto: 80, placar: "1-1", oportunidades: [{ mercado: "Over 2.5 FT", odd: 1.15, ev: 7.3, confianca: 93, motivos: ["Já 2 gols", "Minuto 80", "Ambos pressionando"] }], status: "quente" },
-  { id: 13, casa: "Boca Juniors", fora: "River Plate", liga: "Liga Argentina", minuto: 44, placar: "0-0", oportunidades: [{ mercado: "Superclásico Gols", odd: 1.90, ev: 16.7, confianca: 78, motivos: ["Superclásico histórico", "Tensão alta", "2ª tempo mais aberto"] }], status: "morno" },
-  { id: 14, casa: "Sporting CP", fora: "Braga", liga: "Primeira Liga", minuto: 63, placar: "3-1", oportunidades: [{ mercado: "Over 0.5 FT", odd: 1.01, ev: 2.5, confianca: 99, motivos: ["Já 4 gols", "Certeza absoluta"] }], status: "quente" },
-  { id: 15, casa: "Galatasaray", fora: "Fenerbahçe", liga: "Süper Lig", minuto: 29, placar: "1-0", oportunidades: [{ mercado: "Over 2.5 FT", odd: 1.70, ev: 14.1, confianca: 81, motivos: ["Derby turco", "Galatasaray em casa", "Histórico gols alto"] }], status: "morno" },
-  { id: 16, casa: "Marseille", fora: "Monaco", liga: "Ligue 1", minuto: 57, placar: "1-1", oportunidades: [{ mercado: "BTTS + Over 2.5", odd: 1.60, ev: 13.8, confianca: 84, motivos: ["Ambos marcaram", "Jogo aberto", "Monaco ofensivo"] }], status: "quente" },
-  { id: 17, casa: "Shakhtar", fora: "Dynamo Kyiv", liga: "UPL", minuto: 71, placar: "2-0", oportunidades: [{ mercado: "Shakhtar Vence", odd: 1.08, ev: 5.2, confianca: 97, motivos: ["2-0 no 71'", "Dominância total", "Dynamo sem reação"] }], status: "quente" },
-  { id: 18, casa: "Feyenoord", fora: "AZ Alkmaar", liga: "Eredivisie", minuto: 40, placar: "1-0", oportunidades: [{ mercado: "Over 2.5 FT", odd: 1.80, ev: 15.9, confianca: 80, motivos: ["Liga ofensiva", "Feyenoord em casa", "AZ buscando empate"] }], status: "morno" },
-  { id: 19, casa: "Napoli", fora: "Lazio", liga: "Serie A", minuto: 85, placar: "2-1", oportunidades: [{ mercado: "Napoli Vence", odd: 1.18, ev: 8.9, confianca: 95, motivos: ["2-1 no 85'", "Napoli controlando", "Lazio sem tempo"] }], status: "quente" },
-  { id: 20, casa: "Villarreal", fora: "Valencia", liga: "La Liga", minuto: 18, placar: "0-0", oportunidades: [{ mercado: "Ambos Marcam", odd: 1.85, ev: 16.3, confianca: 76, motivos: ["Ambos ofensivos", "Derby valenciano", "Histórico BTTS 65%"] }], status: "frio" },
-];
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+function statusLabel(short: string, elapsed: number | null): string {
+  if (short === "HT") return "Intervalo";
+  if (short === "FT") return "Encerrado";
+  if (short === "NS") return "Não iniciado";
+  if (short === "PST") return "Adiado";
+  if (short === "CANC") return "Cancelado";
+  if (short === "SUSP") return "Suspenso";
+  if (elapsed !== null) return `${elapsed}'`;
+  return short;
+}
 
-const statusConfig = {
-  quente: { label: "Quente", class: "badge-red", dot: "bg-red-500" },
-  morno: { label: "Morno", class: "badge-yellow", dot: "bg-yellow-500" },
-  frio: { label: "Frio", class: "badge-blue", dot: "bg-blue-500" },
-};
+function statusColor(short: string): string {
+  if (["1H", "2H", "ET", "P"].includes(short)) return "text-green-400";
+  if (short === "HT") return "text-yellow-400";
+  if (["FT", "AET", "PEN"].includes(short)) return "text-gray-400";
+  return "text-blue-400";
+}
 
-export default function AoVivo() {
-  const [busca, setBusca] = useState("");
-  const [filtroStatus, setFiltroStatus] = useState("todos");
-  const [jogoSelecionado, setJogoSelecionado] = useState<typeof JOGOS_AO_VIVO[0] | null>(null);
-  const [ultimaAtualizacao, setUltimaAtualizacao] = useState(new Date());
-  const [atualizando, setAtualizando] = useState(false);
+function urgenciaStyle(urgencia: string): string {
+  if (urgencia === "alta") return "text-red-400 bg-red-400/10 border-red-400/30";
+  if (urgencia === "media") return "text-yellow-400 bg-yellow-400/10 border-yellow-400/30";
+  return "text-blue-400 bg-blue-400/10 border-blue-400/30";
+}
 
-  const atualizar = () => {
-    setAtualizando(true);
-    setTimeout(() => {
-      setUltimaAtualizacao(new Date());
-      setAtualizando(false);
-      toast.success("Dados atualizados com sucesso!");
-    }, 1200);
-  };
+function TipoIcon({ tipo }: { tipo: string }) {
+  if (tipo === "over" || tipo === "under") return <Target className="w-3 h-3" />;
+  if (tipo === "btts") return <Swords className="w-3 h-3" />;
+  if (tipo === "resultado") return <Star className="w-3 h-3" />;
+  if (tipo === "cartao") return <Flag className="w-3 h-3" />;
+  if (tipo === "escanteio") return <ArrowRight className="w-3 h-3" />;
+  return <Zap className="w-3 h-3" />;
+}
 
-  const jogosFiltrados = JOGOS_AO_VIVO.filter(j => {
-    const matchBusca = busca === "" || j.casa.toLowerCase().includes(busca.toLowerCase()) || j.fora.toLowerCase().includes(busca.toLowerCase()) || j.liga.toLowerCase().includes(busca.toLowerCase());
-    const matchStatus = filtroStatus === "todos" || j.status === filtroStatus;
-    return matchBusca && matchStatus;
-  });
+// ─── Evento badge ─────────────────────────────────────────────────────────────
+function EventoBadge({ ev }: { ev: { type: string; detail: string; time: { elapsed: number }; player: { name: string | null }; team: { name: string } } }) {
+  const isGoal = ev.type === "Goal";
+  const isYellow = ev.type === "Card" && ev.detail.includes("Yellow");
+  const isRed = ev.type === "Card" && ev.detail.includes("Red");
+  const isSubst = ev.type === "subst";
+  const isVar = ev.type === "Var";
+  return (
+    <span className={`inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded ${
+      isGoal ? "bg-green-500/20 text-green-300" :
+      isYellow ? "bg-yellow-500/20 text-yellow-300" :
+      isRed ? "bg-red-500/20 text-red-300" :
+      isSubst ? "bg-blue-500/20 text-blue-300" :
+      isVar ? "bg-purple-500/20 text-purple-300" : "bg-gray-500/20 text-gray-300"
+    }`}>
+      <span className="font-bold">{ev.time.elapsed}'</span>
+      <span>{isGoal ? "⚽" : isYellow ? "🟨" : isRed ? "🟥" : isSubst ? "🔄" : isVar ? "📺" : "•"}</span>
+      <span className="max-w-[80px] truncate">{ev.player.name || ev.team.name}</span>
+    </span>
+  );
+}
 
-  const totalOportunidades = JOGOS_AO_VIVO.reduce((acc, j) => acc + j.oportunidades.length, 0);
-  const jogosQuentes = JOGOS_AO_VIVO.filter(j => j.status === "quente").length;
+// ─── Barra de estatística ─────────────────────────────────────────────────────
+function StatBar({ label, home, away }: { label: string; home: string | number | null; away: string | number | null }) {
+  const h = typeof home === "string" ? parseFloat(home) || 0 : home || 0;
+  const a = typeof away === "string" ? parseFloat(away) || 0 : away || 0;
+  const total = h + a;
+  const pct = total > 0 ? (h / total) * 100 : 50;
+  return (
+    <div className="space-y-0.5">
+      <div className="flex justify-between text-xs">
+        <span className="font-semibold text-white">{home ?? 0}</span>
+        <span className="text-gray-400 text-[10px]">{label}</span>
+        <span className="font-semibold text-white">{away ?? 0}</span>
+      </div>
+      <div className="flex h-1 rounded-full overflow-hidden bg-gray-700">
+        <div className="bg-green-500 transition-all" style={{ width: `${pct}%` }} />
+        <div className="bg-blue-500 flex-1" />
+      </div>
+    </div>
+  );
+}
+
+// ─── Modal de detalhes ────────────────────────────────────────────────────────
+function ModalJogo({ fixtureId, open, onClose }: { fixtureId: number | null; open: boolean; onClose: () => void }) {
+  const { data, isLoading } = trpc.football.analisarJogo.useQuery(
+    { fixtureId: fixtureId! },
+    { enabled: !!fixtureId && open, refetchInterval: 30_000 }
+  );
+
+  if (!open || !fixtureId) return null;
+
+  const fixture = data?.fixture;
+  const stats = data?.stats || [];
+  const ops = data?.oportunidades || [];
+  const pred = data?.prediction;
+  const statsH = stats[0]?.statistics || [];
+  const statsA = stats[1]?.statistics || [];
+  const getStat = (arr: typeof statsH, type: string) => arr.find(s => s.type === type)?.value ?? null;
 
   return (
-    <RaphaLayout title="Jogos Ao Vivo">
-      {/* Stats rápidas */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+    <Dialog open={open} onOpenChange={onClose}>
+      <DialogContent className="max-w-2xl bg-gray-900 border-gray-700 text-white max-h-[90vh] overflow-y-auto">
+        {isLoading ? (
+          <div className="flex items-center justify-center py-16">
+            <RefreshCw className="w-8 h-8 animate-spin text-green-400" />
+          </div>
+        ) : fixture ? (
+          <>
+            <DialogHeader>
+              <DialogTitle className="text-white">
+                <div className="flex items-center justify-center gap-4 mb-1">
+                  <div className="flex items-center gap-2">
+                    <img src={fixture.teams.home.logo} alt="" className="w-8 h-8 object-contain" />
+                    <span className="text-sm font-semibold">{fixture.teams.home.name}</span>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-2xl font-bold text-green-400">{fixture.goals.home ?? 0} — {fixture.goals.away ?? 0}</div>
+                    <div className={`text-xs font-bold ${statusColor(fixture.fixture.status.short)}`}>
+                      {statusLabel(fixture.fixture.status.short, fixture.fixture.status.elapsed)}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-semibold">{fixture.teams.away.name}</span>
+                    <img src={fixture.teams.away.logo} alt="" className="w-8 h-8 object-contain" />
+                  </div>
+                </div>
+                <div className="text-xs text-gray-400 text-center">{fixture.league.name} — {fixture.league.round}</div>
+              </DialogTitle>
+            </DialogHeader>
+
+            <Tabs defaultValue="oportunidades">
+              <TabsList className="bg-gray-800 w-full grid grid-cols-4">
+                <TabsTrigger value="oportunidades" className="text-xs data-[state=active]:bg-green-500/20 data-[state=active]:text-green-400">
+                  Sinais ({ops.length})
+                </TabsTrigger>
+                <TabsTrigger value="stats" className="text-xs data-[state=active]:bg-green-500/20 data-[state=active]:text-green-400">
+                  Estatísticas
+                </TabsTrigger>
+                <TabsTrigger value="eventos" className="text-xs data-[state=active]:bg-green-500/20 data-[state=active]:text-green-400">
+                  Eventos ({fixture.events?.length || 0})
+                </TabsTrigger>
+                <TabsTrigger value="predicao" className="text-xs data-[state=active]:bg-green-500/20 data-[state=active]:text-green-400">
+                  Predição
+                </TabsTrigger>
+              </TabsList>
+
+              <TabsContent value="oportunidades" className="space-y-2 mt-3">
+                {ops.length === 0 ? (
+                  <p className="text-gray-400 text-center py-8 text-sm">Nenhuma oportunidade detectada no momento.</p>
+                ) : ops.map((op, i) => (
+                  <div key={i} className={`border rounded-lg p-3 ${urgenciaStyle(op.urgencia)}`}>
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-1.5">
+                        <TipoIcon tipo={op.tipo} />
+                        <span className="font-bold text-sm">{op.mercado}</span>
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <Badge variant="outline" className="text-xs border-current px-1.5">Odd {op.odd.toFixed(2)}</Badge>
+                        <Badge className={`text-xs px-1.5 ${op.ev > 0 ? "bg-green-500/20 text-green-400" : "bg-red-500/20 text-red-400"}`}>
+                          EV {op.ev > 0 ? "+" : ""}{op.ev.toFixed(1)}%
+                        </Badge>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className="text-xs text-gray-400">Confiança:</span>
+                      <Progress value={op.confianca} className="flex-1 h-1" />
+                      <span className="text-xs font-bold">{op.confianca}%</span>
+                    </div>
+                    <ul className="space-y-0.5">
+                      {op.motivos.map((m, j) => (
+                        <li key={j} className="text-xs flex items-start gap-1 opacity-90">
+                          <ChevronRight className="w-3 h-3 mt-0.5 flex-shrink-0" />{m}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ))}
+              </TabsContent>
+
+              <TabsContent value="stats" className="space-y-1.5 mt-3">
+                <div className="flex justify-between text-xs text-gray-400 mb-2">
+                  <span className="font-semibold text-green-400">{fixture.teams.home.name}</span>
+                  <span className="font-semibold text-blue-400">{fixture.teams.away.name}</span>
+                </div>
+                {["Ball Possession","Total Shots","Shots on Goal","Shots off Goal","Corner Kicks","Fouls","Yellow Cards","Red Cards","Offsides","Total passes","Passes accurate","Goalkeeper Saves"].map(type => (
+                  <StatBar key={type} label={type} home={getStat(statsH, type)} away={getStat(statsA, type)} />
+                ))}
+              </TabsContent>
+
+              <TabsContent value="eventos" className="mt-3">
+                {!fixture.events || fixture.events.length === 0 ? (
+                  <p className="text-gray-400 text-center py-8 text-sm">Nenhum evento registrado ainda.</p>
+                ) : (
+                  <div className="space-y-1.5">
+                    {[...fixture.events].reverse().map((ev, i) => (
+                      <div key={i} className="flex items-center gap-2 text-xs">
+                        <EventoBadge ev={ev} />
+                        <span className="text-gray-400 text-[10px]">{ev.detail}</span>
+                        {ev.assist?.name && <span className="text-gray-500 text-[10px]">(assist: {ev.assist.name})</span>}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </TabsContent>
+
+              <TabsContent value="predicao" className="space-y-3 mt-3">
+                {!pred ? (
+                  <p className="text-gray-400 text-center py-8 text-sm">Predição não disponível para este jogo.</p>
+                ) : (
+                  <>
+                    <div className="bg-gray-800 rounded-lg p-3">
+                      <p className="text-sm text-green-400 font-semibold mb-3">💡 {pred.predictions.advice}</p>
+                      <div className="grid grid-cols-3 gap-2 text-center">
+                        {[
+                          { label: fixture.teams.home.name, val: pred.predictions.percent.home },
+                          { label: "Empate", val: pred.predictions.percent.draw },
+                          { label: fixture.teams.away.name, val: pred.predictions.percent.away },
+                        ].map(({ label, val }) => (
+                          <div key={label}>
+                            <div className="text-xl font-bold text-white">{val}</div>
+                            <div className="text-xs text-gray-400 truncate">{label}</div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      {Object.entries(pred.comparison).map(([key, val]) => (
+                        <div key={key} className="bg-gray-800 rounded p-2 text-xs">
+                          <div className="text-gray-400 capitalize mb-1">{key.replace(/_/g, " ")}</div>
+                          <div className="flex justify-between">
+                            <span className="text-green-400 font-semibold">{(val as { home: string }).home}</span>
+                            <span className="text-blue-400 font-semibold">{(val as { away: string }).away}</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="grid grid-cols-2 gap-2 text-xs">
+                      <div className="bg-gray-800 rounded p-2">
+                        <div className="text-gray-400 mb-1">Forma {fixture.teams.home.name}</div>
+                        <div className="font-mono font-bold text-white">{pred.teams.home.last_5.form}</div>
+                      </div>
+                      <div className="bg-gray-800 rounded p-2">
+                        <div className="text-gray-400 mb-1">Forma {fixture.teams.away.name}</div>
+                        <div className="font-mono font-bold text-white">{pred.teams.away.last_5.form}</div>
+                      </div>
+                    </div>
+                  </>
+                )}
+              </TabsContent>
+            </Tabs>
+          </>
+        ) : (
+          <p className="text-gray-400 text-center py-8">Dados não disponíveis.</p>
+        )}
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// ─── Página principal ─────────────────────────────────────────────────────────
+export default function AoVivo() {
+  const [jogoSelecionado, setJogoSelecionado] = useState<number | null>(null);
+  const [filtroLiga, setFiltroLiga] = useState("todas");
+  const [apenasComSinal, setApenasComSinal] = useState(false);
+  const [autoRefresh, setAutoRefresh] = useState(true);
+  const [ultimaAtt, setUltimaAtt] = useState(new Date());
+
+  const { data: dashboard, isLoading, refetch, error } = trpc.football.dashboardAoVivo.useQuery(undefined, {
+    refetchInterval: autoRefresh ? 30_000 : false,
+  });
+
+  // Atualizar timestamp quando novos dados chegam
+  useEffect(() => { if (dashboard?.timestamp) setUltimaAtt(new Date()); }, [dashboard?.timestamp]);
+
+  const { data: blockStatus } = trpc.football.blockStatus.useQuery(undefined, { refetchInterval: 60_000 });
+
+  const handleRefresh = useCallback(async () => {
+    await refetch();
+    setUltimaAtt(new Date());
+    toast.success("Dados atualizados!");
+  }, [refetch]);
+
+  const ligas = dashboard?.jogos
+    ? Array.from(new Set(dashboard.jogos.map(j => j.fixture.league.name))).sort()
+    : [];
+
+  const jogosFiltrados = (dashboard?.jogos || []).filter(j => {
+    if (filtroLiga !== "todas" && j.fixture.league.name !== filtroLiga) return false;
+    if (apenasComSinal && j.totalOportunidades === 0) return false;
+    return true;
+  });
+
+  return (
+    <div className="p-4 space-y-4">
+      {/* Header */}
+      <div className="flex items-center justify-between flex-wrap gap-2">
+        <div>
+          <h1 className="text-xl font-bold text-white flex items-center gap-2">
+            <Activity className="w-5 h-5 text-green-400" />
+            Jogos Ao Vivo
+            {dashboard && (
+              <Badge className="bg-green-500/20 text-green-400 border-green-400/30 text-xs ml-1">
+                {dashboard.totalJogos} jogos
+              </Badge>
+            )}
+          </h1>
+          <p className="text-gray-400 text-xs mt-0.5">API Football — dados reais, atualização automática a cada 30s</p>
+        </div>
+        <div className="flex items-center gap-2">
+          {blockStatus?.blocked && (
+            <Badge className="bg-orange-500/20 text-orange-400 border-orange-400/30 text-xs">
+              <AlertCircle className="w-3 h-3 mr-1" />
+              Quota pausada ({blockStatus.brasiliaHour}h)
+            </Badge>
+          )}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setAutoRefresh(!autoRefresh)}
+            className={`border-gray-600 text-xs h-8 ${autoRefresh ? "text-green-400 border-green-400/50" : "text-gray-400"}`}
+          >
+            <Circle className={`w-1.5 h-1.5 mr-1 ${autoRefresh ? "fill-green-400" : "fill-gray-400"}`} />
+            {autoRefresh ? "Auto ON" : "Auto OFF"}
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleRefresh}
+            disabled={isLoading}
+            className="border-gray-600 text-gray-300 hover:text-white h-8"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 mr-1 ${isLoading ? "animate-spin" : ""}`} />
+            Atualizar
+          </Button>
+        </div>
+      </div>
+
+      {/* Métricas */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
         {[
-          { label: "Jogos ao Vivo", value: JOGOS_AO_VIVO.length, icon: Radio, color: "text-primary" },
-          { label: "Oportunidades", value: totalOportunidades, icon: Target, color: "text-green-400" },
-          { label: "Jogos Quentes", value: jogosQuentes, icon: Zap, color: "text-red-400" },
-          { label: "Última Atualização", value: ultimaAtualizacao.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }), icon: Clock, color: "text-muted-foreground" },
-        ].map((stat, i) => (
-          <Card key={i} className="bg-card border-border">
-            <CardContent className="p-4 flex items-center gap-3">
-              <stat.icon className={`w-8 h-8 ${stat.color}`} />
+          { icon: Activity, color: "text-green-400", value: dashboard?.totalJogos ?? 0, label: "Jogos ao vivo" },
+          { icon: Zap, color: "text-yellow-400", value: dashboard?.totalOportunidades ?? 0, label: "Oportunidades" },
+          { icon: TrendingUp, color: "text-blue-400", value: (dashboard?.jogos || []).filter(j => j.totalOportunidades > 0).length, label: "Jogos c/ sinal" },
+          { icon: Clock, color: "text-purple-400", value: ultimaAtt.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", second: "2-digit" }), label: "Atualizado" },
+        ].map(({ icon: Icon, color, value, label }, i) => (
+          <Card key={i} className="bg-gray-800/50 border-gray-700">
+            <CardContent className="p-3 flex items-center gap-2">
+              <Icon className={`w-4 h-4 flex-shrink-0 ${color}`} />
               <div>
-                <p className="text-2xl font-bold text-foreground">{stat.value}</p>
-                <p className="text-xs text-muted-foreground">{stat.label}</p>
+                <div className="text-base font-bold text-white leading-tight">{value}</div>
+                <div className="text-[10px] text-gray-400">{label}</div>
               </div>
             </CardContent>
           </Card>
@@ -87,154 +365,172 @@ export default function AoVivo() {
       </div>
 
       {/* Filtros */}
-      <div className="flex flex-col sm:flex-row gap-3 mb-4">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-          <Input
-            placeholder="Buscar time ou liga..."
-            value={busca}
-            onChange={e => setBusca(e.target.value)}
-            className="pl-9 bg-card border-border"
-          />
-        </div>
-        <Select value={filtroStatus} onValueChange={setFiltroStatus}>
-          <SelectTrigger className="w-full sm:w-40 bg-card border-border">
-            <Filter className="w-4 h-4 mr-2" />
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="todos">Todos</SelectItem>
-            <SelectItem value="quente">Quentes</SelectItem>
-            <SelectItem value="morno">Mornos</SelectItem>
-            <SelectItem value="frio">Frios</SelectItem>
-          </SelectContent>
-        </Select>
-        <Button variant="outline" onClick={atualizar} disabled={atualizando} className="border-border">
-          <RefreshCw className={`w-4 h-4 mr-2 ${atualizando ? "animate-spin" : ""}`} />
-          Atualizar
+      <div className="flex flex-wrap items-center gap-2">
+        <Button
+          size="sm"
+          variant={apenasComSinal ? "default" : "outline"}
+          onClick={() => setApenasComSinal(!apenasComSinal)}
+          className={`h-7 text-xs ${apenasComSinal ? "bg-green-500 text-black hover:bg-green-400" : "border-gray-600 text-gray-300"}`}
+        >
+          <Zap className="w-3 h-3 mr-1" />
+          Só com sinais
         </Button>
+        <select
+          value={filtroLiga}
+          onChange={e => setFiltroLiga(e.target.value)}
+          className="bg-gray-800 border border-gray-600 text-gray-300 text-xs rounded px-2 py-1 h-7"
+        >
+          <option value="todas">Todas as ligas</option>
+          {ligas.map(l => <option key={l} value={l}>{l}</option>)}
+        </select>
+        <span className="text-xs text-gray-500">{jogosFiltrados.length} jogo(s)</span>
       </div>
 
-      {/* Lista de jogos */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-        {jogosFiltrados.map(jogo => {
-          const statusInfo = statusConfig[jogo.status as keyof typeof statusConfig];
+      {/* Erro */}
+      {error && (
+        <Card className="bg-red-900/20 border-red-500/30">
+          <CardContent className="p-3 flex items-center gap-2">
+            <AlertCircle className="w-4 h-4 text-red-400 flex-shrink-0" />
+            <div>
+              <p className="text-red-400 font-semibold text-sm">Erro ao carregar dados</p>
+              <p className="text-red-300/70 text-xs">{error.message}</p>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Skeleton */}
+      {isLoading && !dashboard && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          {[...Array(6)].map((_, i) => (
+            <div key={i} className="h-36 bg-gray-800/50 rounded-lg animate-pulse" />
+          ))}
+        </div>
+      )}
+
+      {/* Sem jogos */}
+      {!isLoading && jogosFiltrados.length === 0 && !error && (
+        <Card className="bg-gray-800/30 border-gray-700">
+          <CardContent className="p-10 text-center">
+            <Activity className="w-10 h-10 text-gray-600 mx-auto mb-3" />
+            <p className="text-gray-400 font-semibold">Nenhum jogo ao vivo no momento</p>
+            <p className="text-gray-500 text-sm mt-1">
+              {blockStatus?.blocked
+                ? `API em modo de proteção de quota (${blockStatus.brasiliaHour}h Brasília — ativa das 7h às 1h)`
+                : "Aguarde o início das partidas ou ajuste os filtros"}
+            </p>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Grid de jogos */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+        {jogosFiltrados.map(({ fixture, oportunidades }) => {
+          const st = fixture.fixture.status;
+          const isLive = ["1H", "2H", "ET", "P", "HT"].includes(st.short);
+          const melhorOp = oportunidades[0];
+
           return (
             <Card
-              key={jogo.id}
-              className="bg-card border-border hover:border-primary/40 transition-all cursor-pointer group"
-              onClick={() => setJogoSelecionado(jogo)}
+              key={fixture.fixture.id}
+              className={`bg-gray-800/50 border-gray-700 cursor-pointer hover:border-green-400/40 transition-all ${
+                oportunidades.length > 0 ? "border-green-400/20" : ""
+              }`}
+              onClick={() => setJogoSelecionado(fixture.fixture.id)}
             >
-              <CardContent className="p-4">
-                {/* Header do jogo */}
-                <div className="flex items-center justify-between mb-3">
-                  <div className="flex items-center gap-2">
-                    <div className={`w-2 h-2 rounded-full ${statusInfo.dot}`} />
-                    <span className="text-xs text-muted-foreground">{jogo.liga}</span>
+              <CardContent className="p-3">
+                {/* Liga + status */}
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-1.5">
+                    {fixture.league.flag && (
+                      <img src={fixture.league.flag} alt="" className="w-4 h-3 object-cover rounded-sm" />
+                    )}
+                    <span className="text-xs text-gray-400 truncate max-w-[150px]">{fixture.league.name}</span>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs text-muted-foreground">{jogo.minuto}'</span>
-                    <span className={statusInfo.class}>{statusInfo.label}</span>
-                  </div>
-                </div>
-
-                {/* Times e placar */}
-                <div className="flex items-center justify-between mb-3">
-                  <div className="flex-1">
-                    <p className="font-semibold text-foreground text-sm">{jogo.casa}</p>
-                    <p className="font-semibold text-foreground text-sm">{jogo.fora}</p>
-                  </div>
-                  <div className="text-center px-4">
-                    <span className="text-2xl font-bold text-primary neon-text">{jogo.placar}</span>
+                  <div className="flex items-center gap-1.5">
+                    {isLive && (
+                      <span className="flex items-center gap-1 text-[10px] text-green-400 font-bold">
+                        <Circle className="w-1.5 h-1.5 fill-green-400 animate-pulse" />
+                        AO VIVO
+                      </span>
+                    )}
+                    <span className={`text-xs font-bold ${statusColor(st.short)}`}>
+                      {statusLabel(st.short, st.elapsed)}
+                    </span>
                   </div>
                 </div>
 
-                {/* Oportunidades */}
-                <div className="space-y-1.5">
-                  {jogo.oportunidades.slice(0, 2).map((op, i) => (
-                    <div key={i} className="flex items-center justify-between bg-muted/50 rounded-lg px-3 py-2">
-                      <div className="flex items-center gap-2">
-                        <Target className="w-3.5 h-3.5 text-primary" />
-                        <span className="text-xs font-medium text-foreground">{op.mercado}</span>
-                      </div>
-                      <div className="flex items-center gap-3">
-                        <span className="text-xs text-muted-foreground">@{op.odd}</span>
-                        <span className="text-xs text-green-400 font-medium">EV+{op.ev}%</span>
-                        <div className="flex items-center gap-1">
-                          <div className="w-12 h-1.5 bg-muted rounded-full overflow-hidden">
-                            <div className="h-full bg-primary rounded-full" style={{ width: `${op.confianca}%` }} />
-                          </div>
-                          <span className="text-xs text-primary font-bold">{op.confianca}%</span>
-                        </div>
-                      </div>
+                {/* Times + placar */}
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-1.5 flex-1 min-w-0">
+                    <img src={fixture.teams.home.logo} alt="" className="w-6 h-6 object-contain flex-shrink-0" />
+                    <span className="text-sm font-semibold text-white truncate">{fixture.teams.home.name}</span>
+                  </div>
+                  <div className="text-center px-3 flex-shrink-0">
+                    <div className="text-xl font-bold text-white">{fixture.goals.home ?? 0}–{fixture.goals.away ?? 0}</div>
+                    {fixture.score.halftime.home !== null && (
+                      <div className="text-[10px] text-gray-500">HT {fixture.score.halftime.home}-{fixture.score.halftime.away}</div>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-1.5 flex-1 min-w-0 justify-end">
+                    <span className="text-sm font-semibold text-white truncate text-right">{fixture.teams.away.name}</span>
+                    <img src={fixture.teams.away.logo} alt="" className="w-6 h-6 object-contain flex-shrink-0" />
+                  </div>
+                </div>
+
+                {/* Últimos eventos */}
+                {fixture.events && fixture.events.length > 0 && (
+                  <div className="flex flex-wrap gap-1 mb-2">
+                    {fixture.events.slice(-4).map((ev, i) => <EventoBadge key={i} ev={ev} />)}
+                  </div>
+                )}
+
+                {/* Melhor oportunidade */}
+                {melhorOp && (
+                  <div className={`flex items-center justify-between text-xs px-2 py-1.5 rounded border mt-1 ${urgenciaStyle(melhorOp.urgencia)}`}>
+                    <div className="flex items-center gap-1.5">
+                      <TipoIcon tipo={melhorOp.tipo} />
+                      <span className="font-semibold truncate max-w-[120px]">{melhorOp.mercado}</span>
+                      {oportunidades.length > 1 && (
+                        <Badge className="text-[9px] bg-current/20 px-1 h-4">{oportunidades.length}</Badge>
+                      )}
                     </div>
-                  ))}
-                  {jogo.oportunidades.length > 2 && (
-                    <p className="text-xs text-muted-foreground text-center">+{jogo.oportunidades.length - 2} oportunidades</p>
-                  )}
-                </div>
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                      <span>@{melhorOp.odd.toFixed(2)}</span>
+                      <span className={melhorOp.ev > 0 ? "text-green-400 font-bold" : "text-red-400"}>
+                        EV {melhorOp.ev > 0 ? "+" : ""}{melhorOp.ev.toFixed(1)}%
+                      </span>
+                      <span className="text-gray-400">{melhorOp.confianca}%</span>
+                    </div>
+                  </div>
+                )}
 
-                <div className="flex items-center justify-end mt-2 text-xs text-primary opacity-0 group-hover:opacity-100 transition-opacity">
-                  Ver detalhes <ChevronRight className="w-3 h-3 ml-1" />
-                </div>
+                {/* Stats resumidas */}
+                {fixture.statistics && fixture.statistics.length >= 2 && (
+                  <div className="grid grid-cols-3 gap-1 mt-2 pt-2 border-t border-gray-700/50 text-center">
+                    {[
+                      { type: "Total Shots", label: "Chutes" },
+                      { type: "Corner Kicks", label: "Escanteios" },
+                      { type: "Ball Possession", label: "Posse" },
+                    ].map(({ type, label }) => {
+                      const h = fixture.statistics![0]?.statistics.find(s => s.type === type)?.value ?? 0;
+                      const a = fixture.statistics![1]?.statistics.find(s => s.type === type)?.value ?? 0;
+                      return (
+                        <div key={type}>
+                          <div className="text-xs font-semibold text-white">{h}–{a}</div>
+                          <div className="text-[10px] text-gray-500">{label}</div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
               </CardContent>
             </Card>
           );
         })}
       </div>
 
-      {/* Modal de detalhes */}
-      <Dialog open={!!jogoSelecionado} onOpenChange={() => setJogoSelecionado(null)}>
-        <DialogContent className="bg-card border-border max-w-lg">
-          {jogoSelecionado && (
-            <>
-              <DialogHeader>
-                <DialogTitle className="text-foreground">
-                  {jogoSelecionado.casa} vs {jogoSelecionado.fora}
-                </DialogTitle>
-                <p className="text-sm text-muted-foreground">{jogoSelecionado.liga} • {jogoSelecionado.minuto}'</p>
-              </DialogHeader>
-              <div className="space-y-4">
-                <div className="text-center py-4 bg-muted/30 rounded-xl">
-                  <span className="text-5xl font-bold text-primary neon-text">{jogoSelecionado.placar}</span>
-                </div>
-                <div className="space-y-3">
-                  <h3 className="font-semibold text-foreground flex items-center gap-2">
-                    <Target className="w-4 h-4 text-primary" />
-                    Oportunidades Detectadas pela IA
-                  </h3>
-                  {jogoSelecionado.oportunidades.map((op, i) => (
-                    <div key={i} className="bg-muted/30 rounded-xl p-4 border border-border">
-                      <div className="flex items-center justify-between mb-3">
-                        <span className="font-semibold text-foreground">{op.mercado}</span>
-                        <div className="flex items-center gap-3">
-                          <span className="text-sm font-bold text-foreground">@{op.odd}</span>
-                          <span className="badge-green">EV+{op.ev}%</span>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2 mb-3">
-                        <div className="flex-1 h-2 bg-muted rounded-full overflow-hidden">
-                          <div className="h-full bg-primary rounded-full transition-all" style={{ width: `${op.confianca}%` }} />
-                        </div>
-                        <span className="text-sm font-bold text-primary">{op.confianca}% confiança</span>
-                      </div>
-                      <div className="space-y-1">
-                        <p className="text-xs text-muted-foreground font-medium">Motivos da análise:</p>
-                        {op.motivos.map((m, j) => (
-                          <div key={j} className="flex items-center gap-2 text-xs text-foreground">
-                            <div className="w-1.5 h-1.5 rounded-full bg-primary flex-shrink-0" />
-                            {m}
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </>
-          )}
-        </DialogContent>
-      </Dialog>
-    </RaphaLayout>
+      <ModalJogo fixtureId={jogoSelecionado} open={!!jogoSelecionado} onClose={() => setJogoSelecionado(null)} />
+    </div>
   );
 }

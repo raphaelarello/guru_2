@@ -64,5 +64,21 @@
 - [x] 20 testes unitários passando (auth, bots, canais, alertas, banca, apostas, pitacos)
 
 ## Deploy
-- [ ] Commit e push para GitHub (raphaelarello/guru_2)
-- [ ] Checkpoint salvo
+- [x] Commit e push para GitHub (raphaelarello/guru_2)
+- [x] Checkpoint salvo (versão 7c83d837)
+
+## Integração API Football (Prioridade)
+- [x] Configurar chave API Football no projeto (75.000 req/dia, plano Ultra)
+- [x] Endpoint /fixtures?live=all — jogos ao vivo em tempo real
+- [x] Endpoint /fixtures/statistics — estatísticas detalhadas por jogo
+- [x] Endpoint /odds/live — odds ao vivo por jogo
+- [x] Endpoint /fixtures — jogos do dia com pré-jogo
+- [x] Cache inteligente (TTL por endpoint) para não exceder quota
+- [x] Bloqueio de chamadas entre 1h e 7h da manhã (horário Brasília)
+- [x] Análise de IA com dados reais (EV, confiança, motivos, predições)
+- [x] Bots disparando alertas com dados reais (endpoint processar)
+- [x] Atualização automática a cada 30 segundos
+- [x] Página Ao Vivo reescrita com dados reais: gols, cartões, odds, estatísticas
+- [x] Modal de detalhes: Sinais, Estatísticas, Eventos, Predição (API Football)
+- [x] Botão Processar Agora nos Bots para gerar alertas reais
+- [x] Motor de análise: Over 0.5/1.5/2.5, BTTS, Goleada, Escanteios, Cartões, EV+
