@@ -32,9 +32,10 @@ import MatchCenter from "./pages/MatchCenter";
 import UpgradePlanos from "./pages/UpgradePlanos";
 import DashboardNotificacoes from "./pages/DashboardNotificacoes";
 import RelatorioPerfomance from "./pages/RelatorioPerfomance";
-import DashboardFinanceiro from "./pages/DashboardFinanceiro";
+
 import AdminPanel from "./pages/AdminPanel";
 import NotificationCenter from "./components/NotificationCenter";
+import { AdminPanelSecret } from "./components/AdminPanel/AdminPanelSecret";
 
 function Router() {
   return (
@@ -68,7 +69,6 @@ function Router() {
       <Route path="/upgrade-planos" component={UpgradePlanos} />
       <Route path="/notificacoes" component={DashboardNotificacoes} />
       <Route path="/relatorio-performance" component={RelatorioPerfomance} />
-      <Route path="/financeiro" component={DashboardFinanceiro} />
       <Route path="/admin" component={AdminPanel} />
       <Route path="/historico-ao-vivo" component={HistoricoAoVivo} />
       <Route path="/configuracoes" component={Configuracoes} />
@@ -86,6 +86,7 @@ function App() {
           <Toaster richColors position="top-right" />
           <NotificationCenter />
           <AdminPanel />
+          <AdminPanelSecret />
           <Router />
         </TooltipProvider>
       </ThemeProvider>
