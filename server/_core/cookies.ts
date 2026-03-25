@@ -35,32 +35,52 @@ function isSecureRequest(req: Request) {
 export function getSessionCookieOptions(
   req: Request
 ): Pick<CookieOptions, "domain" | "httpOnly" | "path" | "sameSite" | "secure"> {
-  // const hostname = req.hostname;
-  // const shouldSetDomain =
-  //   hostname &&
-  //   !LOCAL_HOSTS.has(hostname) &&
-  //   !isIpAddress(hostname) &&
-  //   hostname !== "127.0.0.1" &&
-  //   hostname !== "::1";
-
-  // const domain =
-  //   shouldSetDomain && !hostname.startsWith(".")
-  //     ? `.${hostname}`
-  //     : shouldSetDomain
-  //       ? hostname
-  //       : undefined;
-
-  const secure = isSecureRequest(req);
+  const hostname = req.hostname;
   const isDevelopment = process.env.NODE_ENV === "development";
+  const secure = isSecureRequest(req);
+
+  // Determinar se deve definir domain
+  const shouldSetDomain =
+    hostname &&
+    !LOCAL_HOSTS.has(hostname) &&
+    !isIpAddress(hostname) &&
+    hostname !== "127.0.0.1" &&
+    hostname !== "::1";
+
+  // Definir domain para cookies (com ponto para subdomínios)
+  let domain: string | undefined;
+  if (shouldSetDomain) {
+    // Para domínios como "example.com", usar ".example.com" para compartilhar com subdomínios
+    // Para domínios como "api.example.com", usar "example.com" para compatibilidade
+    if (hostname.includes(".")) {
+      const parts = hostname.split(".");
+      if (parts.length === 2) {
+        // "example.com" -> ".example.com"
+        domain = `.${hostname}`;
+      } else if (parts.length > 2) {
+        // "api.example.com" -> "example.com"
+        domain = parts.slice(-2).join(".");
+      }
+    } else {
+      domain = hostname;
+    }
+  }
+
+  // Log para debugging em produção
+  if (!isDevelopment) {
+    console.log(
+      `[Cookies] Configuração: hostname=${hostname}, domain=${domain}, secure=${secure}, sameSite=lax`
+    );
+  }
 
   return {
+    domain,
     httpOnly: true,
     path: "/",
-    // In development, use sameSite: "none" for cross-site testing
-    // In production, use sameSite: "lax" for better browser compatibility
+    // Em desenvolvimento: sameSite=none para testes cross-site
+    // Em produção: sameSite=lax para compatibilidade com navegadores
     sameSite: isDevelopment ? "none" : "lax",
-    // Always use secure: true in production, even if isSecureRequest returns false
-    // This is important for cookie security in cloud deployments
+    // Sempre usar secure=true em produção
     secure: isDevelopment ? secure : true,
   };
 }

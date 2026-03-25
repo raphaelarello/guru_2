@@ -16,6 +16,7 @@ import Ligas from "./pages/Ligas";
 import HistoricoAoVivo from "./pages/HistoricoAoVivo";
 import Configuracoes from "./pages/Configuracoes";
 import Destaques from "./pages/Destaques";
+import Artilheiros from "./pages/Artilheiros";
 
 function Router() {
   return (
@@ -32,6 +33,7 @@ function Router() {
       <Route path="/jogos-hoje" component={JogosHoje} />
       <Route path="/times" component={Times} />
       <Route path="/ligas" component={Ligas} />
+      <Route path="/artilheiros" component={Artilheiros} />
       <Route path="/historico-ao-vivo" component={HistoricoAoVivo} />
       <Route path="/configuracoes" component={Configuracoes} />
       <Route path="/404" component={NotFound} />

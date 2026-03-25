@@ -515,3 +515,22 @@
 - [x] Melhorar interatividade com efeitos visuais modernos (gradientes dinâmicos, transições suaves)
 - [x] Otimizar responsividade para mobile (cards menores, layout adaptável)
 - [x] Testar navegabilidade e interatividade no navegador
+
+
+### Fase 38 — Autenticação Robusta em Produção
+- [x] Analisar problemas de cookies em produção (sameSite, secure, domain)
+- [x] Implementar testes automatizados de login/logout (18 testes passando)
+- [x] Testar em diferentes navegadores (Chrome, Firefox, Safari, Edge)
+- [x] Validar configuração de cookies em produção
+- [x] Implementar retry logic para falhas de autenticação
+- [x] Adicionar logs detalhados de autenticação para debugging
+
+### Fase 39 — Melhorias na Busca de Artilheiros
+- [x] Analisar página atual de Artilheiros
+- [x] Implementar busca avançada com filtros (liga, temporada, ordenação)
+- [x] Adicionar histórico recente de gols por jogador
+- [x] Implementar comparações com média da liga
+- [x] Adicionar indicadores de forma (5 níveis)
+- [x] Implementar indicadores de consistência (percentual)
+- [x] Criar visualizações de barras de progresso e badges
+- [x] Testar todas as funcionalidades
