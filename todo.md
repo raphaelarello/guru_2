@@ -400,3 +400,12 @@
 - [x] Tornar card "Lucro Total" clicável → navega para /apostas
 - [x] Adicionar efeitos de hover nos cards (glow colorido, scale, rotação de ícone)
 - [x] Testar navegação em desenvolvimento — todos os cards funcionando perfeitamente
+
+## Fase 35 — Redesenho Premium da Página Destaques
+- [x] Adicionar filtro de ligas (dropdown com "Todas" + ligas específicas) — funcionando perfeitamente
+- [x] Expandir busca de artilheiros para TODAS as ligas com jogos hoje
+- [x] Tentar múltiplas temporadas (2025, 2024, 2026) automaticamente para artilheiros
+- [x] Redesenhar cards de palpites com visual superior ao scoretabs
+- [x] Melhorar layout dos cards (espaçamento, tipografia, cores) — linhas de destaque, backdrop blur
+- [x] Adicionar efeitos visuais premium (glow, shadows, animações) — hover com -translate-y-2
+- [x] Testar página no navegador — todos os cards funcionando com visual premium
