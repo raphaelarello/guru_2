@@ -209,7 +209,14 @@ export function Home() {
         <div className="grid grid-cols-5 gap-4">
           {/* SIDEBAR ESQUERDO - JOGOS COMPACTOS */}
           <div className="col-span-1 space-y-3 max-h-[calc(100vh-200px)] overflow-y-auto">
-            {Object.entries(gamesByLeague).map(([league, games]) => (
+            {Object.keys(gamesByLeague).length === 0 ? (
+              <div className="bg-slate-900/50 border border-slate-700 rounded-lg p-4 text-center">
+                <div className="text-slate-400 mb-2">⚽</div>
+                <p className="text-xs text-slate-400">Nenhum jogo nesta data</p>
+                <p className="text-xs text-slate-500 mt-2">Selecione outra data para ver jogos</p>
+              </div>
+            ) : (
+              Object.entries(gamesByLeague).map(([league, games]) => (
               <div key={league}>
                 <div className="text-xs font-bold text-slate-400 uppercase mb-2 px-2">{league}</div>
                 <div className="space-y-2">
@@ -244,7 +251,8 @@ export function Home() {
                   ))}
                 </div>
               </div>
-            ))}
+            ))
+            )}
           </div>
 
           {/* CONTEÚDO PRINCIPAL - JOGO EXPANDIDO */}

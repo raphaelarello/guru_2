@@ -1,1 +1,1 @@
-export { default } from './PainelSofaScore';
+export { Home as default } from './Home';
