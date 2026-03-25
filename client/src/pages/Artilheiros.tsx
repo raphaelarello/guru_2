@@ -1,12 +1,14 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { trpc } from "@/lib/trpc";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { ExportarRelatorio } from "@/components/ExportarRelatorio";
+import { useInterval } from "@/hooks/useInterval";
 import {
   Trophy, Search, TrendingUp, ArrowUp, ArrowDown,
   BarChart3, Users, Award, Flame, AlertTriangle, Settings, X
@@ -30,10 +32,24 @@ export default function Artilheiros() {
   const [ordenacao, setOrdenacao] = useState<"gols" | "assistencias" | "eficiencia" | "consistencia">("gols");
   const [showFiltros, setShowFiltros] = useState(false);
 
+  // Estado para controlar atualização automática
+  const [autoRefresh, setAutoRefresh] = useState(true);
+  const [lastUpdate, setLastUpdate] = useState<Date>(new Date());
+  const [dataAtual] = useState(() => new Date().toISOString().split('T')[0]);
+
   // Query de artilheiros do dia
-  const { data: destaquesData, isLoading } = trpc.destaques.artilheiros.useQuery({
-    date: new Date().toISOString().split('T')[0]
+  const { data: destaquesData, isLoading, refetch } = trpc.destaques.artilheiros.useQuery({
+    date: dataAtual
   });
+
+  // Atualização automática a cada 30 segundos
+  useInterval(() => {
+    if (autoRefresh && !isLoading) {
+      console.log("[Artilheiros] Atualizando dados...");
+      refetch();
+      setLastUpdate(new Date());
+    }
+  }, autoRefresh ? 30000 : null);
 
   // Extrair dados de artilheiros e indisciplinados
   const artilheiros = useMemo(() => {
@@ -265,13 +281,36 @@ export default function Artilheiros() {
     <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 p-4 md:p-6 pb-32">
       {/* Header */}
       <div className="mb-6">
-        <div className="flex items-center gap-2 mb-1">
-          <Trophy className="w-6 h-6 text-yellow-400" />
-          <h1 className="text-3xl font-bold text-white">Artilheiros & Indisciplinados</h1>
+        <div className="flex items-center justify-between gap-4 mb-3">
+          <div className="flex items-center gap-2">
+            <Trophy className="w-6 h-6 text-yellow-400" />
+            <h1 className="text-3xl font-bold text-white">Artilheiros & Indisciplinados</h1>
+          </div>
+          <div className="flex items-center gap-2">
+            <Button
+              onClick={() => setAutoRefresh(!autoRefresh)}
+              variant={autoRefresh ? "default" : "outline"}
+              size="sm"
+              className={autoRefresh ? "bg-green-600 hover:bg-green-700" : "border-slate-700 hover:bg-slate-800"}
+            >
+              <span className="w-2 h-2 rounded-full mr-2 animate-pulse" />
+              {autoRefresh ? "Atualização Ativa" : "Atualização Pausada"}
+            </Button>
+            <ExportarRelatorio
+              artilheiros={artilheirosFiltrados}
+              indisciplinados={indisciplinadosFiltrados}
+              data={dataAtual}
+            />
+          </div>
         </div>
-        <p className="text-sm text-gray-400">
-          Análise completa de artilheiros e jogadores indisciplinados de hoje
-        </p>
+        <div className="flex items-center justify-between">
+          <p className="text-sm text-gray-400">
+            Análise completa de artilheiros e jogadores indisciplinados de hoje
+          </p>
+          <p className="text-xs text-gray-500">
+            Última atualização: {lastUpdate.toLocaleTimeString("pt-BR")}
+          </p>
+        </div>
       </div>
 
       {/* Busca e Filtros */}

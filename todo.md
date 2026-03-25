@@ -544,3 +544,14 @@
 - [x] Implementar filtros avançados (liga, time, faixa de gols)
 - [x] Adicionar ordenação customizada (gols, assistências, eficiência, etc)
 - [x] Testar todas as funcionalidades
+
+
+### Fase 41 — Integração de Dados Reais e Exportação de Relatórios
+- [x] Melhorar getArtilheirosAvancado para buscar dados reais da API Football
+- [x] Implementar atualização automática a cada 30s no frontend (polling)
+- [x] Adicionar hook useInterval para gerenciar polling
+- [x] Criar componente de ExportarRelatorio (CSV/PDF)
+- [x] Implementar lógica de exportação CSV com dados por liga
+- [x] Implementar lógica de exportação PDF com tabelas e gráficos
+- [x] Integrar botão de exportação na página Artilheiros
+- [x] Testar atualização automática e exportações
