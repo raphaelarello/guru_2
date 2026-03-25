@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo } from "react";
+import { useState, useCallback, useMemo, useEffect } from "react";
 import { trpc } from "@/lib/trpc";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -675,7 +675,23 @@ type FiltroAtivo = "todos" | "quentes" | "sinal";
 export default function AoVivo() {
   const [autoRefresh, setAutoRefresh] = useState(true);
   const [ultimaAtt, setUltimaAtt] = useState(new Date());
-  const [jogoSelecionado, setJogoSelecionado] = useState<number | null>(null);
+
+  // Deep link: abrir modal automaticamente via ?fixture=ID na URL (ex: notificação push)
+  const fixtureIdFromUrl = useMemo(() => {
+    const params = new URLSearchParams(window.location.search);
+    const id = params.get("fixture");
+    return id ? parseInt(id, 10) : null;
+  }, []);
+  const [jogoSelecionado, setJogoSelecionado] = useState<number | null>(fixtureIdFromUrl);
+
+  // Limpar o parâmetro da URL após abrir o modal (sem recarregar a página)
+  useEffect(() => {
+    if (fixtureIdFromUrl) {
+      const url = new URL(window.location.href);
+      url.searchParams.delete("fixture");
+      window.history.replaceState({}, "", url.toString());
+    }
+  }, [fixtureIdFromUrl]);
   const [filtroAtivo, setFiltroAtivo] = useState<FiltroAtivo>("todos");
   const [ligaSelecionada, setLigaSelecionada] = useState<number | null>(null);
   const [ordenacao, setOrdenacao] = useState<"calor" | "oportunidades" | "minuto" | "gols">("calor");

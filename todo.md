@@ -339,3 +339,9 @@
 - [x] Sidebar atualizada com Histórico Ao Vivo (ícone Thermometer) e Configurações (ícone Settings)
 - [x] Rotas /historico-ao-vivo e /configuracoes no App.tsx
 - [x] 0 erros TypeScript
+
+## Fase 28 - API 24h + Histórico Automático + Deep Link Push
+- [x] Remover trava de horário da API Football (liberar consultas 24h)
+- [x] Salvar jogos ao vivo automaticamente no histórico via cronService
+- [x] Job de verificação automática de resultados (atualizar acertouTermometro)
+- [x] Notificações push com deep link para o jogo específico

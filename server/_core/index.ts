@@ -7,7 +7,7 @@ import { registerOAuthRoutes } from "./oauth";
 import { appRouter } from "../routers";
 import { createContext } from "./context";
 import { serveStatic, setupVite } from "./vite";
-import { iniciarCron } from "../cronService";
+import { iniciarCron, iniciarJobResultados } from "../cronService";
 import { registerSSEClient } from "../sse";
 
 function isPortAvailable(port: number): Promise<boolean> {
@@ -78,6 +78,8 @@ async function startServer() {
     console.log(`Server running on http://localhost:${port}/`);
     // Iniciar cron de processamento de bots
     iniciarCron();
+    // Iniciar job de verificação de resultados (a cada 30min)
+    iniciarJobResultados();
   });
 }
 

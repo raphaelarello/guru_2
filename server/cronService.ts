@@ -5,7 +5,7 @@
  *
  *  - Processa bots ativos a cada 5 minutos
  *  - Envia alertas via WhatsApp (Evolution API / Z-API), Telegram, E-mail
- *  - Respeita horário de bloqueio da API Football (1h–7h Brasília)
+ *  - API liberada 24h (75.000 req/dia disponíveis, sem bloqueio de horário)
  * ═══════════════════════════════════════════════════════════════════════════
  */
 
@@ -15,10 +15,10 @@ import {
   getLiveFixtures,
   getAllLiveOdds,
   analisarOportunidades,
-  isBlockedHour,
+  calcularScoreCalor,
 } from "./football";
 import type { LiveOdd } from "./football";
-import { bots, alertas, canais } from "../drizzle/schema";
+import { bots, alertas, canais, liveGameHistory } from "../drizzle/schema";
 import { eq, and, gte, sql } from "drizzle-orm";
 
 // ─── Estado do cron ──────────────────────────────────────────────────────────
@@ -216,11 +216,7 @@ export async function enviarAlertaCanais(
 
 // ─── Processar todos os bots ativos de todos os usuários ─────────────────────
 async function processarTodosBots(): Promise<void> {
-  if (isBlockedHour()) {
-    console.log("[CronService] Horário bloqueado (1h–7h Brasília). Pulando execução.");
-    return;
-  }
-
+  // API liberada 24h — sem bloqueio de horário
   const db = await getDb();
   if (!db) {
     console.warn("[CronService] Banco de dados não disponível.");
@@ -256,6 +252,76 @@ async function processarTodosBots(): Promise<void> {
     }
 
     console.log(`[CronService] ${jogos.length} jogos ao vivo | ${botsAtivos.length} bots ativos`);
+
+    // ─── Salvar jogos ao vivo no histórico automaticamente ───────────────────
+    // Usa o primeiro usuário com bots ativos como referência (ou usuário do sistema)
+    const primeiroUserId = botsAtivos[0]?.userId;
+    if (primeiroUserId) {
+      for (const fixture of jogos) {
+        try {
+          const { score, nivel } = calcularScoreCalor(fixture, fixture.statistics || []);
+          const hoje = new Date();
+          hoje.setHours(0, 0, 0, 0);
+          // Contar escanteios e cartões dos eventos
+          const events = fixture.events || [];
+          const cornersHome = events.filter(e => e.type === "Goal" && e.detail?.toLowerCase().includes("corner")).length;
+          const cardsHome = events.filter(e => e.type === "Card" && e.team?.id === fixture.teams.home.id).length;
+          const cardsAway = events.filter(e => e.type === "Card" && e.team?.id === fixture.teams.away.id).length;
+          // Escanteios das estatísticas
+          const statsHome = fixture.statistics?.[0]?.statistics || [];
+          const statsAway = fixture.statistics?.[1]?.statistics || [];
+          const getStat = (arr: {type: string; value: string | number | null}[], t: string) => {
+            const s = arr.find(x => x.type === t);
+            if (!s || s.value === null) return 0;
+            return typeof s.value === "number" ? s.value : parseFloat(String(s.value)) || 0;
+          };
+          const escCasa = getStat(statsHome, "Corner Kicks");
+          const escVisit = getStat(statsAway, "Corner Kicks");
+          // Upsert no histórico
+          const existente = await db.select({ id: liveGameHistory.id })
+            .from(liveGameHistory)
+            .where(and(
+              eq(liveGameHistory.userId, primeiroUserId),
+              eq(liveGameHistory.fixtureId, fixture.fixture.id),
+              gte(liveGameHistory.createdAt, hoje)
+            ))
+            .limit(1);
+          if (existente.length > 0) {
+            await db.update(liveGameHistory).set({
+              minuto: fixture.fixture.status.elapsed ?? 0,
+              golsCasa: fixture.goals.home ?? 0,
+              golsVisit: fixture.goals.away ?? 0,
+              scoreCalor: score,
+              nivelCalor: nivel,
+              escanteiosCasa: escCasa,
+              escanteiosVisit: escVisit,
+              cartoesCasa: cardsHome,
+              cartoesVisit: cardsAway,
+            }).where(eq(liveGameHistory.id, existente[0].id));
+          } else {
+            await db.insert(liveGameHistory).values({
+              userId: primeiroUserId,
+              fixtureId: fixture.fixture.id,
+              jogo: `${fixture.teams.home.name} vs ${fixture.teams.away.name}`,
+              liga: fixture.league.name,
+              paisBandeira: fixture.league.flag || "",
+              minuto: fixture.fixture.status.elapsed ?? 0,
+              golsCasa: fixture.goals.home ?? 0,
+              golsVisit: fixture.goals.away ?? 0,
+              scoreCalor: score,
+              nivelCalor: nivel,
+              escanteiosCasa: escCasa,
+              escanteiosVisit: escVisit,
+              cartoesCasa: cardsHome,
+              cartoesVisit: cardsAway,
+              totalSinais: 0,
+            });
+          }
+        } catch (err) {
+          console.warn(`[CronService] Erro ao salvar histórico do jogo ${fixture.fixture.id}:`, err instanceof Error ? err.message : err);
+        }
+      }
+    }
 
     // Agrupar bots por usuário
     const botsPorUsuario = new Map<number, typeof botsAtivos>();
@@ -402,7 +468,7 @@ async function processarTodosBots(): Promise<void> {
                 title: `⚡ ${op.mercado}`,
                 body: `${jogoNome} | Odd: ${op.odd.toFixed(2)} | EV: +${op.ev.toFixed(2)}% | ${op.confianca}% conf.`,
                 icon: "/icon-192.png",
-                url: "/ao-vivo",
+                url: `/ao-vivo?fixture=${fixture.fixture.id}`,
                 tag: `sinal-${bot.id}-${fixture.fixture.id}`,
               });
             } catch { /* Push opcional */ }
@@ -472,4 +538,94 @@ export function statusCron() {
 export async function executarAgora(): Promise<void> {
   await processarTodosBots();
   proximaExecucao = new Date(Date.now() + INTERVALO_MS);
+}
+
+// ─── Job de Verificação de Resultados ────────────────────────────────────────
+/**
+ * Verifica jogos do histórico que ainda não têm resultado final
+ * e atualiza acertouTermometro com base no placar final da API Football.
+ * Roda a cada 30 minutos.
+ */
+let resultadosTimer: ReturnType<typeof setInterval> | null = null;
+
+async function verificarResultadosPendentes(): Promise<void> {
+  const db = await getDb();
+  if (!db) return;
+
+  try {
+    // Buscar jogos sem resultado final (acertouTermometro = null) criados há mais de 2h
+    const duasHorasAtras = new Date(Date.now() - 2 * 60 * 60 * 1000);
+    const { isNull, lte } = await import("drizzle-orm");
+    const pendentes = await db
+      .select()
+      .from(liveGameHistory)
+      .where(
+        and(
+          isNull(liveGameHistory.acertouTermometro),
+          lte(liveGameHistory.createdAt, duasHorasAtras)
+        )
+      )
+      .limit(20);
+
+    if (pendentes.length === 0) return;
+
+    console.log(`[CronService] Verificando resultados de ${pendentes.length} jogo(s) pendente(s)...`);
+
+    const { getTodayFixtures } = await import("./football");
+
+    for (const registro of pendentes) {
+      try {
+        // Buscar o jogo pelo ID na API Football
+        const hoje = new Date().toISOString().split("T")[0];
+        const jogosHoje = await getTodayFixtures(hoje);
+        const jogo = jogosHoje.find((f) => f.fixture.id === registro.fixtureId);
+
+        if (!jogo) continue;
+
+        const status = jogo.fixture.status.short;
+        const terminado = ["FT", "AET", "PEN", "AWD", "WO"].includes(status);
+
+        if (!terminado) continue;
+
+        const golsCasaFinal = jogo.goals.home ?? 0;
+        const golsVisitFinal = jogo.goals.away ?? 0;
+        const totalGolsFinal = golsCasaFinal + golsVisitFinal;
+        const placarFinal = `${golsCasaFinal}-${golsVisitFinal}`;
+
+        // Termômetro acertou se: score >= 50 (Quente/Vulcão) e houve gol(s) no 2T
+        // ou score < 50 (Gelado/Morno) e não houve gols adicionais
+        const golsNoRegistro = (registro.golsCasa ?? 0) + (registro.golsVisit ?? 0);
+        const golsDepois = totalGolsFinal - golsNoRegistro;
+        const eraQuente = (registro.scoreCalor ?? 0) >= 50;
+        const acertou = eraQuente ? golsDepois > 0 : golsDepois === 0;
+
+        await db.update(liveGameHistory)
+          .set({
+            placarFinal,
+            golsOcorreram: totalGolsFinal > 0,
+            acertouTermometro: acertou,
+          })
+          .where(eq(liveGameHistory.id, registro.id));
+
+        console.log(`[CronService] Resultado: ${registro.jogo} | ${placarFinal} | Termômetro ${acertou ? "✅ acertou" : "❌ errou"}`);
+      } catch (err) {
+        console.warn(`[CronService] Erro ao verificar resultado do jogo ${registro.fixtureId}:`, err instanceof Error ? err.message : err);
+      }
+    }
+  } catch (err) {
+    console.error("[CronService] Erro no job de resultados:", err instanceof Error ? err.message : err);
+  }
+}
+
+export function iniciarJobResultados(): void {
+  if (resultadosTimer) return;
+  // Roda a cada 30 minutos
+  resultadosTimer = setInterval(() => {
+    verificarResultadosPendentes().catch(console.error);
+  }, 30 * 60 * 1000);
+  // Primeira execução após 2 minutos
+  setTimeout(() => {
+    verificarResultadosPendentes().catch(console.error);
+  }, 2 * 60 * 1000);
+  console.log("[CronService] ✅ Job de resultados iniciado — verificação a cada 30 minutos");
 }

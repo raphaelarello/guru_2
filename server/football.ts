@@ -33,7 +33,7 @@
  *    - H2H: 24h TTL
  *
  *  Proteção de quota:
- *    - Bloqueio entre 1h e 7h (horário de Brasília)
+ *    - API liberada 24h (sem bloqueio de horário)
  *    - 75.000 req/dia disponíveis
  * ═══════════════════════════════════════════════════════════════════════════
  */
@@ -67,10 +67,9 @@ function setCached<T>(key: string, data: T, ttl: number): void {
 }
 
 // ─── Controle de horário ─────────────────────────────────────────────────────
+// API liberada 24h — 75.000 req/dia disponíveis (trava removida)
 export function isBlockedHour(): boolean {
-  const now = new Date();
-  const brasiliaHour = (now.getUTCHours() - 3 + 24) % 24;
-  return brasiliaHour >= 1 && brasiliaHour < 7;
+  return false;
 }
 
 // ─── Cliente HTTP ────────────────────────────────────────────────────────────
@@ -78,10 +77,6 @@ async function apiRequest<T>(
   endpoint: string,
   params: Record<string, string | number | boolean> = {}
 ): Promise<T> {
-  if (isBlockedHour()) {
-    throw new Error("API bloqueada entre 1h e 7h (horário de Brasília) para preservar limite diário.");
-  }
-
   const url = `${BASE_URL}${endpoint}`;
   const response = await axios.get(url, {
     headers: { "x-apisports-key": API_KEY },
@@ -1001,4 +996,65 @@ export function getBlockStatus(): { blocked: boolean; brasiliaHour: number } {
   const now = new Date();
   const brasiliaHour = (now.getUTCHours() - 3 + 24) % 24;
   return { blocked: isBlockedHour(), brasiliaHour };
+}
+
+// ─── Calcular Score de Calor (termômetro) ────────────────────────────────────
+/**
+ * Calcula o score de calor de um jogo ao vivo (0–100)
+ * Usado pelo cronService para salvar no histórico automaticamente
+ */
+export function calcularScoreCalor(
+  fixture: LiveFixture,
+  stats: TeamStatistics[]
+): { score: number; nivel: string } {
+  let score = 0;
+  const elapsed = fixture.fixture.status.elapsed || 0;
+  const goalsHome = fixture.goals.home || 0;
+  const goalsAway = fixture.goals.away || 0;
+  const totalGoals = goalsHome + goalsAway;
+
+  const getStat = (teamStats: FixtureStatistic[], type: string): number => {
+    const s = teamStats.find((x) => x.type === type);
+    if (!s || s.value === null) return 0;
+    if (typeof s.value === "string") return parseFloat(s.value.replace("%", "")) || 0;
+    return typeof s.value === "number" ? s.value : 0;
+  };
+
+  const statsHome = stats[0]?.statistics || [];
+  const statsAway = stats[1]?.statistics || [];
+
+  const shotsOnHome = getStat(statsHome, "Shots on Goal");
+  const shotsOnAway = getStat(statsAway, "Shots on Goal");
+  const shotsTotal = getStat(statsHome, "Total Shots") + getStat(statsAway, "Total Shots");
+  const cornersHome = getStat(statsHome, "Corner Kicks");
+  const cornersAway = getStat(statsAway, "Corner Kicks");
+  const totalCorners = cornersHome + cornersAway;
+  const dangerousAttHome = getStat(statsHome, "Dangerous Attacks");
+  const dangerousAttAway = getStat(statsAway, "Dangerous Attacks");
+  const totalDangerous = dangerousAttHome + dangerousAttAway;
+
+  // Gols recentes (últimos 15 min)
+  const golsRecentes = fixture.events?.filter(
+    (e) => e.type === "Goal" && e.time.elapsed >= elapsed - 15
+  ).length || 0;
+
+  // Pontuação por fator
+  if (elapsed >= 75) score += 15; // Reta final
+  else if (elapsed >= 60) score += 10;
+  else if (elapsed >= 45) score += 5;
+
+  score += Math.min(totalGoals * 12, 20); // Gols já marcados
+  score += Math.min(golsRecentes * 15, 20); // Gols recentes
+  score += Math.min((shotsOnHome + shotsOnAway) * 2, 15); // Chutes a gol
+  score += Math.min(shotsTotal * 0.5, 8); // Chutes totais
+  score += Math.min(totalCorners * 1.5, 10); // Escanteios
+  score += Math.min(totalDangerous * 0.1, 8); // Ataques perigosos
+
+  // Empate na reta final = mais quente
+  if (elapsed >= 70 && goalsHome === goalsAway) score += 10;
+
+  score = Math.min(Math.round(score), 100);
+
+  const nivel = score >= 75 ? "Vulcão" : score >= 50 ? "Quente" : score >= 25 ? "Morno" : "Gelado";
+  return { score, nivel };
 }
