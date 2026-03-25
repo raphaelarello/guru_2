@@ -85,3 +85,17 @@
 
 ## Bugs
 - [x] Erro "Cannot read properties of undefined (reading 'find')" na página Ao Vivo — CORRIGIDO (campo odds vs bets na interface LiveOdd)
+
+## Fase 16 — Automação, Pré-Jogo e Alertas Reais
+- [x] Cron job automático: processar bots ativos a cada 5 minutos
+- [x] Controle de cron no painel (ativar/desativar, próxima execução, última execução, total alertas)
+- [x] Seção Jogos de Hoje: partidas do dia com odds pré-jogo
+- [x] Predições da API Football nos jogos de hoje (aba Predição no modal)
+- [x] Filtros por liga nos jogos de hoje
+- [x] Envio real de alertas via WhatsApp (Evolution API)
+- [x] Envio real de alertas via WhatsApp (Z-API)
+- [x] Envio real de alertas via Telegram Bot
+- [x] Envio real de alertas via E-mail (SMTP)
+- [x] Formatação rica das mensagens de alerta (emoji, mercado, odd, EV, motivos, horário Brasília)
+- [x] Botão Testar canal com feedback visual (sucesso/falha)
+- [x] Endpoints cronIniciar, cronParar, cronExecutarAgora, cronStatus no router

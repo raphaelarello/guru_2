@@ -10,6 +10,7 @@ import Bots from "./pages/Bots";
 import KellyTracker from "./pages/KellyTracker";
 import Auditoria from "./pages/Auditoria";
 import Pitacos from "./pages/Pitacos";
+import JogosHoje from "./pages/JogosHoje";
 
 function Router() {
   return (
@@ -21,6 +22,7 @@ function Router() {
       <Route path="/kelly" component={KellyTracker} />
       <Route path="/auditoria" component={Auditoria} />
       <Route path="/pitacos" component={Pitacos} />
+      <Route path="/jogos-hoje" component={JogosHoje} />
       <Route path="/404" component={NotFound} />
       <Route component={NotFound} />
     </Switch>

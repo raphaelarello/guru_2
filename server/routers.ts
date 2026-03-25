@@ -11,6 +11,7 @@ import {
   getApostasByUserId, createAposta, updateAposta,
   getPitacosByUserId, createPitaco, updatePitaco,
 } from "./db";
+import { statusCron, executarAgora, iniciarCron, pararCron, enviarAlertaCanais } from "./cronService";
 import {
   getLiveFixtures,
   getLiveFixturesByLeagues,
@@ -62,6 +63,42 @@ export const appRouter = router({
 
     /** Status do bloqueio horário (1h-7h Brasília) */
     blockStatus: publicProcedure.query(() => getBlockStatus()),
+
+    /** Jogos de hoje (pré-jogo) com odds e predições */
+    jogosHoje: publicProcedure
+      .input(z.object({ date: z.string().optional() }).optional())
+      .query(async ({ input }) => {
+        const jogos = await getTodayFixtures(input?.date);
+        // Buscar odds pré-jogo para os primeiros 10 jogos (economizar quota)
+        const top10 = jogos.slice(0, 10);
+        const oddsPromises = top10.map(async (f) => {
+          try {
+            const oddsArr = await getPreMatchOdds(f.fixture.id);
+            const odds = Array.isArray(oddsArr) ? oddsArr[0] ?? null : oddsArr;
+            return { fixtureId: f.fixture.id, odds };
+          } catch {
+            return { fixtureId: f.fixture.id, odds: null };
+          }
+        });
+        const oddsResults = await Promise.allSettled(oddsPromises);
+        const oddsMap = new Map<number, import("./football").PreMatchOdd | null>();
+        for (const r of oddsResults) {
+          if (r.status === "fulfilled") oddsMap.set(r.value.fixtureId, r.value.odds);
+        }
+        // Agrupar por liga
+        const ligasMap = new Map<string, { liga: { id: number; name: string; logo: string; country: string }; jogos: typeof jogos }>();
+        for (const f of jogos) {
+          const key = String(f.league.id);
+          if (!ligasMap.has(key)) ligasMap.set(key, { liga: { id: f.league.id, name: f.league.name, logo: f.league.logo, country: f.league.country }, jogos: [] });
+          ligasMap.get(key)!.jogos.push(f);
+        }
+        return {
+          total: jogos.length,
+          ligas: Array.from(ligasMap.values()),
+          oddsMap: Object.fromEntries(oddsMap),
+          timestamp: Date.now(),
+        };
+      }),
 
     /** Estatísticas do cache */
     cacheStats: publicProcedure.query(() => getCacheStats()),
@@ -300,6 +337,18 @@ export const appRouter = router({
       .input(z.object({ id: z.number(), ativo: z.boolean() }))
       .mutation(({ ctx, input }) => updateBot(input.id, ctx.user.id, { ativo: input.ativo })),
 
+    /** Status do cron automático */
+    cronStatus: protectedProcedure.query(() => statusCron()),
+
+    /** Iniciar cron automático */
+    cronIniciar: protectedProcedure.mutation(() => { iniciarCron(); return statusCron(); }),
+
+    /** Parar cron automático */
+    cronParar: protectedProcedure.mutation(() => { pararCron(); return statusCron(); }),
+
+    /** Executar processamento agora (manual) */
+    cronExecutarAgora: protectedProcedure.mutation(async () => { await executarAgora(); return statusCron(); }),
+
     /** Processar bots ativos contra jogos ao vivo e gerar alertas reais */
     processar: protectedProcedure
       .mutation(async ({ ctx }) => {
@@ -377,6 +426,28 @@ export const appRouter = router({
       .mutation(({ ctx, input }) => {
         const { id, ...data } = input;
         return updateCanal(id, ctx.user.id, data);
+      }),
+
+    /** Testar envio de mensagem em um canal */
+    testar: protectedProcedure
+      .input(z.object({ id: z.number() }))
+      .mutation(async ({ ctx, input }) => {
+        const canaisUsuario = await getCanaisByUserId(ctx.user.id);
+        const canal = canaisUsuario.find(c => c.id === input.id);
+        if (!canal) throw new Error("Canal não encontrado");
+
+        const resultados = await enviarAlertaCanais(ctx.user.id, {
+          jogo: "Flamengo vs Corinthians",
+          liga: "Brasileirão Série A",
+          mercado: "Over 2.5 Gols",
+          odd: "1.85",
+          ev: "12.5",
+          confianca: 87,
+          motivos: ["Teste de canal RAPHA GURU", "Mensagem de verificação de conectividade"],
+        });
+
+        const resultado = resultados.find((r: { canal: string; sucesso: boolean }) => r.canal === canal.tipo);
+        return { sucesso: resultado?.sucesso ?? false, canal: canal.tipo };
       }),
   }),
 

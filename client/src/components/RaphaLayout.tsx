@@ -5,7 +5,7 @@ import { getLoginUrl } from "@/const";
 import {
   LayoutDashboard, Radio, Bot, TrendingUp, History,
   MessageSquare, ChevronLeft, ChevronRight, LogOut,
-  User, Zap, Shield, Menu, X, Bell
+  User, Zap, Shield, Menu, X, Bell, Calendar
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -16,6 +16,7 @@ const navItems = [
   { path: "/pitacos", label: "Pitacos", icon: MessageSquare, badge: null },
   { path: "/painel", label: "Painel", icon: LayoutDashboard, badge: null },
   { path: "/ao-vivo", label: "Ao Vivo", icon: Radio, badge: "LIVE", badgeClass: "pulse-live bg-red-500 text-white text-[10px] px-1.5 py-0.5 rounded-full font-bold" },
+  { path: "/jogos-hoje", label: "Jogos de Hoje", icon: Calendar, badge: null, badgeClass: "" },
   { path: "/bots", label: "RAPHA Bots", icon: Bot, badge: "PRO", badgeClass: "bg-primary/20 text-primary border border-primary/30 text-[10px] px-1.5 py-0.5 rounded-full font-bold" },
   { path: "/kelly", label: "Kelly Tracker", icon: TrendingUp, badge: null },
   { path: "/auditoria", label: "Auditoria", icon: History, badge: null },

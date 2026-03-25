@@ -10,7 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Bot, Zap, Plus, Settings, Trash2, Play, Pause, TrendingUp, Target, CheckCircle, AlertCircle, Layers, Send } from "lucide-react";
+import { Bot, Zap, Plus, Settings, Trash2, Play, Pause, TrendingUp, Target, CheckCircle, AlertCircle, Layers, Send, Clock, RefreshCw, TestTube } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
 
@@ -48,7 +48,23 @@ export default function Bots() {
   const [novoBot, setNovoBot] = useState({ nome: "", descricao: "", templateId: "", confiancaMinima: 75, limiteDiario: 10 });
 
   const botsQuery = trpc.bots.list.useQuery();
+  const cronQuery = trpc.bots.cronStatus.useQuery(undefined, { refetchInterval: 30000 });
   const utils = trpc.useUtils();
+
+  const cronIniciar = trpc.bots.cronIniciar.useMutation({
+    onSuccess: () => { utils.bots.cronStatus.invalidate(); toast.success("Cron automático iniciado! Bots processados a cada 5 minutos."); },
+    onError: (err) => toast.error("Erro ao iniciar cron", { description: err.message }),
+  });
+
+  const cronParar = trpc.bots.cronParar.useMutation({
+    onSuccess: () => { utils.bots.cronStatus.invalidate(); toast.success("Cron automático parado."); },
+    onError: (err) => toast.error("Erro ao parar cron", { description: err.message }),
+  });
+
+  const cronExecutarAgora = trpc.bots.cronExecutarAgora.useMutation({
+    onSuccess: () => { utils.bots.cronStatus.invalidate(); utils.alertas.list.invalidate(); toast.success("Processamento executado agora!"); },
+    onError: (err) => toast.error("Erro ao executar", { description: err.message }),
+  });
 
   const processarBots = trpc.bots.processar.useMutation({
     onSuccess: (data) => {
@@ -81,6 +97,7 @@ export default function Bots() {
 
   const bots = botsQuery.data ?? [];
   const botsAtivos = bots.filter(b => b.ativo).length;
+  const cron = cronQuery.data;
 
   return (
     <RaphaLayout title="RAPHA Bots">
@@ -116,6 +133,69 @@ export default function Bots() {
 
         {/* Central */}
         <TabsContent value="central">
+          {/* Painel Cron */}
+          {cron && (
+            <div className={`mb-4 p-4 rounded-xl border flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 ${
+              cron.ativo ? "bg-primary/5 border-primary/30" : "bg-muted/30 border-border"
+            }`}>
+              <div className="flex items-center gap-3">
+                <div className={`w-9 h-9 rounded-lg flex items-center justify-center ${
+                  cron.ativo ? "bg-primary/20" : "bg-muted"
+                }`}>
+                  <Clock className={`w-5 h-5 ${cron.ativo ? "text-primary" : "text-muted-foreground"}`} />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="font-semibold text-foreground text-sm">Cron Automático</span>
+                    <span className={cron.ativo ? "badge-green" : "badge-yellow"}>
+                      {cron.ativo ? "Ativo" : "Parado"}
+                    </span>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    {cron.ativo
+                      ? `Próxima execução: ${cron.proximaExecucao ? new Date(cron.proximaExecucao).toLocaleTimeString("pt-BR") : "—"}`
+                      : "Bots não estão sendo processados automaticamente"}
+                    {cron.ultimaExecucao && ` · Última: ${new Date(cron.ultimaExecucao).toLocaleTimeString("pt-BR")}`}
+                    {cron.totalAlertasGerados > 0 && ` · ${cron.totalAlertasGerados} alertas gerados`}
+                  </p>
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="border-border text-xs"
+                  onClick={() => cronExecutarAgora.mutate()}
+                  disabled={cronExecutarAgora.isPending}
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 mr-1.5 ${cronExecutarAgora.isPending ? "animate-spin" : ""}`} />
+                  Executar Agora
+                </Button>
+                {cron.ativo ? (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="border-destructive/50 text-destructive hover:bg-destructive/10 text-xs"
+                    onClick={() => cronParar.mutate()}
+                    disabled={cronParar.isPending}
+                  >
+                    <Pause className="w-3.5 h-3.5 mr-1.5" />
+                    Parar Cron
+                  </Button>
+                ) : (
+                  <Button
+                    size="sm"
+                    className="bg-primary text-primary-foreground text-xs"
+                    onClick={() => cronIniciar.mutate()}
+                    disabled={cronIniciar.isPending}
+                  >
+                    <Play className="w-3.5 h-3.5 mr-1.5" />
+                    Iniciar Cron
+                  </Button>
+                )}
+              </div>
+            </div>
+          )}
           {/* Stats */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
             {[
@@ -326,6 +406,14 @@ function CanaisConfig() {
     onError: () => toast.error("Erro ao atualizar canal"),
   });
 
+  const testarCanal = trpc.canais.testar.useMutation({
+    onSuccess: (data) => {
+      if (data.sucesso) toast.success(`✅ Mensagem de teste enviada via ${data.canal}!`);
+      else toast.error(`❌ Falha ao enviar via ${data.canal}. Verifique as configurações.`);
+    },
+    onError: (err) => toast.error("Erro ao testar canal", { description: err.message }),
+  });
+
   const canaisInfo = [
     { tipo: "whatsapp_evolution", nome: "WhatsApp Evolution API", descricao: "Envie alertas via Evolution API", icone: "📱", campos: [{ key: "url", label: "URL da Instância", placeholder: "https://sua-instancia.evolution.com" }, { key: "apiKey", label: "API Key", placeholder: "Sua API Key" }, { key: "phone", label: "Número (com DDI)", placeholder: "5511999999999" }] },
     { tipo: "whatsapp_zapi", nome: "WhatsApp Z-API", descricao: "Envie alertas via Z-API", icone: "💬", campos: [{ key: "instanceId", label: "Instance ID", placeholder: "Seu Instance ID" }, { key: "token", label: "Token Z-API", placeholder: "Seu token" }, { key: "phone", label: "Número (com DDI)", placeholder: "5511999999999" }] },
@@ -363,10 +451,24 @@ function CanaisConfig() {
                   <span className={canalAtivo?.ativo ? "badge-green" : canalAtivo ? "badge-yellow" : "badge-blue"}>
                     {canalAtivo?.ativo ? "Ativo" : canalAtivo ? "Configurado" : "Não configurado"}
                   </span>
-                  <Button size="sm" variant="outline" className="border-border text-xs" onClick={() => { setConfig(canalAtivo?.config ?? {}); setModalCanal(canal.tipo); }}>
-                    <Settings className="w-3 h-3 mr-1" />
-                    Configurar
-                  </Button>
+                  <div className="flex gap-1">
+                    {canalAtivo && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="border-primary/40 text-primary hover:bg-primary/10 text-xs"
+                        onClick={() => testarCanal.mutate({ id: canalAtivo.id })}
+                        disabled={testarCanal.isPending}
+                      >
+                        <TestTube className="w-3 h-3 mr-1" />
+                        Testar
+                      </Button>
+                    )}
+                    <Button size="sm" variant="outline" className="border-border text-xs" onClick={() => { setConfig(canalAtivo?.config ?? {}); setModalCanal(canal.tipo); }}>
+                      <Settings className="w-3 h-3 mr-1" />
+                      Configurar
+                    </Button>
+                  </div>
                 </div>
               </CardContent>
             </Card>
