@@ -497,3 +497,11 @@
 - [x] Adicionar indicadores avançados (Eficiência, Consistência, Forma)
 - [x] Adicionar endpoint /destaques/premium no tRPC
 - [x] Página Destaques com visual premium — FUNCIONANDO PERFEITAMENTE
+
+
+### Fase 36 — Badges de Notificações na Barra Inferior
+- [x] Criar hook useNotifications para gerenciar contadores
+- [x] Adicionar badges com contadores nos 4 botões (Bots, Ao Vivo, Pitacos, Destaques)
+- [x] Implementar animações de pulsação nos badges
+- [x] Conectar com dados reais do backend (jogos ao vivo, alertas, novos palpites)
+- [x] Testar notificações no navegador
