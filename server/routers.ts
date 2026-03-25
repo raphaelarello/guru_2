@@ -141,25 +141,25 @@ superadmin: router({
       limite: z.number().int().min(1).max(500).optional(),
     }).optional())
     .query(({ input, ctx }) => {
-      const parsed = superAdminAuth.parseSessionCookieValue(getSuperAdminCookie(ctx.req));
-      if (!parsed) {
+      const sessionId = getSuperAdminCookie(ctx.req);
+      if (!sessionId) {
         throw new TRPCError({ code: "UNAUTHORIZED", message: "Sessão superadmin não encontrada." });
       }
-      const validacao = superAdminAuth.validarSessao(parsed.sessionId, parsed.token);
-      if (!validacao.valida) {
-        throw new TRPCError({ code: "UNAUTHORIZED", message: validacao.mensagem });
+      const validacao = superAdminAuth.validarSessao(sessionId);
+      if (!validacao.valid) {
+        throw new TRPCError({ code: "UNAUTHORIZED", message: "Sessão inválida ou expirada." });
       }
-      return superAdminAuth.obterAuditLogs(input);
+      return superAdminAuth.obterAuditLogs();
     }),
 
   estatisticas: publicProcedure.query(({ ctx }) => {
-    const parsed = superAdminAuth.parseSessionCookieValue(getSuperAdminCookie(ctx.req));
-    if (!parsed) {
+    const sessionId = getSuperAdminCookie(ctx.req);
+    if (!sessionId) {
       throw new TRPCError({ code: "UNAUTHORIZED", message: "Sessão superadmin não encontrada." });
     }
-    const validacao = superAdminAuth.validarSessao(parsed.sessionId, parsed.token);
-    if (!validacao.valida) {
-      throw new TRPCError({ code: "UNAUTHORIZED", message: validacao.mensagem });
+    const validacao = superAdminAuth.validarSessao(sessionId);
+    if (!validacao.valid) {
+      throw new TRPCError({ code: "UNAUTHORIZED", message: "Sessão inválida ou expirada." });
     }
     return superAdminAuth.obterEstatisticas();
   }),
