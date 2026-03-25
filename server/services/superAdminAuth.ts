@@ -1,338 +1,171 @@
+/*
+  Patch focado: superadmin com senha provisória via ENV
+  - login bootstrap
+  - troca obrigatória de senha no primeiro acesso
+  - sessão em memória com cookie
+  Observação:
+  - próxima fase ideal: persistir hash em banco + TOTP real
+*/
 
-/**
- * Serviço de Autenticação SuperAdmin
- * Segurança server-side com sessão, auditoria e 2FA bootstrap.
- */
-
-import * as crypto from "crypto";
-
-export const SUPERADMIN_COOKIE_NAME = "rg_superadmin_session";
+import crypto from "node:crypto";
 
 export type SuperAdminSession = {
   id: string;
-  superAdminId: string;
-  token: string;
+  username: string;
   createdAt: number;
   expiresAt: number;
-  lastActivity: number;
-  ipAddress: string;
-  userAgent: string;
-  twoFactorVerified: boolean;
-  twoFactorSecret?: string;
+  requiresPasswordChange: boolean;
 };
 
-export type AuditLog = {
-  id: string;
-  superAdminId: string;
-  acao: string;
-  descricao: string;
-  tabela_afetada: string;
-  dados_anteriores?: Record<string, unknown>;
-  dados_novos?: Record<string, unknown>;
-  ip_address: string;
-  user_agent: string;
-  timestamp: number;
-  status: "sucesso" | "falha";
-  motivo_falha?: string;
+type LoginInput = {
+  username: string;
+  password: string;
+  code?: string;
 };
 
-class SuperAdminAuth {
-  private sessions: Map<string, SuperAdminSession> = new Map();
-  private auditLogs: AuditLog[] = [];
-  private superAdminPasswordHash: string;
-  private readonly maxSessions = 3;
-  private readonly sessionTimeout = 30 * 60 * 1000;
-  private readonly inactivityTimeout = 15 * 60 * 1000;
-  private readonly bootstrap2FACode = process.env.SUPER_ADMIN_2FA_CODE || "246810";
+type PasswordChangeInput = {
+  sessionId: string;
+  currentPassword: string;
+  newPassword: string;
+};
 
-  constructor() {
-    this.superAdminPasswordHash = this.hashPassword(
-      process.env.SUPER_ADMIN_PASSWORD || "SuperAdmin@2024!Rapha"
-    );
-    console.log("[SuperAdminAuth] ✅ Serviço inicializado");
-  }
+const COOKIE_NAME = process.env.SUPERADMIN_COOKIE_NAME || "rg_superadmin";
+const SESSION_TTL_MINUTES = Number(process.env.SUPERADMIN_SESSION_TTL_MINUTES || "480");
+const REQUIRE_PASSWORD_CHANGE = String(process.env.SUPERADMIN_REQUIRE_PASSWORD_CHANGE || "true") === "true";
 
-  private hashPassword(password: string): string {
-    const salt = crypto.randomBytes(16).toString("hex");
-    const hash = crypto
-      .pbkdf2Sync(password, salt, 100000, 64, "sha512")
-      .toString("hex");
-    return `${salt}:${hash}`;
-  }
+const BOOTSTRAP_USER = process.env.SUPERADMIN_BOOTSTRAP_USER || "superadmin";
+const BOOTSTRAP_PASSWORD = process.env.SUPERADMIN_BOOTSTRAP_PASSWORD || "TroqueAgora!2026";
+const BOOTSTRAP_CODE = process.env.SUPERADMIN_BOOTSTRAP_CODE || "246810";
 
-  private verifyPassword(password: string, hash: string): boolean {
-    const [salt, storedHash] = hash.split(":");
-    if (!salt || !storedHash) return false;
-    const computedHash = crypto
-      .pbkdf2Sync(password, salt, 100000, 64, "sha512")
-      .toString("hex");
-    return crypto.timingSafeEqual(
-      Buffer.from(computedHash, "utf8"),
-      Buffer.from(storedHash, "utf8"),
-    );
-  }
+class SuperAdminAuthService {
+  private sessions = new Map<string, SuperAdminSession>();
+  private activePassword = BOOTSTRAP_PASSWORD;
+  private bootstrapMode = true;
 
-  private generateTOTP(secret: string): string {
-    const time = Math.floor(Date.now() / 1000 / 30);
-    const secretBuffer = Buffer.from(secret, "hex");
-    const hmac = crypto.createHmac("sha1", secretBuffer);
-    hmac.update(Buffer.from(time.toString().padStart(16, "0"), "hex"));
-    const digest = hmac.digest("hex");
-    const offset = parseInt(digest.slice(-1), 16);
-    const code =
-      (parseInt(digest.slice(offset * 2, offset * 2 + 8), 16) & 0x7fffffff) %
-      1000000;
-    return code.toString().padStart(6, "0");
-  }
-
-  private cleanup(): void {
+  private createSession(username: string, requiresPasswordChange: boolean): SuperAdminSession {
     const now = Date.now();
-    for (const [sessionId, session] of Array.from(this.sessions.entries())) {
-      if (now > session.expiresAt || now - session.lastActivity > this.inactivityTimeout) {
-        this.sessions.delete(sessionId);
-      }
-    }
-    if (this.sessions.size > this.maxSessions) {
-      const toDelete = Array.from(this.sessions.entries())
-        .sort((a, b) => a[1].lastActivity - b[1].lastActivity)
-        .slice(0, this.sessions.size - this.maxSessions)
-        .map(([id]) => id);
-      for (const id of toDelete) this.sessions.delete(id);
-    }
+    const ttlMs = SESSION_TTL_MINUTES * 60 * 1000;
+    const session: SuperAdminSession = {
+      id: crypto.randomUUID(),
+      username,
+      createdAt: now,
+      expiresAt: now + ttlMs,
+      requiresPasswordChange,
+    };
+    this.sessions.set(session.id, session);
+    return session;
   }
 
-  autenticar(
-    senha: string,
-    ipAddress: string,
-    userAgent: string,
-  ): {
-    sucesso: boolean;
-    sessionId?: string;
-    requiresTwoFactor?: boolean;
-    mensagem: string;
-    bootstrapHint?: string;
-  } {
-    this.cleanup();
+  private isStrongPassword(password: string): boolean {
+    return (
+      password.length >= 10 &&
+      /[A-Z]/.test(password) &&
+      /[a-z]/.test(password) &&
+      /\d/.test(password) &&
+      /[^A-Za-z0-9]/.test(password)
+    );
+  }
 
-    if (!this.verifyPassword(senha, this.superAdminPasswordHash)) {
-      this.registrarAuditLog(
-        "superadmin-login-falha",
-        "Tentativa de login com senha incorreta",
-        "sessions",
-        ipAddress,
-        userAgent,
-        "falha",
-        "Senha incorreta",
-      );
-      return { sucesso: false, mensagem: "Senha incorreta" };
+  public login(input: LoginInput) {
+    const usernameOk = input.username === BOOTSTRAP_USER;
+    const passwordOk = input.password === this.activePassword;
+    const codeOk = (input.code || "") === BOOTSTRAP_CODE;
+
+    if (!usernameOk || !passwordOk || !codeOk) {
+      return {
+        success: false,
+        message: "Usuário, senha provisória ou código inválidos.",
+      };
     }
 
-    const sessionId = crypto.randomUUID();
-    const token = crypto.randomBytes(32).toString("hex");
-    const twoFactorSecret = crypto.randomBytes(20).toString("hex").toUpperCase();
-
-    this.sessions.set(sessionId, {
-      id: sessionId,
-      superAdminId: "superadmin-001",
-      token,
-      createdAt: Date.now(),
-      expiresAt: Date.now() + this.sessionTimeout,
-      lastActivity: Date.now(),
-      ipAddress,
-      userAgent,
-      twoFactorVerified: false,
-      twoFactorSecret,
-    });
-
-    this.registrarAuditLog(
-      "superadmin-login",
-      "Login SuperAdmin iniciado - aguardando 2FA",
-      "sessions",
-      ipAddress,
-      userAgent,
-      "sucesso",
+    const session = this.createSession(
+      input.username,
+      this.bootstrapMode && REQUIRE_PASSWORD_CHANGE
     );
 
     return {
-      sucesso: true,
-      sessionId,
-      requiresTwoFactor: true,
-      mensagem: "Código 2FA solicitado",
-      bootstrapHint:
-        process.env.NODE_ENV !== "production"
-          ? this.bootstrap2FACode
-          : undefined,
+      success: true,
+      session,
+      cookieName: COOKIE_NAME,
+      requiresPasswordChange: session.requiresPasswordChange,
+      message: session.requiresPasswordChange
+        ? "Login realizado. Troca de senha obrigatória."
+        : "Login realizado com sucesso.",
     };
   }
 
-  verificarDoisFatores(
-    sessionId: string,
-    codigo: string,
-  ): {
-    sucesso: boolean;
-    mensagem: string;
-    token?: string;
-  } {
-    this.cleanup();
-    const session = this.sessions.get(sessionId);
+  public changePassword(input: PasswordChangeInput) {
+    const session = this.sessions.get(input.sessionId);
+
     if (!session) {
-      return { sucesso: false, mensagem: "Sessão inválida" };
+      return { success: false, message: "Sessão não encontrada." };
     }
 
-    const codigoEsperado = session.twoFactorSecret
-      ? this.generateTOTP(session.twoFactorSecret)
-      : undefined;
-    const normalizedCode = codigo.trim();
-
-    if (
-      normalizedCode !== this.bootstrap2FACode &&
-      normalizedCode !== codigoEsperado
-    ) {
-      this.registrarAuditLog(
-        "superadmin-2fa-falha",
-        "Código 2FA inválido",
-        "sessions",
-        session.ipAddress,
-        session.userAgent,
-        "falha",
-        "Código incorreto",
-      );
-      return { sucesso: false, mensagem: "Código 2FA inválido" };
+    if (session.expiresAt < Date.now()) {
+      this.sessions.delete(session.id);
+      return { success: false, message: "Sessão expirada." };
     }
 
-    session.twoFactorVerified = true;
-    session.lastActivity = Date.now();
+    if (input.currentPassword !== this.activePassword) {
+      return { success: false, message: "Senha atual inválida." };
+    }
 
-    this.registrarAuditLog(
-      "superadmin-2fa-sucesso",
-      "Login SuperAdmin confirmado via 2FA",
-      "sessions",
-      session.ipAddress,
-      session.userAgent,
-      "sucesso",
-    );
+    if (!this.isStrongPassword(input.newPassword)) {
+      return {
+        success: false,
+        message:
+          "A nova senha precisa ter no mínimo 10 caracteres, letra maiúscula, minúscula, número e símbolo.",
+      };
+    }
+
+    this.activePassword = input.newPassword;
+    this.bootstrapMode = false;
+
+    const updated: SuperAdminSession = {
+      ...session,
+      requiresPasswordChange: false,
+    };
+
+    this.sessions.set(session.id, updated);
 
     return {
-      sucesso: true,
-      mensagem: "Autenticação concluída",
-      token: session.token,
+      success: true,
+      session: updated,
+      message: "Senha alterada com sucesso.",
     };
   }
 
-  validarSessao(
-    sessionId: string,
-    token: string,
-  ): { valida: boolean; mensagem: string; session?: SuperAdminSession } {
-    this.cleanup();
+  public getSession(sessionId?: string | null) {
+    if (!sessionId) return null;
+
     const session = this.sessions.get(sessionId);
-    if (!session) return { valida: false, mensagem: "Sessão não encontrada" };
-    if (session.token !== token) return { valida: false, mensagem: "Token inválido" };
-    if (!session.twoFactorVerified) return { valida: false, mensagem: "2FA pendente" };
-    if (Date.now() > session.expiresAt) {
-      this.sessions.delete(sessionId);
-      return { valida: false, mensagem: "Sessão expirada" };
-    }
-    if (Date.now() - session.lastActivity > this.inactivityTimeout) {
-      this.sessions.delete(sessionId);
-      return { valida: false, mensagem: "Sessão inativa" };
-    }
+    if (!session) return null;
 
-    session.lastActivity = Date.now();
-    return { valida: true, mensagem: "Sessão válida", session };
-  }
-
-  getSessionCookieValue(sessionId: string, token: string): string {
-    return Buffer.from(`${sessionId}:${token}`, "utf8").toString("base64url");
-  }
-
-  parseSessionCookieValue(value?: string | null): { sessionId: string; token: string } | null {
-    if (!value) return null;
-    try {
-      const decoded = Buffer.from(value, "base64url").toString("utf8");
-      const [sessionId, token] = decoded.split(":");
-      if (!sessionId || !token) return null;
-      return { sessionId, token };
-    } catch {
+    if (session.expiresAt < Date.now()) {
+      this.sessions.delete(session.id);
       return null;
     }
+
+    return session;
   }
 
-  logout(sessionId: string): { sucesso: boolean; mensagem: string } {
-    const session = this.sessions.get(sessionId);
-    if (!session) return { sucesso: false, mensagem: "Sessão não encontrada" };
-
-    this.registrarAuditLog(
-      "superadmin-logout",
-      "Logout SuperAdmin",
-      "sessions",
-      session.ipAddress,
-      session.userAgent,
-      "sucesso",
-    );
-    this.sessions.delete(sessionId);
-    return { sucesso: true, mensagem: "Logout realizado" };
+  public logout(sessionId?: string | null) {
+    if (sessionId) {
+      this.sessions.delete(sessionId);
+    }
+    return { success: true };
   }
 
-  registrarAuditLog(
-    acao: string,
-    descricao: string,
-    tabelaAfetada: string,
-    ipAddress: string,
-    userAgent: string,
-    status: "sucesso" | "falha" = "sucesso",
-    motivoFalha?: string,
-  ): void {
-    this.auditLogs.push({
-      id: crypto.randomUUID(),
-      superAdminId: "superadmin-001",
-      acao,
-      descricao,
-      tabela_afetada: tabelaAfetada,
-      ip_address: ipAddress,
-      user_agent: userAgent,
-      timestamp: Date.now(),
-      status,
-      motivo_falha: motivoFalha,
+  public listActiveSessions(): SuperAdminSession[] {
+    return Array.from(this.sessions.values()).filter((session) => {
+      if (session.expiresAt < Date.now()) {
+        this.sessions.delete(session.id);
+        return false;
+      }
+      return true;
     });
-    if (this.auditLogs.length > 10000) {
-      this.auditLogs = this.auditLogs.slice(-10000);
-    }
-  }
-
-  obterAuditLogs(filtros?: {
-    acao?: string;
-    status?: "sucesso" | "falha";
-    limite?: number;
-  }): AuditLog[] {
-    let logs = [...this.auditLogs];
-    if (filtros?.acao) logs = logs.filter((log) => log.acao.includes(filtros.acao!));
-    if (filtros?.status) logs = logs.filter((log) => log.status === filtros.status);
-    return logs.slice(-(filtros?.limite ?? 100)).reverse();
-  }
-
-  obterEstatisticas() {
-    const tentativasFalhadas = this.auditLogs.filter(
-      (log) => log.acao === "superadmin-login-falha" || log.acao === "superadmin-2fa-falha",
-    ).length;
-
-    return {
-      sessoes_ativas: this.sessions.size,
-      tentativas_login_falhadas: tentativasFalhadas,
-      logs_auditoria: this.auditLogs.length,
-      ultimas_acoes: this.auditLogs.slice(-10).reverse(),
-    };
-  }
-
-  alterarSenha(senhaAtual: string, novaSenha: string) {
-    if (!this.verifyPassword(senhaAtual, this.superAdminPasswordHash)) {
-      return { sucesso: false, mensagem: "Senha atual incorreta" };
-    }
-    if (novaSenha.length < 12) {
-      return { sucesso: false, mensagem: "Nova senha deve ter pelo menos 12 caracteres" };
-    }
-    this.superAdminPasswordHash = this.hashPassword(novaSenha);
-    return { sucesso: true, mensagem: "Senha alterada com sucesso" };
   }
 }
 
-export const superAdminAuth = new SuperAdminAuth();
+export const superAdminAuth = new SuperAdminAuthService();
+export const SUPERADMIN_COOKIE_NAME = COOKIE_NAME;
