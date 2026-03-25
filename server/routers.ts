@@ -48,6 +48,7 @@ import {
   getApiUsage,
   getDestaquesHoje,
 } from "./football";
+import { getDestaquesAvancado } from "./palpites-avancado";
 
 export const appRouter = router({
   system: systemRouter,
@@ -984,6 +985,10 @@ export const appRouter = router({
     hoje: publicProcedure
       .input(z.object({ date: z.string().optional() }).optional())
       .query(({ input }) => getDestaquesHoje(input?.date)),
+    /** Palpites avancados com analise estatistica */
+    avancado: publicProcedure
+      .input(z.object({ date: z.string().optional() }).optional())
+      .query(({ input }) => getDestaquesAvancado(input?.date)),
   }),
 
   // ── HISTÓRICO DE JOGOS AO VIVO ─────────────────────────────────────────────────────────────────────

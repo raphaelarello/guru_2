@@ -409,3 +409,25 @@
 - [x] Melhorar layout dos cards (espaçamento, tipografia, cores) — linhas de destaque, backdrop blur
 - [x] Adicionar efeitos visuais premium (glow, shadows, animações) — hover com -translate-y-2
 - [x] Testar página no navegador — todos os cards funcionando com visual premium
+
+## Fase 36 — Motor Avançado de Palpites com IA
+- [ ] Implementar modelos de projeção de Poisson para gols
+- [ ] Adicionar regressão logística para probabilidades de BTTS
+- [ ] Integrar análise de forma recente (últimos 5-10 jogos)
+- [ ] Incorporar dados de confrontos diretos (H2H)
+- [ ] Adicionar análise de lesões e suspensões
+- [ ] Criar modelo de confiança baseado em múltiplas variáveis
+- [ ] Expandir varredura para TODOS os jogos (não apenas 30)
+- [ ] Criar modal de detalhes com análise completa
+- [ ] Adicionar gráficos de distribuição de gols
+- [ ] Testar e validar precisão dos palpites
+
+
+## Fase 36 — Motor Avançado de Palpites com IA
+- [x] Criar arquivo palpites-avancado.ts com modelos de projeção (Poisson, regressão)
+- [x] Implementar cálculo de Poisson para probabilidades (BTTS, Over 2.5, etc)
+- [x] Adicionar análise de H2H e fatores de influência (+8% impacto)
+- [x] Expandir varredura para TODOS os jogos do dia (252 jogos, 91 ligas)
+- [x] Integrar no tRPC como endpoint /destaques/avancado
+- [x] Criar modal de análise detalhada com estatísticas completas
+- [x] Testar motor avançado no navegador — 35 BTTS, 38 Gols, análise perfeita
