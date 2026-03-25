@@ -475,3 +475,14 @@
 - [x] Criar modal de análise detalhada com todas as informações estatísticas
 - [x] Adicionar filtro de ligas e seletor de datas
 - [x] Testar página Destaques com novo design premium — FUNCIONANDO PERFEITAMENTE
+
+
+## Fase 40 — Correção Final da Página Destaques
+- [x] Corrigir endpoint de destaques para usar estrutura correta (timesGols, timesEscanteios, etc)
+- [x] Reescrever página Destaques com 40 destaques (10 Gols, 10 Escanteios, 10 Chutes, 10 Cartões)
+- [x] Adicionar filtro de ligas dinâmico
+- [x] Adicionar seletor de datas
+- [x] Implementar tabs por tipo de destaque
+- [x] Criar cards com indicadores, forma, média de gols
+- [x] Implementar modal de análise detalhada
+- [x] Testar página Destaques — FUNCIONANDO PERFEITAMENTE
