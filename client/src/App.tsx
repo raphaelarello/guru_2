@@ -25,6 +25,8 @@ import SimuladorGols from "./pages/SimuladorGols";
 import LeaderboardAnimado from "./pages/LeaderboardAnimado";
 import DashboardVitorias from "./pages/DashboardVitorias";
 import CelebracaoEpica from "./pages/CelebracaoEpica";
+import RankingRecordes from "./pages/RankingRecordes";
+import ModoJogo from "./pages/ModoJogo";
 import NotificationCenter from "./components/NotificationCenter";
 
 function Router() {
@@ -51,6 +53,8 @@ function Router() {
       <Route path="/leaderboard" component={LeaderboardAnimado} />
       <Route path="/dashboard-vitorias" component={DashboardVitorias} />
       <Route path="/celebracao-epica" component={CelebracaoEpica} />
+      <Route path="/ranking-recordes" component={RankingRecordes} />
+      <Route path="/modo-jogo" component={ModoJogo} />
       <Route path="/historico-ao-vivo" component={HistoricoAoVivo} />
       <Route path="/configuracoes" component={Configuracoes} />
       <Route path="/404" component={NotFound} />
