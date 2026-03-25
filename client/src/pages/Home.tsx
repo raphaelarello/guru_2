@@ -33,7 +33,7 @@ export function Home() {
         const ordemA = statusOrdem[a.status as keyof typeof statusOrdem] ?? 4;
         const ordemB = statusOrdem[b.status as keyof typeof statusOrdem] ?? 4;
         if (ordemA !== ordemB) return ordemA - ordemB;
-        return new Date(a.fixture?.date || 0).getTime() - new Date(b.fixture?.date || 0).getTime();
+        return new Date(a.startTime || 0).getTime() - new Date(b.startTime || 0).getTime();
       });
   }, [jogosAoVivo, jogosDia]);
 
@@ -86,7 +86,7 @@ export function Home() {
             </div>
             <div className="flex-1 overflow-hidden">
               <div className="animate-marquee whitespace-nowrap text-sm">
-                ⚽ {jogoTicket.teams?.home?.name} {jogoTicket.goals?.home} x {jogoTicket.goals?.away} {jogoTicket.teams?.away?.name} - {jogoTicket.league?.name} | Minuto {jogoTicket.fixture?.status === "1H" || jogoTicket.fixture?.status === "2H" ? jogoTicket.fixture?.elapsed : "-"}'
+                ⚽ {jogoTicket.homeTeam?.name} {jogoTicket.homeScore} x {jogoTicket.awayScore} {jogoTicket.awayTeam?.name} - {jogoTicket.league?.name} | Minuto {jogoTicket.minute}'
               </div>
             </div>
           </div>
@@ -160,22 +160,22 @@ export function Home() {
                 >
                   <div className="text-xs text-slate-400 mb-1 truncate">{jogo.league?.name}</div>
                   <div className="flex items-center justify-between gap-1 mb-1">
-                    <span className="truncate font-semibold text-xs">{jogo.teams?.home?.name?.split(" ")[0]}</span>
-                    <span className="font-bold text-sm">{jogo.goals?.home}</span>
+                    <span className="truncate font-semibold text-xs">{jogo.homeTeam?.name}</span>
+                    <span className="font-bold text-sm">{jogo.homeScore}</span>
                     <span className="text-xs text-slate-400">x</span>
-                    <span className="font-bold text-sm">{jogo.goals?.away}</span>
-                    <span className="truncate font-semibold text-xs">{jogo.teams?.away?.name?.split(" ")[0]}</span>
+                    <span className="font-bold text-sm">{jogo.awayScore}</span>
+                    <span className="truncate font-semibold text-xs">{jogo.awayTeam?.name}</span>
                   </div>
                   <div className="flex items-center justify-between text-xs text-slate-400 mb-1">
-                    <span>{statusTexto[jogo.fixture?.status] || jogo.fixture?.status}</span>
-                    {["1H", "2H", "HT"].includes(jogo.fixture?.status) && (
-                      <span className="text-yellow-400 font-bold">{jogo.fixture?.elapsed}'</span>
+                    <span>{statusTexto[jogo.status] || jogo.status}</span>
+                    {["1H", "2H", "HT"].includes(jogo.status) && (
+                      <span className="text-yellow-400 font-bold">{jogo.minute}'</span>
                     )}
                   </div>
                   <div className="flex gap-1 text-xs">
-                    <span>🟨 {jogo.statistics?.[0]?.cards?.yellow || 0}</span>
-                    <span>🚩 {jogo.statistics?.[0]?.corners || 0}</span>
-                    <span>🎯 {jogo.statistics?.[0]?.shots?.on_goal || 0}</span>
+                    <span>🟨 0</span>
+                    <span>🚩 0</span>
+                    <span>🎯 0</span>
                   </div>
                 </button>
               ))
@@ -191,11 +191,11 @@ export function Home() {
                   <div className="flex items-center justify-between">
                     <div>
                       <div className="text-xs text-slate-400 mb-1">{jogoSelecionado.league?.name}</div>
-                      <div className="text-sm text-slate-300">{statusTexto[jogoSelecionado.fixture?.status]}</div>
+                      <div className="text-sm text-slate-300">{statusTexto[jogoSelecionado.status]}</div>
                     </div>
                     <div className="text-right">
                       <div className="text-xs text-slate-400 mb-1">Minuto</div>
-                      <div className="text-3xl font-bold text-yellow-400">{jogoSelecionado.fixture?.elapsed || 0}'</div>
+                      <div className="text-3xl font-bold text-yellow-400">{jogoSelecionado.minute}'</div>
                     </div>
                   </div>
 
@@ -203,24 +203,24 @@ export function Home() {
                   <div className="grid grid-cols-3 gap-4 text-center">
                     <div>
                       <div className="text-sm text-slate-400 mb-2 flex items-center justify-center gap-2">
-                        {jogoSelecionado.teams?.home?.logo && (
-                          <img src={jogoSelecionado.teams.home.logo} alt="" className="w-6 h-6" />
+                        {jogoSelecionado.homeTeam?.logo && (
+                          <img src={jogoSelecionado.homeTeam.logo} alt="" className="w-6 h-6" />
                         )}
-                        {jogoSelecionado.teams?.home?.name}
+                        {jogoSelecionado.homeTeam?.name}
                       </div>
-                      <div className="text-6xl font-bold text-blue-400">{jogoSelecionado.goals?.home || 0}</div>
+                      <div className="text-6xl font-bold text-blue-400">{jogoSelecionado.homeScore || 0}</div>
                     </div>
                     <div className="flex items-center justify-center">
                       <span className="text-4xl text-slate-500">x</span>
                     </div>
                     <div>
                       <div className="text-sm text-slate-400 mb-2 flex items-center justify-center gap-2">
-                        {jogoSelecionado.teams?.away?.logo && (
-                          <img src={jogoSelecionado.teams.away.logo} alt="" className="w-6 h-6" />
+                        {jogoSelecionado.awayTeam?.logo && (
+                          <img src={jogoSelecionado.awayTeam.logo} alt="" className="w-6 h-6" />
                         )}
-                        {jogoSelecionado.teams?.away?.name}
+                        {jogoSelecionado.awayTeam?.name}
                       </div>
-                      <div className="text-6xl font-bold text-red-400">{jogoSelecionado.goals?.away || 0}</div>
+                      <div className="text-6xl font-bold text-red-400">{jogoSelecionado.awayScore || 0}</div>
                     </div>
                   </div>
 
@@ -228,13 +228,13 @@ export function Home() {
                   <div className="grid grid-cols-3 gap-3 text-center text-sm">
                     <div className="bg-slate-700/50 rounded p-3">
                       <div className="text-slate-400 mb-1">Estádio</div>
-                      <div className="font-semibold text-xs">{jogoSelecionado.fixture?.venue?.name || "-"}</div>
+                      <div className="font-semibold text-xs">{jogoSelecionado.stadium || "-"}</div>
                     </div>
                     <div className="bg-slate-700/50 rounded p-3">
                       <div className="text-slate-400 mb-1">Hora</div>
                       <div className="font-semibold text-xs">
-                        {jogoSelecionado.fixture?.date
-                          ? new Date(jogoSelecionado.fixture.date).toLocaleTimeString("pt-BR", {
+                        {jogoSelecionado.startTime
+                          ? new Date(jogoSelecionado.startTime).toLocaleTimeString("pt-BR", {
                               hour: "2-digit",
                               minute: "2-digit",
                             })
@@ -243,7 +243,7 @@ export function Home() {
                     </div>
                     <div className="bg-slate-700/50 rounded p-3">
                       <div className="text-slate-400 mb-1">Público</div>
-                      <div className="font-semibold text-xs">{jogoSelecionado.fixture?.attendance || "-"}</div>
+                      <div className="font-semibold text-xs">-</div>
                     </div>
                   </div>
                 </div>
@@ -261,8 +261,8 @@ export function Home() {
                           ?.filter((e: any) => e.type === "Goal")
                           .map((gol: any, idx: number) => (
                             <div key={idx} className="flex items-center justify-between text-sm">
-                              <span>{gol.player?.name}</span>
-                              <span className="text-xs text-slate-400">Minuto {gol.time?.elapsed}'</span>
+                              <span>{gol.player}</span>
+                              <span className="text-xs text-slate-400">Minuto {gol.minute}'</span>
                             </div>
                           ))}
                       </div>
@@ -273,27 +273,19 @@ export function Home() {
                   <div className="grid grid-cols-2 gap-3">
                     <div className="bg-slate-700/30 rounded-lg p-3 text-center">
                       <div className="text-xs text-slate-400 mb-1">Posse</div>
-                      <div className="text-lg font-bold">
-                        {jogoSelecionado.statistics?.[0]?.possession || 50}% x {jogoSelecionado.statistics?.[1]?.possession || 50}%
-                      </div>
+                      <div className="text-lg font-bold">50% x 50%</div>
                     </div>
                     <div className="bg-slate-700/30 rounded-lg p-3 text-center">
                       <div className="text-xs text-slate-400 mb-1">Chutes</div>
-                      <div className="text-lg font-bold">
-                        {jogoSelecionado.statistics?.[0]?.shots?.total || 0} x {jogoSelecionado.statistics?.[1]?.shots?.total || 0}
-                      </div>
+                      <div className="text-lg font-bold">0 x 0</div>
                     </div>
                     <div className="bg-slate-700/30 rounded-lg p-3 text-center">
                       <div className="text-xs text-slate-400 mb-1">Escanteios</div>
-                      <div className="text-lg font-bold">
-                        {jogoSelecionado.statistics?.[0]?.corners || 0} x {jogoSelecionado.statistics?.[1]?.corners || 0}
-                      </div>
+                      <div className="text-lg font-bold">0 x 0</div>
                     </div>
                     <div className="bg-slate-700/30 rounded-lg p-3 text-center">
                       <div className="text-xs text-slate-400 mb-1">Cartões</div>
-                      <div className="text-lg font-bold">
-                        {jogoSelecionado.statistics?.[0]?.cards?.yellow || 0} x {jogoSelecionado.statistics?.[1]?.cards?.yellow || 0}
-                      </div>
+                      <div className="text-lg font-bold">0 x 0</div>
                     </div>
                   </div>
                 </div>
