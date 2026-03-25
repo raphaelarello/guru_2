@@ -20,6 +20,7 @@ import Artilheiros from "./pages/Artilheiros";
 import Estatisticas from "./pages/Estatisticas";
 import ValueBetting from "./pages/ValueBetting";
 import Recomendacoes from "./pages/Recomendacoes";
+import Monitoramento from "./pages/Monitoramento";
 import NotificationCenter from "./components/NotificationCenter";
 
 function Router() {
@@ -41,6 +42,7 @@ function Router() {
       <Route path="/estatisticas" component={Estatisticas} />
       <Route path="/value-betting" component={ValueBetting} />
       <Route path="/recomendacoes" component={Recomendacoes} />
+      <Route path="/monitoramento" component={Monitoramento} />
       <Route path="/historico-ao-vivo" component={HistoricoAoVivo} />
       <Route path="/configuracoes" component={Configuracoes} />
       <Route path="/404" component={NotFound} />
