@@ -333,7 +333,7 @@ export default function JogosHoje() {
   const [ligasExpandidas, setLigasExpandidas] = useState<Set<number>>(new Set());
   const [jogoSelecionado, setJogoSelecionado] = useState<{ id: number; titulo: string } | null>(null);
   const [dataSelecionada, setDataSelecionada] = useState(hojeISO);
-  const [abaVista, setAbaVista] = useState<"todos" | "aovivo" | "proximos">("todos");
+  const [abaVista, setAbaVista] = useState<"todos" | "aovivo" | "proximos" | "encerrados">("todos");
 
   const { data, isLoading, error, refetch, isFetching } = trpc.football.jogosHoje.useQuery(
     { date: dataSelecionada },
@@ -349,6 +349,9 @@ export default function JogosHoje() {
   const totalProximos = useMemo(() =>
     todasLigas.reduce((acc, l) => acc + l.jogos.filter(j => j.fixture.status.short === "NS").length, 0),
   [todasLigas]);
+  const totalEncerrados = useMemo(() =>
+    todasLigas.reduce((acc, l) => acc + l.jogos.filter(j => j.fixture.status.short === "FT").length, 0),
+  [todasLigas]);
 
   const ligasFiltradas = useMemo(() => {
     return todasLigas
@@ -360,6 +363,10 @@ export default function JogosHoje() {
           jogosFiltradosAba = [...jogos]
             .filter(j => j.fixture.status.short === "NS")
             .sort((a, b) => new Date(a.fixture.date).getTime() - new Date(b.fixture.date).getTime());
+        } else if (abaVista === "encerrados") {
+          jogosFiltradosAba = [...jogos]
+            .filter(j => j.fixture.status.short === "FT")
+            .sort((a, b) => new Date(b.fixture.date).getTime() - new Date(a.fixture.date).getTime());
         }
         return { liga, jogos: jogosFiltradosAba };
       })
@@ -389,7 +396,7 @@ export default function JogosHoje() {
   };
 
   return (
-    <RaphaLayout title="Jogos de Hoje">
+    <RaphaLayout title="Jogos" subtitle="Calendário operacional com filtros por data, liga, ao vivo, próximos e encerrados.">
       {/* Header */}
       <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
         <div>
@@ -442,7 +449,8 @@ export default function JogosHoje() {
         {[
           { key: "todos", label: "Todos", count: data?.total ?? 0, icon: "📅" },
           { key: "aovivo", label: "Ao Vivo", count: totalAoVivo, icon: "🔴" },
-          { key: "proximos", label: "Próximos (por horário)", count: totalProximos, icon: "⏰" },
+          { key: "proximos", label: "Próximos", count: totalProximos, icon: "⏰" },
+          { key: "encerrados", label: "Encerrados", count: totalEncerrados, icon: "✅" },
         ].map(({ key, label, count, icon }) => (
           <button
             key={key}
@@ -453,6 +461,8 @@ export default function JogosHoje() {
                   ? "bg-green-500/20 text-green-400 border-green-500/40"
                   : key === "proximos"
                   ? "bg-blue-500/20 text-blue-400 border-blue-500/40"
+                  : key === "encerrados"
+                  ? "bg-amber-500/20 text-amber-300 border-amber-500/40"
                   : "bg-[#00ff88]/20 text-[#00ff88] border-[#00ff88]/40"
                 : "bg-[#1a1f2e] text-gray-400 border-[#2a3040] hover:text-white"
             }`}
