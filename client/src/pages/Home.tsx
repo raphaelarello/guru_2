@@ -74,8 +74,16 @@ export function Home() {
     "NS": "Não Iniciado",
   };
 
+  // MARCADOR DE BUILD PARA DIAGNÓSTICO
+  console.log("BUILD TESTE RAPHA 001");
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 text-white">
+      {/* MARCADOR VISUAL DE BUILD */}
+      <div className="bg-yellow-500 text-black font-bold text-center py-2 text-lg">
+        BUILD TESTE RAPHA 001
+      </div>
+
       {/* TICKER - TOPO */}
       {jogoTicket && (
         <div className="bg-red-600 border-b-4 border-red-700 px-4 py-3 overflow-hidden">
