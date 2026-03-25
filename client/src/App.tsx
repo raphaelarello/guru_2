@@ -21,6 +21,8 @@ import Estatisticas from "./pages/Estatisticas";
 import ValueBetting from "./pages/ValueBetting";
 import Recomendacoes from "./pages/Recomendacoes";
 import Monitoramento from "./pages/Monitoramento";
+import SimuladorGols from "./pages/SimuladorGols";
+import LeaderboardAnimado from "./pages/LeaderboardAnimado";
 import NotificationCenter from "./components/NotificationCenter";
 
 function Router() {
@@ -43,6 +45,8 @@ function Router() {
       <Route path="/value-betting" component={ValueBetting} />
       <Route path="/recomendacoes" component={Recomendacoes} />
       <Route path="/monitoramento" component={Monitoramento} />
+      <Route path="/simulador-gols" component={SimuladorGols} />
+      <Route path="/leaderboard" component={LeaderboardAnimado} />
       <Route path="/historico-ao-vivo" component={HistoricoAoVivo} />
       <Route path="/configuracoes" component={Configuracoes} />
       <Route path="/404" component={NotFound} />
