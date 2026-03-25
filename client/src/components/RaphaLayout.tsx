@@ -1,425 +1,380 @@
 "use client";
 
-import { useState } from "react";
-import { useLocation } from "wouter";
+import { useMemo, useState } from "react";
+import { Link, useLocation } from "wouter";
+import { AnimatePresence, motion } from "framer-motion";
 import { useAuth } from "@/_core/hooks/useAuth";
 import {
-  LayoutDashboard, Menu, X, LogOut, Home, Zap, TrendingUp,
-  Calendar, Users, Trophy, BellRing, CheckCheck, Trash2,
-  Wifi, WifiOff, Thermometer, Settings, Star, ChevronDown,
-  BarChart2, History
+  Activity,
+  BarChart2,
+  Bell,
+  Bot,
+  Calendar,
+  ChevronRight,
+  Clock3,
+  Flame,
+  LayoutDashboard,
+  LogOut,
+  Menu,
+  Settings,
+  ShieldCheck,
+  Sparkles,
+  Trophy,
+  Users,
+  Wifi,
+  WifiOff,
+  X,
+  Zap,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { cn } from "@/lib/utils";
 import { trpc } from "@/lib/trpc";
 import { useSSE } from "@/hooks/useSSE";
 import { useNotifications } from "@/hooks/useNotifications";
 
-// ─── Botões da barra inferior (os 4 principais) ──────────────────────────────
-const bottomNavItems = [
-  {
-    path: "/bots",
-    label: "Bots IA",
-    icon: (
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-        <circle cx="12" cy="12" r="1" />
-        <path d="M12 1v6m0 6v6M4.22 4.22l4.24 4.24m5.08 5.08l4.24 4.24M1 12h6m6 0h6M4.22 19.78l4.24-4.24m5.08-5.08l4.24-4.24" />
-      </svg>
-    ),
-    badge: "PRO",
-  },
-  {
-    path: "/ao-vivo",
-    label: "Ao Vivo",
-    icon: (
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-        <circle cx="12" cy="12" r="9" />
-        <circle cx="12" cy="12" r="5" />
-      </svg>
-    ),
-    badge: "LIVE",
-  },
-  {
-    path: "/pitacos",
-    label: "Pitacos",
-    icon: (
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-        <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8" />
-        <path d="M21 3v5h-5" />
-        <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16" />
-        <path d="M3 21v-5h5" />
-      </svg>
-    ),
-    badge: null,
-  },
-  {
-    path: "/destaques",
-    label: "Destaques",
-    icon: (
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-        <path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z" />
-        <polyline points="13 2 13 9 20 9" />
-        <line x1="9" y1="15" x2="15" y2="15" />
-        <line x1="9" y1="11" x2="15" y2="11" />
-      </svg>
-    ),
-    badge: null,
-  },
+const mainNav = [
+  { path: "/painel", label: "Painel", icon: LayoutDashboard, badge: "HQ" },
+  { path: "/ao-vivo", label: "Ao Vivo", icon: Activity, badge: "Live" },
+  { path: "/jogos-hoje", label: "Jogos de Hoje", icon: Calendar },
+  { path: "/pitacos", label: "Pitacos", icon: Sparkles },
+  { path: "/apostas", label: "Apostas", icon: Zap },
+  { path: "/destaques", label: "Destaques", icon: Flame },
+  { path: "/estatisticas", label: "Estatísticas", icon: BarChart2 },
+  { path: "/times", label: "Times", icon: Users },
+  { path: "/ligas", label: "Ligas", icon: Trophy },
+  { path: "/configuracoes", label: "Configurações", icon: Settings },
 ];
 
-// ─── Todos os itens de navegação (para o menu do topo) ───────────────────────
-const allNavItems = [
-  { path: "/painel", label: "Painel", icon: LayoutDashboard },
-  { path: "/jogos-hoje", label: "Jogos de Hoje", icon: Calendar },
-  { path: "/apostas", label: "Apostas", icon: TrendingUp },
-  { path: "/auditoria", label: "Auditoria", icon: History },
-  { path: "/times", label: "Estatísticas Times", icon: Users },
-  { path: "/ligas", label: "Ligas", icon: Trophy },
-  { path: "/artilheiros", label: "Artilheiros", icon: TrendingUp },
-  { path: "/estatisticas", label: "Estatísticas", icon: BarChart2 },
-  { path: "/historico-ao-vivo", label: "Histórico Ao Vivo", icon: Thermometer },
-  { path: "/configuracoes", label: "Configurações", icon: Settings },
+const quickNav = [
+  { path: "/bots", label: "Bots IA", icon: Bot },
+  { path: "/auditoria", label: "Auditoria", icon: ShieldCheck },
+  { path: "/historico-ao-vivo", label: "Histórico", icon: Clock3 },
 ];
 
 interface RaphaLayoutProps {
   children: React.ReactNode;
   title?: string;
+  eyebrow?: string;
+  actions?: React.ReactNode;
 }
 
-export default function RaphaLayout({ children, title }: RaphaLayoutProps) {
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [desktopMenuOpen, setDesktopMenuOpen] = useState(false);
-  const [location] = useLocation();
-  const { user, isAuthenticated, logout } = useAuth();
-  const notificationCounts = useNotifications();
+function initialsFromName(name?: string | null) {
+  if (!name) return "RG";
+  return name
+    .split(" ")
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase())
+    .join("");
+}
 
+export default function RaphaLayout({
+  children,
+  title = "Rapha Guru",
+  eyebrow = "Sistema esportivo premium",
+  actions,
+}: RaphaLayoutProps) {
+  const [location, navigate] = useLocation();
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const { user, isAuthenticated, logout } = useAuth();
+  const counts = useNotifications();
+  const { connected, naoLidas } = useSSE({ enabled: isAuthenticated });
   const alertasQuery = trpc.alertas.list.useQuery(undefined, { enabled: isAuthenticated });
-  const alertasPendentes = alertasQuery.data?.filter(a => a.resultado === "pendente").length ?? 0;
-  const [painelNotif, setPainelNotif] = useState(false);
-  const { notifications, connected, naoLidas, marcarTodasLidas, limpar } = useSSE({ enabled: isAuthenticated });
+  const alertasPendentes = alertasQuery.data?.filter((a) => a.resultado === "pendente").length ?? 0;
+
+  const unreadCount = naoLidas + (counts.alertas || 0) + alertasPendentes;
+
+  const topStatus = useMemo(
+    () => [
+      {
+        label: connected ? "Ao vivo conectado" : "Reconectando",
+        value: connected ? "Realtime" : "Offline",
+        icon: connected ? Wifi : WifiOff,
+        tone: connected ? "text-emerald-300" : "text-red-300",
+      },
+      {
+        label: "Alertas",
+        value: String(alertasPendentes),
+        icon: Bell,
+        tone: unreadCount > 0 ? "text-cyan-300" : "text-slate-300",
+      },
+      {
+        label: "Sinais",
+        value: String(counts.pitacos || 0),
+        icon: Sparkles,
+        tone: "text-lime-300",
+      },
+    ],
+    [connected, unreadCount, counts.pitacos, alertasPendentes],
+  );
 
   if (!isAuthenticated) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 flex items-center justify-center p-4">
-        <div className="text-center">
-          <h1 className="text-3xl font-bold text-white mb-4">RaphaGuru</h1>
-          <p className="text-slate-400 mb-8">Análise Esportiva Inteligente</p>
-          <Button onClick={() => window.location.href = "/api/oauth/login"}>
-            Entrar
-          </Button>
-        </div>
+      <div className="flex min-h-screen items-center justify-center px-4">
+        <motion.div
+          initial={{ opacity: 0, y: 28 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="glass-card-strong gradient-outline relative w-full max-w-lg overflow-hidden rounded-[28px] p-8 text-center"
+        >
+          <div className="pointer-events-none absolute inset-0 field-lines opacity-25" />
+          <div className="relative space-y-5">
+            <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-3xl bg-lime-400/15 text-lime-300 shadow-[0_0_50px_rgba(163,230,53,0.12)]">
+              <Trophy className="h-8 w-8" />
+            </div>
+            <div className="space-y-2">
+              <p className="sport-chip mx-auto w-fit border-lime-400/30 bg-lime-400/10 text-lime-200">Rapha Guru</p>
+              <h1 className="sport-title">Inteligência esportiva com cara de produto premium</h1>
+              <p className="mx-auto max-w-md text-sm leading-6 text-slate-300">
+                Redesenhamos a casca para deixar o sistema mais veloz, visual e memorável, mantendo sua operação intacta.
+              </p>
+            </div>
+            <Button
+              size="lg"
+              className="h-12 rounded-2xl bg-lime-400 px-6 text-slate-950 hover:bg-lime-300"
+              onClick={() => {
+                window.location.href = "/api/oauth/login";
+              }}
+            >
+              Entrar no sistema
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+          </div>
+        </motion.div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 flex flex-col">
-      {/* Header Superior */}
-      <header className="sticky top-0 z-40 border-b border-slate-800 bg-slate-950/80 backdrop-blur-xl">
-        <div className="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <h1 className="text-xl font-bold text-white">RaphaGuru</h1>
-            {title && <span className="text-slate-400 text-sm">/ {title}</span>}
-          </div>
+    <div className="relative min-h-screen overflow-hidden">
+      <div className="pointer-events-none absolute inset-0">
+        <div className="absolute -left-24 top-16 h-80 w-80 rounded-full bg-cyan-400/10 blur-[120px]" />
+        <div className="absolute right-0 top-0 h-96 w-96 rounded-full bg-lime-400/10 blur-[140px]" />
+        <div className="absolute bottom-0 left-1/3 h-72 w-72 rounded-full bg-blue-500/10 blur-[120px]" />
+      </div>
 
-          {/* Menu Desktop */}
-          <div className="hidden md:flex items-center gap-2">
-            <div className="relative">
+      <div className="relative mx-auto flex min-h-screen max-w-[1800px]">
+        <AnimatePresence>
+          {(mobileOpen || typeof window === "undefined") && (
+            <motion.button
+              initial={{ opacity: 0 }}
+              animate={{ opacity: mobileOpen ? 1 : 0 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setMobileOpen(false)}
+              className={cn(
+                "fixed inset-0 z-40 bg-slate-950/70 backdrop-blur-sm lg:hidden",
+                !mobileOpen && "pointer-events-none",
+              )}
+            />
+          )}
+        </AnimatePresence>
+
+        <motion.aside
+          initial={false}
+          animate={{ x: mobileOpen ? 0 : -20, opacity: mobileOpen || typeof window === "undefined" ? 1 : 1 }}
+          className={cn(
+            "glass-card-strong fixed inset-y-3 left-3 z-50 flex w-[290px] flex-col overflow-hidden rounded-[30px] border-white/10 lg:sticky lg:left-0 lg:top-0 lg:z-10 lg:m-3 lg:h-[calc(100vh-24px)] lg:translate-x-0",
+            mobileOpen ? "translate-x-0" : "-translate-x-[110%] lg:translate-x-0",
+          )}
+        >
+          <div className="border-b border-white/8 p-5">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <p className="sport-chip w-fit bg-lime-400/10 text-lime-200">Sports OS</p>
+                <h1 className="mt-3 text-2xl font-black tracking-[-0.05em] text-white">Rapha Guru</h1>
+                <p className="mt-1 text-sm text-slate-400">Radar ao vivo, insights e execução rápida.</p>
+              </div>
               <Button
                 variant="ghost"
-                size="sm"
-                onClick={() => setDesktopMenuOpen(!desktopMenuOpen)}
-                className="text-slate-300 hover:text-white"
+                size="icon"
+                className="rounded-2xl lg:hidden"
+                onClick={() => setMobileOpen(false)}
               >
-                Menu <ChevronDown className="w-4 h-4 ml-1" />
+                <X className="h-5 w-5" />
               </Button>
-              {desktopMenuOpen && (
-                <div className="absolute right-0 mt-2 w-48 bg-slate-900 border border-slate-800 rounded-lg shadow-xl z-50">
-                  {allNavItems.map((item) => {
-                    const isActive = location === item.path;
-                    const Icon = item.icon;
-                    return (
+            </div>
+          </div>
+
+          <div className="space-y-6 overflow-y-auto px-4 py-5">
+            <div className="space-y-2">
+              <p className="px-3 text-[11px] font-bold uppercase tracking-[0.24em] text-slate-500">Navegação</p>
+              <nav className="space-y-2">
+                {mainNav.map((item) => {
+                  const isActive = location === item.path || (location === "/" && item.path === "/painel");
+                  const Icon = item.icon;
+                  return (
+                    <Link key={item.path} href={item.path}>
                       <a
-                        key={item.path}
-                        href={item.path}
-                        className={`flex items-center gap-2 px-4 py-2 text-sm ${
+                        onClick={() => setMobileOpen(false)}
+                        className={cn(
+                          "group flex items-center justify-between rounded-2xl border px-3 py-3 transition-all duration-300",
                           isActive
-                            ? "bg-slate-800 text-green-400"
-                            : "text-slate-300 hover:bg-slate-800 hover:text-green-400"
-                        }`}
+                            ? "border-lime-400/35 bg-lime-400/12 text-white shadow-[0_0_40px_rgba(163,230,53,0.10)]"
+                            : "border-white/6 bg-white/[0.025] text-slate-300 hover:border-white/12 hover:bg-white/[0.05]",
+                        )}
                       >
-                        <Icon className="w-4 h-4" />
+                        <span className="flex items-center gap-3">
+                          <span
+                            className={cn(
+                              "flex h-10 w-10 items-center justify-center rounded-2xl border transition-all",
+                              isActive
+                                ? "border-lime-400/35 bg-lime-400/15 text-lime-200"
+                                : "border-white/8 bg-slate-900/70 text-slate-400 group-hover:text-white",
+                            )}
+                          >
+                            <Icon className="h-4 w-4" />
+                          </span>
+                          <span>
+                            <span className="block text-sm font-semibold">{item.label}</span>
+                            <span className="block text-xs text-slate-500">
+                              {item.path === "/ao-vivo"
+                                ? "Monitoramento em tempo real"
+                                : item.path === "/pitacos"
+                                ? "Recomendações e sinais"
+                                : "Navegação principal"}
+                            </span>
+                          </span>
+                        </span>
+                        {item.badge ? (
+                          <span className="rounded-full border border-white/10 bg-white/5 px-2 py-1 text-[10px] font-bold uppercase tracking-[0.15em] text-slate-300">
+                            {item.badge}
+                          </span>
+                        ) : (
+                          <ChevronRight className="h-4 w-4 text-slate-600 transition-transform group-hover:translate-x-0.5" />
+                        )}
+                      </a>
+                    </Link>
+                  );
+                })}
+              </nav>
+            </div>
+
+            <div className="space-y-2">
+              <p className="px-3 text-[11px] font-bold uppercase tracking-[0.24em] text-slate-500">Atalhos</p>
+              <div className="grid grid-cols-1 gap-2">
+                {quickNav.map((item) => {
+                  const Icon = item.icon;
+                  return (
+                    <Link key={item.path} href={item.path}>
+                      <a
+                        onClick={() => setMobileOpen(false)}
+                        className="flex items-center gap-3 rounded-2xl border border-white/8 bg-white/[0.03] px-3 py-3 text-sm text-slate-300 transition hover:border-cyan-400/30 hover:bg-cyan-400/8 hover:text-white"
+                      >
+                        <span className="flex h-9 w-9 items-center justify-center rounded-xl border border-white/8 bg-slate-950/70 text-cyan-300">
+                          <Icon className="h-4 w-4" />
+                        </span>
                         {item.label}
                       </a>
+                    </Link>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+
+          <div className="border-t border-white/8 p-4">
+            <div className="glass-card rounded-[24px] p-3">
+              <div className="flex items-center gap-3">
+                <Avatar className="h-11 w-11 border border-white/10 bg-slate-900/80">
+                  <AvatarFallback className="bg-slate-800 text-slate-100">
+                    {initialsFromName((user as any)?.name || (user as any)?.email)}
+                  </AvatarFallback>
+                </Avatar>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-semibold text-white">{(user as any)?.name || "Operador"}</p>
+                  <p className="truncate text-xs text-slate-400">{(user as any)?.email || "Sessão autenticada"}</p>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="rounded-xl text-slate-300 hover:bg-red-500/10 hover:text-red-300"
+                  onClick={() => logout?.()}
+                >
+                  <LogOut className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          </div>
+        </motion.aside>
+
+        <div className="flex min-w-0 flex-1 flex-col px-3 pb-3 pt-3 lg:pl-0">
+          <header className="glass-card-strong sticky top-3 z-30 overflow-hidden rounded-[28px] px-4 py-4 sm:px-5">
+            <div className="pointer-events-none absolute inset-0 field-lines opacity-[0.08]" />
+            <div className="relative flex flex-col gap-4">
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="rounded-2xl border border-white/10 bg-white/5 lg:hidden"
+                    onClick={() => setMobileOpen(true)}
+                  >
+                    <Menu className="h-5 w-5" />
+                  </Button>
+                  <div>
+                    <p className="text-xs font-bold uppercase tracking-[0.22em] text-slate-500">{eyebrow}</p>
+                    <h2 className="mt-1 text-2xl font-black tracking-[-0.05em] text-white sm:text-3xl">{title}</h2>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  {actions}
+                  <Link href="/notificacoes">
+                    <a className="relative flex h-11 w-11 items-center justify-center rounded-2xl border border-white/10 bg-white/5 text-slate-200 transition hover:border-cyan-400/35 hover:bg-cyan-400/10">
+                      <Bell className="h-5 w-5" />
+                      {unreadCount > 0 && (
+                        <span className="absolute -right-1.5 -top-1.5 min-w-[1.35rem] rounded-full bg-red-500 px-1.5 py-0.5 text-center text-[10px] font-bold text-white">
+                          {unreadCount > 99 ? "99+" : unreadCount}
+                        </span>
+                      )}
+                    </a>
+                  </Link>
+                </div>
+              </div>
+
+              <div className="grid gap-3 xl:grid-cols-[1.6fr_1fr]">
+                <div className="glass-card rounded-[24px] px-4 py-3">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="sport-chip border-red-400/30 bg-red-500/10 text-red-200">
+                      <span className="live-dot" />
+                      cobertura ao vivo
+                    </span>
+                    <span className="text-sm text-slate-300">
+                      Interface redesenhada para leitura rápida, tomada de decisão e sensação de produto premium.
+                    </span>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-3 gap-2">
+                  {topStatus.map((item) => {
+                    const Icon = item.icon;
+                    return (
+                      <div key={item.label} className="glass-card rounded-[22px] px-3 py-3">
+                        <div className="flex items-center justify-between gap-2">
+                          <Icon className={cn("h-4 w-4", item.tone)} />
+                          <span className={cn("text-sm font-black tracking-[-0.04em]", item.tone)}>{item.value}</span>
+                        </div>
+                        <p className="mt-2 text-[11px] uppercase tracking-[0.18em] text-slate-500">{item.label}</p>
+                      </div>
                     );
                   })}
                 </div>
-              )}
-            </div>
-
-            {/* Notificações */}
-            <div className="relative">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setPainelNotif(!painelNotif)}
-                className="text-slate-300 hover:text-white relative"
-              >
-                <BellRing className="w-5 h-5" />
-                {naoLidas > 0 && (
-                  <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full animate-pulse" />
-                )}
-              </Button>
-
-              {painelNotif && (
-                <div className="absolute right-0 mt-2 w-80 bg-slate-900 border border-slate-800 rounded-lg shadow-xl z-50 max-h-96 overflow-y-auto">
-                  <div className="p-4 border-b border-slate-800 flex items-center justify-between">
-                    <h3 className="font-semibold text-white">Notificações</h3>
-                    <div className="flex gap-2">
-                      {naoLidas > 0 && (
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={marcarTodasLidas}
-                          className="text-xs text-slate-400 hover:text-white"
-                        >
-                          <CheckCheck className="w-3 h-3 mr-1" />
-                          Marcar lidas
-                        </Button>
-                      )}
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={limpar}
-                        className="text-xs text-slate-400 hover:text-white"
-                      >
-                        <Trash2 className="w-3 h-3" />
-                      </Button>
-                    </div>
-                  </div>
-                  <div className="p-4">
-                    {notifications.length === 0 ? (
-                      <p className="text-slate-400 text-sm text-center py-4">Sem notificações</p>
-                    ) : (
-                      <div className="space-y-2">
-                        {notifications.map((notif, idx) => (
-                          <div
-                            key={idx}
-                            className={`p-3 rounded-lg text-sm ${
-                              notif.lida
-                                ? "bg-slate-800 text-slate-400"
-                                : "bg-slate-700 text-white border border-slate-600"
-                            }`}
-                          >
-                            <p className="font-semibold">{notif.title}</p>
-                            <p className="text-xs mt-1">{notif.message}</p>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Status da Conexão SSE */}
-            <div className="flex items-center gap-2 text-xs">
-              {connected ? (
-                <>
-                  <Wifi className="w-3 h-3 text-green-500" />
-                  <span className="text-green-500">Conectado</span>
-                </>
-              ) : (
-                <>
-                  <WifiOff className="w-3 h-3 text-red-500" />
-                  <span className="text-red-500">Desconectado</span>
-                </>
-              )}
-            </div>
-
-            {/* Perfil do Usuário */}
-            <div className="flex items-center gap-3 pl-3 border-l border-slate-800">
-              <div className="text-right">
-                <p className="text-sm font-semibold text-white">{user?.name || "Usuário"}</p>
-                <p className="text-xs text-slate-400">{user?.email || ""}</p>
               </div>
-              <Avatar className="w-8 h-8 bg-gradient-to-br from-green-500 to-blue-500">
-                <AvatarFallback className="text-white font-bold">
-                  {user?.name?.charAt(0) || "U"}
-                </AvatarFallback>
-              </Avatar>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={logout}
-                className="text-slate-400 hover:text-red-400"
-              >
-                <LogOut className="w-4 h-4" />
-              </Button>
             </div>
-          </div>
+          </header>
 
-          {/* Menu Mobile */}
-          <div className="md:hidden flex items-center gap-2">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="text-slate-300"
+          <main className="min-h-0 flex-1 py-4">
+            <motion.div
+              key={location}
+              initial={{ opacity: 0, y: 14 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.28, ease: "easeOut" }}
+              className="min-h-[calc(100vh-170px)]"
             >
-              {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
-            </Button>
-          </div>
+              {children}
+            </motion.div>
+          </main>
         </div>
-
-        {/* Menu Mobile Expandido */}
-        {mobileMenuOpen && (
-          <div className="md:hidden border-t border-slate-800 bg-slate-900 p-4 space-y-2">
-            {allNavItems.map((item) => {
-              const isActive = location === item.path;
-              const Icon = item.icon;
-              return (
-                <a
-                  key={item.path}
-                  href={item.path}
-                  className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm ${
-                    isActive
-                      ? "bg-slate-800 text-green-400"
-                      : "text-slate-300 hover:bg-slate-800 hover:text-green-400"
-                  }`}
-                >
-                  <Icon className="w-4 h-4" />
-                  {item.label}
-                </a>
-              );
-            })}
-            <button
-              onClick={logout}
-              className="w-full flex items-center gap-2 px-4 py-2 rounded-lg text-sm text-red-400 hover:bg-slate-800"
-            >
-              <LogOut className="w-4 h-4" />
-              Sair
-            </button>
-          </div>
-        )}
-      </header>
-
-      {/* Conteúdo Principal */}
-      <main className="flex-1 overflow-y-auto pb-24 md:pb-0">
-        {children}
-      </main>
-
-      {/* Barra de Navegação Inferior (Mobile/Desktop) */}
-      <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-slate-800 bg-slate-950/95 backdrop-blur-xl">
-        <div className="flex justify-around">
-          {bottomNavItems.map((item) => {
-            const isActive = location === item.path;
-            return (
-              <a
-                key={item.path}
-                href={item.path}
-                className={`flex-1 flex flex-col items-center justify-center py-3 px-2 transition-all duration-300 relative group ${
-                  isActive
-                    ? "text-green-400"
-                    : "text-slate-400 hover:text-green-300"
-                }`}
-              >
-                {/* Ícone com efeito glow */}
-                <div
-                  className={`w-8 h-8 flex items-center justify-center transition-all duration-300 ${
-                    isActive ? "scale-125" : "group-hover:scale-110"
-                  }`}
-                  style={{
-                    filter: isActive
-                      ? "drop-shadow(0 0 12px rgba(34,197,94,0.8))"
-                      : "drop-shadow(0 0 6px rgba(34,197,94,0.4))",
-                  }}
-                >
-                  {typeof item.icon === "string" ? (
-                    <span>{item.icon}</span>
-                  ) : (
-                    item.icon
-                  )}
-                </div>
-
-                {/* Label */}
-                <span className="text-[10px] mt-1 font-semibold text-center leading-tight">
-                  {item.label}
-                </span>
-
-                {/* Badge LIVE pulsante */}
-                {item.badge === "LIVE" && !isActive && (
-                  <span
-                    className="absolute top-2 right-[14%] w-2.5 h-2.5 bg-red-500 rounded-full animate-pulse"
-                    style={{
-                      boxShadow: "0 0 12px rgba(239,68,68,0.9), inset 0 0 4px rgba(255,255,255,0.4)",
-                    }}
-                  />
-                )}
-
-                {/* Badge PRO */}
-                {item.badge === "PRO" && (
-                  <span
-                    className="absolute top-1.5 right-[12%] text-[7px] font-bold px-1.5 py-0.5 rounded-full"
-                    style={{
-                      background: "linear-gradient(135deg, rgba(0,255,136,0.35) 0%, rgba(0,204,102,0.25) 100%)",
-                      color: "#00ff88",
-                      border: "1px solid rgba(0,255,136,0.5)",
-                      boxShadow: "0 0 8px rgba(0,255,136,0.4), inset 0 0 4px rgba(255,255,255,0.2)",
-                      textTransform: "uppercase",
-                      letterSpacing: "0.02em",
-                    }}
-                  >
-                    Pro
-                  </span>
-                )}
-
-                {/* Badges com contadores de notificações */}
-                {item.path === "/bots" && notificationCounts.bots > 0 && (
-                  <span
-                    className="absolute top-1.5 right-[12%] w-5 h-5 bg-green-500 text-white text-[9px] font-bold rounded-full flex items-center justify-center animate-pulse"
-                    style={{
-                      boxShadow: "0 0 12px rgba(34,197,94,0.8), inset 0 0 4px rgba(255,255,255,0.3)",
-                    }}
-                  >
-                    {notificationCounts.bots > 9 ? "9+" : notificationCounts.bots}
-                  </span>
-                )}
-                {item.path === "/ao-vivo" && notificationCounts.aoVivo > 0 && (
-                  <span
-                    className="absolute top-1.5 right-[12%] w-5 h-5 bg-red-500 text-white text-[9px] font-bold rounded-full flex items-center justify-center animate-pulse"
-                    style={{
-                      boxShadow: "0 0 12px rgba(239,68,68,0.8), inset 0 0 4px rgba(255,255,255,0.3)",
-                    }}
-                  >
-                    {notificationCounts.aoVivo > 9 ? "9+" : notificationCounts.aoVivo}
-                  </span>
-                )}
-                {item.path === "/pitacos" && notificationCounts.pitacos > 0 && (
-                  <span
-                    className="absolute top-1.5 right-[12%] w-5 h-5 bg-yellow-500 text-white text-[9px] font-bold rounded-full flex items-center justify-center animate-pulse"
-                    style={{
-                      boxShadow: "0 0 12px rgba(234,179,8,0.8), inset 0 0 4px rgba(255,255,255,0.3)",
-                    }}
-                  >
-                    {notificationCounts.pitacos > 9 ? "9+" : notificationCounts.pitacos}
-                  </span>
-                )}
-                {item.path === "/destaques" && notificationCounts.destaques > 0 && (
-                  <span
-                    className="absolute top-1.5 right-[12%] w-5 h-5 bg-blue-500 text-white text-[9px] font-bold rounded-full flex items-center justify-center animate-pulse"
-                    style={{
-                      boxShadow: "0 0 12px rgba(59,130,246,0.8), inset 0 0 4px rgba(255,255,255,0.3)",
-                    }}
-                  >
-                    {notificationCounts.destaques > 9 ? "9+" : notificationCounts.destaques}
-                  </span>
-                )}
-              </a>
-            );
-          })}
-        </div>
-      </nav>
+      </div>
     </div>
   );
 }
