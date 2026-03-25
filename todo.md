@@ -298,3 +298,31 @@
 - [x] Botoes Ao Vivo / Proximos Jogos (ordenados por horario) em JogosHoje
 - [x] Filtro de data especifica + Ontem na Auditoria
 - [x] Filtro de periodo + data especifica no Kelly Tracker
+
+## Fase 26 - PWA + Ligas 500+ + Comparativo Bots vs Manual
+- [ ] Expandir dicionario de ligas para 500+ com IDs reais API Football
+- [ ] Ligas da Asia: J-League, K-League, CSL, Saudi Pro League, Qatar Stars, UAE, India ISL, etc.
+- [ ] Ligas da Africa: AFCON, Nigeria NPFL, Egypt Premier, South Africa PSL, Morocco Botola, etc.
+- [ ] Ligas das Americas: MLS, Liga MX, Argentina Primera, Chile Primera, Colombia Primera, etc.
+- [ ] Ligas da Europa: todas as divisoes principais e secundarias (50+ paises)
+- [ ] Competicoes internacionais: Champions, Europa League, Copa Libertadores, Copa do Mundo, etc.
+- [ ] PWA manifest.json com icones e configuracao
+- [ ] Service worker (sw.js) com push handler
+- [ ] Geracao de VAPID keys no servidor
+- [ ] Tabela push_subscriptions no banco de dados
+- [ ] Endpoint /api/push/subscribe para salvar subscriptions
+- [ ] Botao "Ativar Notificacoes" no header
+- [ ] cronService envia push ao criar novo alerta
+- [ ] Comparativo Bots vs Palpites Manuais no Painel (grafico de barras)
+- [ ] Secao "Desempenho por Estrategia" com taxa, ROI e total de cada tipo
+
+## Fase 26 - PWA + Ligas 500+ + Comparativo (Concluída)
+- [x] PWA manifest.json com meta tags Apple e tema verde
+- [x] Service Worker (sw.js) para Web Push Notifications
+- [x] Hook usePushNotifications com subscribe/unsubscribe
+- [x] Botão de push no header mobile do DashboardLayout
+- [x] Endpoints subscribePush/unsubscribePush no systemRouter
+- [x] Dicionário de ligas confirmado com 253 ligas (todos os continentes)
+- [x] Comparativo Bots vs Manual melhorado com gráfico recharts semanal
+- [x] EV médio para bots e ROI médio para apostas manuais no comparativo
+- [x] 0 erros TypeScript

@@ -29,6 +29,13 @@
       "when": 1774401762765,
       "tag": "0003_faulty_zeigeist",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "5",
+      "when": 1774410627096,
+      "tag": "0004_sad_thor",
+      "breakpoints": true
     }
   ]
 }

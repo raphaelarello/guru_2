@@ -146,3 +146,15 @@ export const pitacos = mysqlTable("pitacos", {
 
 export type Pitaco = typeof pitacos.$inferSelect;
 export type InsertPitaco = typeof pitacos.$inferInsert;
+
+// Push Subscriptions (Web Push Notifications)
+export const pushSubscriptions = mysqlTable("push_subscriptions", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull(),
+  endpoint: text("endpoint").notNull(),
+  p256dh: text("p256dh").notNull(),
+  auth: text("auth").notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+export type PushSubscriptionRecord = typeof pushSubscriptions.$inferSelect;
+export type InsertPushSubscription = typeof pushSubscriptions.$inferInsert;

@@ -21,11 +21,37 @@ import {
 } from "@/components/ui/sidebar";
 import { getLoginUrl } from "@/const";
 import { useIsMobile } from "@/hooks/useMobile";
-import { LayoutDashboard, LogOut, PanelLeft, Users } from "lucide-react";
+import { Bell, BellOff, LayoutDashboard, LogOut, PanelLeft, Users } from "lucide-react";
 import { CSSProperties, useEffect, useRef, useState } from "react";
 import { useLocation } from "wouter";
 import { DashboardLayoutSkeleton } from './DashboardLayoutSkeleton';
+import { usePushNotifications } from "@/hooks/usePushNotifications";
 import { Button } from "./ui/button";
+
+function PushNotifButton() {
+  const { status, subscribe, unsubscribe } = usePushNotifications();
+  if (status === "unsupported" || status === "loading") return null;
+  if (status === "granted") {
+    return (
+      <button
+        onClick={unsubscribe}
+        title="Desativar notificações push"
+        className="h-9 w-9 flex items-center justify-center rounded-lg hover:bg-accent transition-colors"
+      >
+        <Bell className="h-4 w-4 text-green-500" />
+      </button>
+    );
+  }
+  return (
+    <button
+      onClick={subscribe}
+      title="Ativar notificações push"
+      className="h-9 w-9 flex items-center justify-center rounded-lg hover:bg-accent transition-colors"
+    >
+      <BellOff className="h-4 w-4 text-muted-foreground" />
+    </button>
+  );
+}
 
 const menuItems = [
   { icon: LayoutDashboard, label: "Page 1", path: "/" },
@@ -255,6 +281,7 @@ function DashboardLayoutContent({
                 </div>
               </div>
             </div>
+            <PushNotifButton />
           </div>
         )}
         <main className="flex-1 p-4">{children}</main>

@@ -356,18 +356,56 @@ function ComparativoBotVsManual({ bots, alertas, apostas }: {
   const alertasBotsGreen = alertasBots.filter(a => a.resultado === "green").length;
   const alertasBotsFin = alertasBots.filter(a => a.resultado === "green" || a.resultado === "red").length;
   const taxaBots = alertasBotsFin > 0 ? Math.round((alertasBotsGreen / alertasBotsFin) * 100) : 0;
+  const evMedioBots = alertasBots.length > 0
+    ? alertasBots.reduce((s: number, a: any) => s + parseFloat(a.ev ?? "0"), 0) / alertasBots.length
+    : 0;
 
   // Apostas manuais (sem botId)
   const apostasManual = apostas.filter(a => !a.botId);
   const apostasManualGreen = apostasManual.filter(a => a.resultado === "green").length;
   const apostasManualFin = apostasManual.filter(a => a.resultado === "green" || a.resultado === "red").length;
   const taxaManual = apostasManualFin > 0 ? Math.round((apostasManualGreen / apostasManualFin) * 100) : 0;
+  const roiMedioManual = apostasManual.length > 0
+    ? apostasManual.reduce((s: number, a: any) => s + parseFloat(a.roi ?? "0"), 0) / apostasManual.length
+    : 0;
 
   const totalBots = alertasBots.length;
   const totalManual = apostasManual.length;
   const temDados = totalBots > 0 || totalManual > 0;
-
   const vencedor = taxaBots > taxaManual ? "bots" : taxaManual > taxaBots ? "manual" : "empate";
+
+  // Dados semanais para o gráfico (últimas 4 semanas)
+  const dadosSemanais = useMemo(() => {
+    const semanas: { semana: string; bots: number; manual: number }[] = [];
+    const agora = new Date();
+    for (let i = 3; i >= 0; i--) {
+      const inicioSemana = new Date(agora);
+      inicioSemana.setDate(agora.getDate() - (i + 1) * 7);
+      const fimSemana = new Date(agora);
+      fimSemana.setDate(agora.getDate() - i * 7);
+      const label = i === 0 ? "Esta sem." : `${(i)}s atrás`;
+      const botsNaSemana = alertasBots.filter(a => {
+        const d = new Date(a.createdAt);
+        return d >= inicioSemana && d < fimSemana;
+      });
+      const botsFinSemana = botsNaSemana.filter(a => a.resultado === "green" || a.resultado === "red").length;
+      const botsGreenSemana = botsNaSemana.filter(a => a.resultado === "green").length;
+      const manualNaSemana = apostasManual.filter(a => {
+        const d = new Date(a.createdAt);
+        return d >= inicioSemana && d < fimSemana;
+      });
+      const manualFinSemana = manualNaSemana.filter(a => a.resultado === "green" || a.resultado === "red").length;
+      const manualGreenSemana = manualNaSemana.filter(a => a.resultado === "green").length;
+      semanas.push({
+        semana: label,
+        bots: botsFinSemana > 0 ? Math.round((botsGreenSemana / botsFinSemana) * 100) : 0,
+        manual: manualFinSemana > 0 ? Math.round((manualGreenSemana / manualFinSemana) * 100) : 0,
+      });
+    }
+    return semanas;
+  }, [alertasBots, apostasManual]);
+
+  const temGrafico = dadosSemanais.some(d => d.bots > 0 || d.manual > 0);
 
   return (
     <Card className="bg-card border-border mb-5">
@@ -375,7 +413,7 @@ function ComparativoBotVsManual({ bots, alertas, apostas }: {
         <div className="flex items-center justify-between">
           <CardTitle className="text-foreground text-sm flex items-center gap-2">
             <Cpu className="w-4 h-4 text-primary" />
-            Bots vs Análise Manual
+            Bots IA vs Análise Manual
           </CardTitle>
           {temDados && vencedor !== "empate" && (
             <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
@@ -388,47 +426,100 @@ function ComparativoBotVsManual({ bots, alertas, apostas }: {
       </CardHeader>
       <CardContent>
         {!temDados ? (
-          <div className="py-4 text-center">
+          <div className="py-6 text-center space-y-2">
+            <Cpu className="w-8 h-8 text-muted-foreground mx-auto opacity-40" />
             <p className="text-xs text-muted-foreground">Ative bots e registre apostas para ver o comparativo</p>
+            <p className="text-[10px] text-muted-foreground/60">Os dados aparecerão automaticamente conforme os resultados forem registrados</p>
           </div>
         ) : (
-          <div className="grid grid-cols-2 gap-4">
-            {/* Bots */}
-            <div className={`rounded-xl p-4 border ${
-              vencedor === "bots" ? "border-primary/40 bg-primary/5" : "border-border bg-muted/20"
-            }`}>
-              <div className="flex items-center gap-2 mb-3">
-                <div className="w-7 h-7 rounded-lg bg-primary/20 flex items-center justify-center">
-                  <Cpu className="w-3.5 h-3.5 text-primary" />
+          <div className="space-y-4">
+            {/* Cards de comparação */}
+            <div className="grid grid-cols-2 gap-3">
+              {/* Bots */}
+              <div className={`rounded-xl p-4 border transition-all ${
+                vencedor === "bots" ? "border-primary/50 bg-primary/5 shadow-sm shadow-primary/10" : "border-border bg-muted/20"
+              }`}>
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-2">
+                    <div className="w-7 h-7 rounded-lg bg-primary/20 flex items-center justify-center">
+                      <Cpu className="w-3.5 h-3.5 text-primary" />
+                    </div>
+                    <span className="text-xs font-bold text-foreground">Bots IA</span>
+                  </div>
+                  {vencedor === "bots" && (
+                    <span className="text-[9px] font-bold text-primary bg-primary/10 px-1.5 py-0.5 rounded">★ LÍDER</span>
+                  )}
                 </div>
-                <span className="text-xs font-bold text-foreground">Bots IA</span>
-                {vencedor === "bots" && <span className="text-[9px] text-primary">★</span>}
+                <p className="text-3xl font-black text-primary mb-1">{taxaBots}<span className="text-sm font-normal">%</span></p>
+                <p className="text-[10px] text-muted-foreground font-medium">{alertasBotsGreen}G / {alertasBotsFin - alertasBotsGreen}R</p>
+                <p className="text-[10px] text-muted-foreground">{totalBots} sinais totais</p>
+                {evMedioBots !== 0 && (
+                  <p className={`text-[10px] font-semibold mt-0.5 ${
+                    evMedioBots >= 0 ? "text-green-400" : "text-red-400"
+                  }`}>EV médio: {evMedioBots >= 0 ? "+" : ""}{evMedioBots.toFixed(1)}%</p>
+                )}
+                <div className="mt-2 h-1.5 rounded-full bg-muted overflow-hidden">
+                  <div className="h-full rounded-full bg-primary transition-all duration-500" style={{ width: `${taxaBots}%` }} />
+                </div>
               </div>
-              <p className="text-2xl font-black text-primary mb-1">{taxaBots}%</p>
-              <p className="text-[10px] text-muted-foreground">{alertasBotsGreen}G / {alertasBotsFin - alertasBotsGreen}R</p>
-              <p className="text-[10px] text-muted-foreground">{totalBots} sinais gerados</p>
-              <div className="mt-2 h-1.5 rounded-full bg-muted overflow-hidden">
-                <div className="h-full rounded-full bg-primary transition-all" style={{ width: `${taxaBots}%` }} />
+              {/* Manual */}
+              <div className={`rounded-xl p-4 border transition-all ${
+                vencedor === "manual" ? "border-blue-500/50 bg-blue-500/5 shadow-sm shadow-blue-500/10" : "border-border bg-muted/20"
+              }`}>
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-2">
+                    <div className="w-7 h-7 rounded-lg bg-blue-500/20 flex items-center justify-center">
+                      <Users className="w-3.5 h-3.5 text-blue-400" />
+                    </div>
+                    <span className="text-xs font-bold text-foreground">Manual</span>
+                  </div>
+                  {vencedor === "manual" && (
+                    <span className="text-[9px] font-bold text-blue-400 bg-blue-500/10 px-1.5 py-0.5 rounded">★ LÍDER</span>
+                  )}
+                </div>
+                <p className="text-3xl font-black text-blue-400 mb-1">{taxaManual}<span className="text-sm font-normal">%</span></p>
+                <p className="text-[10px] text-muted-foreground font-medium">{apostasManualGreen}G / {apostasManualFin - apostasManualGreen}R</p>
+                <p className="text-[10px] text-muted-foreground">{totalManual} apostas totais</p>
+                {roiMedioManual !== 0 && (
+                  <p className={`text-[10px] font-semibold mt-0.5 ${
+                    roiMedioManual >= 0 ? "text-green-400" : "text-red-400"
+                  }`}>ROI médio: {roiMedioManual >= 0 ? "+" : ""}{roiMedioManual.toFixed(1)}%</p>
+                )}
+                <div className="mt-2 h-1.5 rounded-full bg-muted overflow-hidden">
+                  <div className="h-full rounded-full bg-blue-400 transition-all duration-500" style={{ width: `${taxaManual}%` }} />
+                </div>
               </div>
             </div>
-            {/* Manual */}
-            <div className={`rounded-xl p-4 border ${
-              vencedor === "manual" ? "border-blue-500/40 bg-blue-500/5" : "border-border bg-muted/20"
-            }`}>
-              <div className="flex items-center gap-2 mb-3">
-                <div className="w-7 h-7 rounded-lg bg-blue-500/20 flex items-center justify-center">
-                  <Users className="w-3.5 h-3.5 text-blue-400" />
+
+            {/* Gráfico de evolução semanal */}
+            {temGrafico && (
+              <div>
+                <p className="text-[10px] text-muted-foreground mb-2 font-medium uppercase tracking-wide">Evolução semanal — taxa de acerto (%)</p>
+                <ResponsiveContainer width="100%" height={120}>
+                  <BarChart data={dadosSemanais} barGap={4} margin={{ top: 0, right: 4, left: -20, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
+                    <XAxis dataKey="semana" tick={{ fontSize: 9, fill: "#888" }} axisLine={false} tickLine={false} />
+                    <YAxis tick={{ fontSize: 9, fill: "#888" }} axisLine={false} tickLine={false} domain={[0, 100]} />
+                    <RTooltip
+                      contentStyle={{ background: "#1a1a2e", border: "1px solid #333", borderRadius: 8, fontSize: 11 }}
+                      formatter={(value: number, name: string) => [`${value}%`, name === "bots" ? "🤖 Bots IA" : "👤 Manual"]}
+                    />
+                    <Bar dataKey="bots" name="bots" fill="#22c55e" radius={[3, 3, 0, 0]} maxBarSize={28} />
+                    <Bar dataKey="manual" name="manual" fill="#60a5fa" radius={[3, 3, 0, 0]} maxBarSize={28} />
+                  </BarChart>
+                </ResponsiveContainer>
+                <div className="flex items-center gap-4 mt-1">
+                  <div className="flex items-center gap-1.5">
+                    <div className="w-2.5 h-2.5 rounded-sm bg-green-500" />
+                    <span className="text-[9px] text-muted-foreground">🤖 Bots IA</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <div className="w-2.5 h-2.5 rounded-sm bg-blue-400" />
+                    <span className="text-[9px] text-muted-foreground">👤 Manual</span>
+                  </div>
                 </div>
-                <span className="text-xs font-bold text-foreground">Manual</span>
-                {vencedor === "manual" && <span className="text-[9px] text-blue-400">★</span>}
               </div>
-              <p className="text-2xl font-black text-blue-400 mb-1">{taxaManual}%</p>
-              <p className="text-[10px] text-muted-foreground">{apostasManualGreen}G / {apostasManualFin - apostasManualGreen}R</p>
-              <p className="text-[10px] text-muted-foreground">{totalManual} apostas registradas</p>
-              <div className="mt-2 h-1.5 rounded-full bg-muted overflow-hidden">
-                <div className="h-full rounded-full bg-blue-400 transition-all" style={{ width: `${taxaManual}%` }} />
-              </div>
-            </div>
+            )}
           </div>
         )}
       </CardContent>
