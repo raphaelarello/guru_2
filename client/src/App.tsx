@@ -15,6 +15,7 @@ import Times from "./pages/Times";
 import Ligas from "./pages/Ligas";
 import HistoricoAoVivo from "./pages/HistoricoAoVivo";
 import Configuracoes from "./pages/Configuracoes";
+import Destaques from "./pages/Destaques";
 
 function Router() {
   return (
@@ -24,6 +25,8 @@ function Router() {
       <Route path="/ao-vivo" component={AoVivo} />
       <Route path="/bots" component={Bots} />
       <Route path="/kelly" component={KellyTracker} />
+      <Route path="/apostas" component={KellyTracker} />
+      <Route path="/destaques" component={Destaques} />
       <Route path="/auditoria" component={Auditoria} />
       <Route path="/pitacos" component={Pitacos} />
       <Route path="/jogos-hoje" component={JogosHoje} />

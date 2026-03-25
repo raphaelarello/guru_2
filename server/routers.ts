@@ -45,6 +45,7 @@ import {
   clearCache,
   getCacheStats,
   getBlockStatus,
+  getApiUsage,
 } from "./football";
 
 export const appRouter = router({
@@ -68,6 +69,9 @@ export const appRouter = router({
 
     /** Status do bloqueio horário (1h-7h Brasília) */
     blockStatus: publicProcedure.query(() => getBlockStatus()),
+
+    /** Uso diário da API Football (contador de requisições) */
+    apiUsage: publicProcedure.query(() => getApiUsage()),
 
     /** Jogos de hoje (pré-jogo) com odds e predições */
     jogosHoje: publicProcedure

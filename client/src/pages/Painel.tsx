@@ -27,6 +27,7 @@ export default function Painel() {
   const pitacosStatsQuery = trpc.pitacos.stats.useQuery();
   const pitacosQuery = trpc.pitacos.list.useQuery();
   const liveQuery = trpc.football.liveFixtures.useQuery(undefined, { refetchInterval: 60000 });
+  const apiUsageQuery = trpc.football.apiUsage.useQuery(undefined, { refetchInterval: 300000 });
 
   const bots = botsQuery.data ?? [];
   const alertas = alertasQuery.data ?? [];
@@ -274,6 +275,43 @@ export default function Painel() {
                   <p className="text-xs text-red-400">{pStats.piorMercado.taxa.toFixed(0)}% • {pStats.piorMercado.acertos}/{pStats.piorMercado.total} acertos</p>
                 </div>
                 <AlertTriangle className="w-5 h-5 text-red-400 shrink-0" />
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Widget de consumo da API Football */}
+          {apiUsageQuery.data && (
+            <Card className="bg-card border-border">
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-2">
+                    <div className="w-8 h-8 rounded-lg bg-blue-500/10 flex items-center justify-center">
+                      <Activity className="w-4 h-4 text-blue-400" />
+                    </div>
+                    <div>
+                      <p className="text-[10px] text-muted-foreground uppercase tracking-wide font-semibold">API Football</p>
+                      <p className="text-xs text-foreground font-bold">
+                        {apiUsageQuery.data.count.toLocaleString("pt-BR")} / {apiUsageQuery.data.limit.toLocaleString("pt-BR")}
+                      </p>
+                    </div>
+                  </div>
+                  <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${
+                    apiUsageQuery.data.percent < 50 ? "bg-green-500/10 text-green-400" :
+                    apiUsageQuery.data.percent < 80 ? "bg-yellow-500/10 text-yellow-400" :
+                    "bg-red-500/10 text-red-400"
+                  }`}>{apiUsageQuery.data.percent}%</span>
+                </div>
+                <div className="w-full bg-muted rounded-full h-1.5">
+                  <div
+                    className={`h-1.5 rounded-full transition-all ${
+                      apiUsageQuery.data.percent < 50 ? "bg-green-500" :
+                      apiUsageQuery.data.percent < 80 ? "bg-yellow-500" :
+                      "bg-red-500"
+                    }`}
+                    style={{ width: `${Math.min(apiUsageQuery.data.percent, 100)}%` }}
+                  />
+                </div>
+                <p className="text-[10px] text-muted-foreground mt-1">Requisições hoje • Limite diário: 75.000</p>
               </CardContent>
             </Card>
           )}

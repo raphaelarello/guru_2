@@ -345,3 +345,12 @@
 - [x] Salvar jogos ao vivo automaticamente no histórico via cronService
 - [x] Job de verificação automática de resultados (atualizar acertouTermometro)
 - [x] Notificações push com deep link para o jogo específico
+
+## Fase 29 - Navegação Inferior Fixa + Renomeações
+- [ ] Acessar scoretabs.com.br e analisar estilo dos botões inferiores
+- [ ] Barra de navegação inferior fixa com 4 botões (Bots, Radar Esportivo, Pitacos, Destaques)
+- [ ] Restante da navegação movida para o topo (header)
+- [ ] Renomear Kelly Tracker para Apostas em toda a aplicação
+- [ ] Widget de consumo da API Football no Painel
+- [ ] Ranking de acurácia do termômetro no Histórico Ao Vivo
+- [ ] Configurações de push por tipo de bot

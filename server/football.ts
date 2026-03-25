@@ -72,12 +72,40 @@ export function isBlockedHour(): boolean {
   return false;
 }
 
-// ─── Cliente HTTP ────────────────────────────────────────────────────────────
+// ─── Contador de requisições diárias ─────────────────────────────────────────
+const dailyCounter = { count: 0, date: new Date().toISOString().slice(0, 10) };
+
+export function getApiUsage(): { count: number; limit: number; percent: number; date: string } {
+  const today = new Date().toISOString().slice(0, 10);
+  if (dailyCounter.date !== today) {
+    dailyCounter.count = 0;
+    dailyCounter.date = today;
+  }
+  const limit = 75000;
+  return {
+    count: dailyCounter.count,
+    limit,
+    percent: Math.round((dailyCounter.count / limit) * 100),
+    date: dailyCounter.date,
+  };
+}
+
+function incrementApiCounter(): void {
+  const today = new Date().toISOString().slice(0, 10);
+  if (dailyCounter.date !== today) {
+    dailyCounter.count = 0;
+    dailyCounter.date = today;
+  }
+  dailyCounter.count++;
+}
+
+// ─── Cliente HTTP ─────────────────────────────────────────────────────
 async function apiRequest<T>(
   endpoint: string,
   params: Record<string, string | number | boolean> = {}
 ): Promise<T> {
   const url = `${BASE_URL}${endpoint}`;
+  incrementApiCounter();
   const response = await axios.get(url, {
     headers: { "x-apisports-key": API_KEY },
     params,

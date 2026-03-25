@@ -9,7 +9,7 @@ import {
   Bell, BellOff, BellRing, Smartphone, MessageSquare,
   Mail, Send, Zap, Target, TrendingUp, Shield,
   CheckCircle2, XCircle, AlertCircle, Settings,
-  Flame, Volume2, VolumeX, Clock
+  Flame, Volume2, VolumeX, Clock, Bot, Radio
 } from "lucide-react";
 import RaphaLayout from "@/components/RaphaLayout";
 
@@ -183,6 +183,107 @@ const CANAIS_INFO = [
     cor: "text-purple-400",
   },
 ];
+
+// ─── Configurações por Bot ─────────────────────────────────────────────────────
+function ConfiguracoesPorBot() {
+  const botsQuery = trpc.bots.list.useQuery();
+  const bots = botsQuery.data ?? [];
+  const [botsComPush, setBotsComPush] = useState<Record<number, boolean>>({});
+
+  useEffect(() => {
+    if (bots.length > 0) {
+      const inicial: Record<string, boolean> = {};
+      bots.forEach(b => { inicial[b.id as number] = true; });
+      setBotsComPush(prev => ({ ...inicial, ...prev }));
+    }
+  }, [bots.length]);
+
+  const toggleBot = (id: number) => {
+    setBotsComPush(prev => ({ ...prev, [id]: !prev[id] }));
+    toast.success("Preferência do bot atualizada");
+  };
+
+  const TIPOS_BOT_ICONE: Record<string, typeof Bot> = {
+    gols: Zap,
+    escanteios: Radio,
+    cartoes: Shield,
+    btts: Target,
+    over: TrendingUp,
+    default: Bot,
+  };
+
+  if (botsQuery.isLoading) {
+    return (
+      <div className="rounded-2xl border border-gray-700/60 bg-gray-900/60 p-5">
+        <div className="h-4 w-32 bg-gray-700 rounded animate-pulse mb-3" />
+        <div className="space-y-2">
+          {[1,2,3].map(i => <div key={i} className="h-12 bg-gray-800 rounded-xl animate-pulse" />)}
+        </div>
+      </div>
+    );
+  }
+
+  if (bots.length === 0) {
+    return (
+      <div className="rounded-2xl border border-gray-700/60 bg-gray-900/60 p-5">
+        <h3 className="text-sm font-bold text-white mb-2 flex items-center gap-2">
+          <Bot className="w-4 h-4 text-primary" />
+          Push por Bot
+        </h3>
+        <p className="text-xs text-gray-500">Nenhum bot criado ainda. <a href="/bots" className="text-green-400 hover:underline">Criar bots</a></p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="rounded-2xl border border-gray-700/60 bg-gray-900/60 p-5">
+      <h3 className="text-sm font-bold text-white mb-1 flex items-center gap-2">
+        <Bot className="w-4 h-4 text-primary" />
+        Push por Bot Específico
+      </h3>
+      <p className="text-xs text-gray-500 mb-4">Escolha quais bots podem enviar notificações push para você.</p>
+      <div className="space-y-2">
+        {bots.map(bot => {
+          const tipo = (bot.templateId ?? "default").toLowerCase();
+          const IconeBot = TIPOS_BOT_ICONE[tipo] ?? TIPOS_BOT_ICONE.default;
+          const ativo = botsComPush[bot.id] ?? true;
+          return (
+            <div key={bot.id} className={`flex items-center justify-between p-3 rounded-xl border transition-all ${
+              ativo ? "border-green-500/30 bg-green-500/5" : "border-gray-700/40 bg-gray-800/20"
+            }`}>
+              <div className="flex items-center gap-3 flex-1 min-w-0">
+                <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${
+                  bot.ativo ? "bg-green-500/10" : "bg-gray-700/30"
+                }`}>
+                  <IconeBot className={`w-4 h-4 ${bot.ativo ? "text-green-400" : "text-gray-500"}`} />
+                </div>
+                <div className="min-w-0">
+                  <p className={`text-xs font-semibold truncate ${ativo ? "text-white" : "text-gray-500"}`}>
+                    {bot.nome}
+                  </p>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] text-gray-500 capitalize">{bot.templateId ?? "geral"}</span>
+                    {!bot.ativo && (
+                      <Badge className="text-[9px] bg-gray-700 text-gray-400 border-0 px-1 py-0">Inativo</Badge>
+                    )}
+                  </div>
+                </div>
+              </div>
+              <Switch
+                checked={ativo}
+                onCheckedChange={() => toggleBot(bot.id)}
+                className="flex-shrink-0 ml-3"
+              />
+            </div>
+          );
+        })}
+      </div>
+      <p className="text-[10px] text-gray-600 mt-3">
+        Bots inativos não geram sinais, mas você pode pré-configurar o push para quando forem ativados.
+      </p>
+    </div>
+  );
+}
 
 // ─── Página Principal ─────────────────────────────────────────────────────────
 export default function Configuracoes() {
@@ -477,6 +578,9 @@ export default function Configuracoes() {
             )}
           </div>
         </div>
+
+        {/* Configurações por Bot */}
+        <ConfiguracoesPorBot />
 
         {/* Botão Salvar */}
         <div className="flex items-center justify-end gap-3 pb-4">
