@@ -32,6 +32,7 @@ import MatchCenter from "./pages/MatchCenter";
 import UpgradePlanos from "./pages/UpgradePlanos";
 import DashboardNotificacoes from "./pages/DashboardNotificacoes";
 import RelatorioPerfomance from "./pages/RelatorioPerfomance";
+import DashboardFinanceiro from "./pages/DashboardFinanceiro";
 import NotificationCenter from "./components/NotificationCenter";
 
 function Router() {
@@ -65,6 +66,7 @@ function Router() {
       <Route path="/upgrade-planos" component={UpgradePlanos} />
       <Route path="/notificacoes" component={DashboardNotificacoes} />
       <Route path="/relatorio-performance" component={RelatorioPerfomance} />
+      <Route path="/financeiro" component={DashboardFinanceiro} />
       <Route path="/historico-ao-vivo" component={HistoricoAoVivo} />
       <Route path="/configuracoes" component={Configuracoes} />
       <Route path="/404" component={NotFound} />
