@@ -13,6 +13,8 @@ import Pitacos from "./pages/Pitacos";
 import JogosHoje from "./pages/JogosHoje";
 import Times from "./pages/Times";
 import Ligas from "./pages/Ligas";
+import HistoricoAoVivo from "./pages/HistoricoAoVivo";
+import Configuracoes from "./pages/Configuracoes";
 
 function Router() {
   return (
@@ -27,6 +29,8 @@ function Router() {
       <Route path="/jogos-hoje" component={JogosHoje} />
       <Route path="/times" component={Times} />
       <Route path="/ligas" component={Ligas} />
+      <Route path="/historico-ao-vivo" component={HistoricoAoVivo} />
+      <Route path="/configuracoes" component={Configuracoes} />
       <Route path="/404" component={NotFound} />
       <Route component={NotFound} />
     </Switch>

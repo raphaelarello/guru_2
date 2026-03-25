@@ -326,3 +326,16 @@
 - [x] Comparativo Bots vs Manual melhorado com gráfico recharts semanal
 - [x] EV médio para bots e ROI médio para apostas manuais no comparativo
 - [x] 0 erros TypeScript
+
+## Fase 27 - Push nos Bots + Histórico Ao Vivo + Configurações (Concluída)
+- [x] Push notifications integradas no cronService (dispara ao criar novo alerta)
+- [x] Página de Configurações de Notificações (/configuracoes) com toggles por tipo de alerta
+- [x] Tabela live_game_history no banco (migração aplicada)
+- [x] Router liveHistory: salvar, finalizar, listar, stats
+- [x] Página Histórico Ao Vivo (/historico-ao-vivo) com análise de acurácia do termômetro
+- [x] Gráfico de barras recharts com taxa de acerto por nível de calor (Gelado/Morno/Quente/Vulcão)
+- [x] Cards de estatísticas: total monitorados, taxa de acerto, calor médio c/ gols, melhor nível
+- [x] Lista paginada de jogos monitorados com filtro por nível de calor
+- [x] Sidebar atualizada com Histórico Ao Vivo (ícone Thermometer) e Configurações (ícone Settings)
+- [x] Rotas /historico-ao-vivo e /configuracoes no App.tsx
+- [x] 0 erros TypeScript

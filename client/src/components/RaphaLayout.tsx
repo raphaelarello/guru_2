@@ -6,7 +6,7 @@ import {
   LayoutDashboard, Radio, Bot, TrendingUp, History,
   MessageSquare, ChevronLeft, ChevronRight, LogOut,
   User, Zap, Shield, Menu, X, Bell, Calendar, Users, Trophy,
-  BellRing, CheckCheck, Trash2, Wifi, WifiOff
+  BellRing, CheckCheck, Trash2, Wifi, WifiOff, Thermometer, Settings
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -24,6 +24,8 @@ const navItems = [
   { path: "/auditoria", label: "Auditoria", icon: History, badge: null },
   { path: "/times", label: "Estatísticas Times", icon: Users, badge: null },
   { path: "/ligas", label: "Ligas", icon: Trophy, badge: null },
+  { path: "/historico-ao-vivo", label: "Histórico Ao Vivo", icon: Thermometer, badge: null },
+  { path: "/configuracoes", label: "Configurações", icon: Settings, badge: null },
 ];
 
 interface RaphaLayoutProps {

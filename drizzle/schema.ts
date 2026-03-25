@@ -158,3 +158,29 @@ export const pushSubscriptions = mysqlTable("push_subscriptions", {
 });
 export type PushSubscriptionRecord = typeof pushSubscriptions.$inferSelect;
 export type InsertPushSubscription = typeof pushSubscriptions.$inferInsert;
+
+// Histórico de jogos ao vivo (termômetro de calor)
+export const liveGameHistory = mysqlTable("live_game_history", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull(),
+  fixtureId: int("fixtureId").notNull(),
+  jogo: varchar("jogo", { length: 255 }).notNull(),
+  liga: varchar("liga", { length: 255 }),
+  paisBandeira: varchar("paisBandeira", { length: 10 }),
+  minuto: int("minuto"),
+  golsCasa: int("golsCasa").default(0),
+  golsVisit: int("golsVisit").default(0),
+  scoreCalor: int("scoreCalor").default(0),
+  nivelCalor: varchar("nivelCalor", { length: 20 }),
+  escanteiosCasa: int("escanteiosCasa").default(0),
+  escanteiosVisit: int("escanteiosVisit").default(0),
+  cartoesCasa: int("cartoesCasa").default(0),
+  cartoesVisit: int("cartoesVisit").default(0),
+  totalSinais: int("totalSinais").default(0),
+  golsOcorreram: boolean("golsOcorreram").default(false),
+  placarFinal: varchar("placarFinal", { length: 20 }),
+  acertouTermometro: boolean("acertouTermometro"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+export type LiveGameHistoryRecord = typeof liveGameHistory.$inferSelect;
+export type InsertLiveGameHistory = typeof liveGameHistory.$inferInsert;

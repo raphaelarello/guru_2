@@ -3,6 +3,7 @@ import { COOKIE_NAME } from "@shared/const";
 import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
 import { protectedProcedure, publicProcedure, router } from "./_core/trpc";
+import { TRPCError } from "@trpc/server";
 import {
   getBotsByUserId, getBotById, createBot, updateBot, deleteBot,
   getCanaisByUserId, upsertCanal, updateCanal,
@@ -11,6 +12,9 @@ import {
   getApostasByUserId, createAposta, updateAposta,
   getPitacosByUserId, createPitaco, updatePitaco,
 } from "./db";
+import { getDb } from "./db";
+import { liveGameHistory } from "../drizzle/schema";
+import { eq, and, gte, sql } from "drizzle-orm";
 import { statusCron, executarAgora, iniciarCron, pararCron, enviarAlertaCanais } from "./cronService";
 import {
   getLiveFixtures,
@@ -967,6 +971,93 @@ export const appRouter = router({
           rodada: f.league.round,
         }));
       }),
+  }),
+
+  // ── HISTÓRICO DE JOGOS AO VIVO ─────────────────────────────────────────────────────────────────────
+  liveHistory: router({
+    /** Salvar snapshot de jogo ao vivo no histórico */
+    salvar: protectedProcedure
+      .input(z.object({
+        fixtureId: z.number(),
+        jogo: z.string(),
+        liga: z.string().optional(),
+        paisBandeira: z.string().optional(),
+        minuto: z.number().optional(),
+        golsCasa: z.number().default(0),
+        golsVisit: z.number().default(0),
+        scoreCalor: z.number().default(0),
+        nivelCalor: z.string().optional(),
+        escanteiosCasa: z.number().default(0),
+        escanteiosVisit: z.number().default(0),
+        cartoesCasa: z.number().default(0),
+        cartoesVisit: z.number().default(0),
+        totalSinais: z.number().default(0),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        const db = await getDb();
+        if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+        const hoje = new Date();
+        hoje.setHours(0, 0, 0, 0);
+        const existente = await db.select({ id: liveGameHistory.id })
+          .from(liveGameHistory)
+          .where(and(
+            eq(liveGameHistory.userId, ctx.user.id),
+            eq(liveGameHistory.fixtureId, input.fixtureId),
+            gte(liveGameHistory.createdAt, hoje)
+          ))
+          .limit(1);
+        if (existente.length > 0) {
+          await db.update(liveGameHistory)
+            .set({ minuto: input.minuto, golsCasa: input.golsCasa, golsVisit: input.golsVisit, scoreCalor: input.scoreCalor, nivelCalor: input.nivelCalor, escanteiosCasa: input.escanteiosCasa, escanteiosVisit: input.escanteiosVisit, cartoesCasa: input.cartoesCasa, cartoesVisit: input.cartoesVisit, totalSinais: input.totalSinais })
+            .where(eq(liveGameHistory.id, existente[0].id));
+          return { id: existente[0].id, updated: true };
+        }
+        const [result] = await db.insert(liveGameHistory).values({ userId: ctx.user.id, fixtureId: input.fixtureId, jogo: input.jogo, liga: input.liga, paisBandeira: input.paisBandeira, minuto: input.minuto, golsCasa: input.golsCasa, golsVisit: input.golsVisit, scoreCalor: input.scoreCalor, nivelCalor: input.nivelCalor, escanteiosCasa: input.escanteiosCasa, escanteiosVisit: input.escanteiosVisit, cartoesCasa: input.cartoesCasa, cartoesVisit: input.cartoesVisit, totalSinais: input.totalSinais });
+        return { id: (result as any).insertId, updated: false };
+      }),
+
+    /** Finalizar jogo com resultado real */
+    finalizar: protectedProcedure
+      .input(z.object({ fixtureId: z.number(), placarFinal: z.string(), golsOcorreram: z.boolean(), acertouTermometro: z.boolean().optional() }))
+      .mutation(async ({ ctx, input }) => {
+        const db = await getDb();
+        if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+        await db.update(liveGameHistory)
+          .set({ placarFinal: input.placarFinal, golsOcorreram: input.golsOcorreram, acertouTermometro: input.acertouTermometro })
+          .where(and(eq(liveGameHistory.userId, ctx.user.id), eq(liveGameHistory.fixtureId, input.fixtureId)));
+        return { success: true };
+      }),
+
+    /** Listar histórico com filtros */
+    listar: protectedProcedure
+      .input(z.object({ limit: z.number().default(50), offset: z.number().default(0), nivelCalor: z.string().optional(), dataInicio: z.string().optional() }).optional())
+      .query(async ({ ctx, input }) => {
+        const db = await getDb();
+        if (!db) return [];
+        const conditions: ReturnType<typeof eq>[] = [eq(liveGameHistory.userId, ctx.user.id)];
+        if (input?.nivelCalor) conditions.push(eq(liveGameHistory.nivelCalor, input.nivelCalor) as any);
+        if (input?.dataInicio) conditions.push(gte(liveGameHistory.createdAt, new Date(input.dataInicio)) as any);
+        return db.select().from(liveGameHistory).where(and(...conditions)).orderBy(sql`${liveGameHistory.createdAt} desc`).limit(input?.limit ?? 50).offset(input?.offset ?? 0);
+      }),
+
+    /** Estatísticas do termômetro */
+    stats: protectedProcedure.query(async ({ ctx }) => {
+      const db = await getDb();
+      if (!db) return null;
+      const rows = await db.select().from(liveGameHistory).where(eq(liveGameHistory.userId, ctx.user.id));
+      const total = rows.length;
+      const comResultado = rows.filter(r => r.acertouTermometro !== null && r.acertouTermometro !== undefined);
+      const acertos = comResultado.filter(r => r.acertouTermometro === true).length;
+      const taxaAcerto = comResultado.length > 0 ? Math.round((acertos / comResultado.length) * 100) : 0;
+      const porNivel = ["Gelado", "Morno", "Quente", "Vulcão"].map(nivel => {
+        const doNivel = comResultado.filter(r => r.nivelCalor === nivel);
+        const acertosNivel = doNivel.filter(r => r.acertouTermometro === true).length;
+        return { nivel, total: doNivel.length, acertos: acertosNivel, taxa: doNivel.length > 0 ? Math.round((acertosNivel / doNivel.length) * 100) : 0 };
+      });
+      const comGols = rows.filter(r => r.golsOcorreram === true);
+      const mediaCalorComGols = comGols.length > 0 ? Math.round(comGols.reduce((s, r) => s + (r.scoreCalor ?? 0), 0) / comGols.length) : 0;
+      return { total, comResultado: comResultado.length, acertos, taxaAcerto, porNivel, mediaCalorComGols };
+    }),
   }),
 });
 function detectarTipoMercado(mercado: string): string {

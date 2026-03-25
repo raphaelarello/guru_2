@@ -1,0 +1,23 @@
+CREATE TABLE `live_game_history` (
+	`id` int AUTO_INCREMENT NOT NULL,
+	`userId` int NOT NULL,
+	`fixtureId` int NOT NULL,
+	`jogo` varchar(255) NOT NULL,
+	`liga` varchar(255),
+	`paisBandeira` varchar(10),
+	`minuto` int,
+	`golsCasa` int DEFAULT 0,
+	`golsVisit` int DEFAULT 0,
+	`scoreCalor` int DEFAULT 0,
+	`nivelCalor` varchar(20),
+	`escanteiosCasa` int DEFAULT 0,
+	`escanteiosVisit` int DEFAULT 0,
+	`cartoesCasa` int DEFAULT 0,
+	`cartoesVisit` int DEFAULT 0,
+	`totalSinais` int DEFAULT 0,
+	`golsOcorreram` boolean DEFAULT false,
+	`placarFinal` varchar(20),
+	`acertouTermometro` boolean,
+	`createdAt` timestamp NOT NULL DEFAULT (now()),
+	CONSTRAINT `live_game_history_id` PRIMARY KEY(`id`)
+);

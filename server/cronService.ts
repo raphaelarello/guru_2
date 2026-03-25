@@ -395,6 +395,17 @@ async function processarTodosBots(): Promise<void> {
                 data: { botId: bot.id, jogo: jogoNome, liga: fixture.league.name },
               });
             } catch { /* SSE opcional */ }
+            // Notificar via Web Push (PWA)
+            try {
+              const { sendPushNotification } = await import("./webpush");
+              await sendPushNotification(String(userId), {
+                title: `⚡ ${op.mercado}`,
+                body: `${jogoNome} | Odd: ${op.odd.toFixed(2)} | EV: +${op.ev.toFixed(2)}% | ${op.confianca}% conf.`,
+                icon: "/icon-192.png",
+                url: "/ao-vivo",
+                tag: `sinal-${bot.id}-${fixture.fixture.id}`,
+              });
+            } catch { /* Push opcional */ }
             // Enviar para canais
             await enviarAlertaCanais(userId, {
               jogo: jogoNome,
