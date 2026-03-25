@@ -33,6 +33,7 @@ import UpgradePlanos from "./pages/UpgradePlanos";
 import DashboardNotificacoes from "./pages/DashboardNotificacoes";
 import RelatorioPerfomance from "./pages/RelatorioPerfomance";
 import DashboardFinanceiro from "./pages/DashboardFinanceiro";
+import AdminPanel from "./pages/AdminPanel";
 import NotificationCenter from "./components/NotificationCenter";
 
 function Router() {
@@ -82,6 +83,7 @@ function App() {
         <TooltipProvider>
           <Toaster richColors position="top-right" />
           <NotificationCenter />
+          <AdminPanel />
           <Router />
         </TooltipProvider>
       </ThemeProvider>
