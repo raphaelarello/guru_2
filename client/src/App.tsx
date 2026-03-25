@@ -18,8 +18,6 @@ import Configuracoes from "./pages/Configuracoes";
 import Destaques from "./pages/Destaques";
 import Artilheiros from "./pages/Artilheiros";
 import Estatisticas from "./pages/Estatisticas";
-import ValueBetting from "./pages/ValueBetting";
-import Recomendacoes from "./pages/Recomendacoes";
 import NotificationCenter from "./components/NotificationCenter";
 
 function Router() {
@@ -39,8 +37,6 @@ function Router() {
       <Route path="/ligas" component={Ligas} />
       <Route path="/artilheiros" component={Artilheiros} />
       <Route path="/estatisticas" component={Estatisticas} />
-      <Route path="/value-betting" component={ValueBetting} />
-      <Route path="/recomendacoes" component={Recomendacoes} />
       <Route path="/historico-ao-vivo" component={HistoricoAoVivo} />
       <Route path="/configuracoes" component={Configuracoes} />
       <Route path="/404" component={NotFound} />
