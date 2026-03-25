@@ -59,6 +59,8 @@ export function getSessionCookieOptions(
     // In development, use sameSite: "none" for cross-site testing
     // In production, use sameSite: "lax" for better browser compatibility
     sameSite: isDevelopment ? "none" : "lax",
-    secure,
+    // Always use secure: true in production, even if isSecureRequest returns false
+    // This is important for cookie security in cloud deployments
+    secure: isDevelopment ? secure : true,
   };
 }

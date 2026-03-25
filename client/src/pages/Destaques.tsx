@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import React from "react";
 import { trpc } from "@/lib/trpc";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -8,7 +8,7 @@ import {
 import {
   Zap, Target, AlertTriangle, TrendingUp, BarChart3, Flame,
   ChevronRight, Calendar, RefreshCw, Sparkles, Filter, X,
-  LineChart, PieChart, Activity
+  LineChart, PieChart, Activity, Trophy, AlertCircle, Users
 } from "lucide-react";
 import RaphaLayout from "@/components/RaphaLayout";
 
@@ -80,6 +80,36 @@ type PalpiteAvancado = {
   };
 };
 
+type ArtilheiroAvancado = {
+  playerId: number;
+  playerName: string;
+  playerPhoto: string;
+  teamName: string;
+  teamLogo: string;
+  leagueName: string;
+  countryFlag: string;
+  matchTime: string;
+  opponent: string;
+  totalGols: number;
+  totalAssistencias: number;
+  totalChutesGol: number;
+  totalCartoes: number;
+  mediaGolsPorJogo: number;
+  mediaAssistenciasPorJogo: number;
+  mediaChutesGolPorJogo: number;
+  mediaCartoesPorJogo: number;
+  confianca: "Alta" | "Media" | "Baixa";
+  motivo: string;
+  posicaoRanking: number;
+  ultimosJogos: Array<{
+    data: string;
+    adversario: string;
+    gols: number;
+    assistencias: number;
+    cartoes: number;
+  }>;
+};
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function DatePicker({ value, onChange }: { value: string; onChange: (v: string) => void }) {
@@ -99,10 +129,10 @@ function DatePicker({ value, onChange }: { value: string; onChange: (v: string) 
           <button
             key={iso}
             onClick={() => onChange(iso)}
-            className={`flex-shrink-0 px-3 py-1.5 rounded-lg text-xs font-medium transition-all border ${
+            className={`px-3 py-1 rounded-lg text-sm font-medium transition-all whitespace-nowrap ${
               isSelected
-                ? "bg-emerald-500 text-white border-emerald-500 shadow-lg shadow-emerald-500/20"
-                : "bg-slate-800 text-slate-400 border-slate-700 hover:border-slate-500 hover:text-slate-200"
+                ? "bg-green-500/30 text-green-400 border border-green-500/50"
+                : "bg-slate-800/50 text-slate-400 border border-slate-700/50 hover:border-slate-600/50"
             }`}
           >
             {label}
@@ -113,115 +143,146 @@ function DatePicker({ value, onChange }: { value: string; onChange: (v: string) 
   );
 }
 
-function TeamLogo({ src, name, size = 32 }: { src?: string; name: string; size?: number }) {
-  return (
-    <img
-      src={src || `https://ui-avatars.com/api/?name=${encodeURIComponent(name.slice(0,2))}&size=${size}&background=1e293b&color=94a3b8&bold=true`}
-      alt={name}
-      width={size}
-      height={size}
-      className="rounded-full object-contain bg-slate-800 p-0.5 flex-shrink-0 ring-1 ring-slate-700"
-      onError={(e) => {
-        (e.target as HTMLImageElement).src = `https://ui-avatars.com/api/?name=${encodeURIComponent(name.slice(0,2))}&size=${size}&background=1e293b&color=94a3b8&bold=true`;
-      }}
-    />
-  );
-}
-
-// ─── Card Premium de Palpite ──────────────────────────────────────────────────
+// ─── Componentes ──────────────────────────────────────────────────────────────
 
 function PalpiteCard({ palpite, onClickDetalhes }: { palpite: PalpiteAvancado; onClickDetalhes: (p: PalpiteAvancado) => void }) {
-  const coresConfig = {
-    Alta: { bg: "bg-emerald-950/40", border: "border-emerald-500/50", text: "text-emerald-300", badge: "bg-emerald-500/25 border-emerald-500/60 text-emerald-200", line: "from-emerald-500 to-emerald-600" },
-    Media: { bg: "bg-yellow-950/40", border: "border-yellow-500/50", text: "text-yellow-300", badge: "bg-yellow-500/25 border-yellow-500/60 text-yellow-200", line: "from-yellow-500 to-yellow-600" },
-    Baixa: { bg: "bg-orange-950/40", border: "border-orange-500/50", text: "text-orange-300", badge: "bg-orange-500/25 border-orange-500/60 text-orange-200", line: "from-orange-500 to-orange-600" },
-  };
-
-  const cores = coresConfig[palpite.confianca];
+  const confColor = palpite.confianca === "Alta" ? "bg-green-500/20 text-green-400" : palpite.confianca === "Media" ? "bg-yellow-500/20 text-yellow-400" : "bg-red-500/20 text-red-400";
+  const borderColor = palpite.confianca === "Alta" ? "border-green-500/50" : palpite.confianca === "Media" ? "border-yellow-500/50" : "border-red-500/50";
+  const lineColor = palpite.confianca === "Alta" ? "bg-green-500" : palpite.confianca === "Media" ? "bg-yellow-500" : "bg-red-500";
 
   return (
     <button
       onClick={() => onClickDetalhes(palpite)}
-      className={`group relative overflow-hidden rounded-xl border ${cores.bg} ${cores.border} transition-all duration-300 hover:shadow-2xl hover:shadow-slate-900/60 hover:-translate-y-2 cursor-pointer backdrop-blur-sm text-left w-full`}
+      className={`group relative bg-slate-900/50 border ${borderColor} rounded-xl p-4 hover:-translate-y-2 transition-all duration-300 hover:shadow-2xl hover:shadow-green-500/20 text-left w-full backdrop-blur-sm`}
     >
-      {/* Linha de destaque no topo */}
-      <div className={`absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r ${cores.line}`} />
+      <div className={`absolute top-0 left-0 h-1 w-full ${lineColor} rounded-t-xl`} />
 
-      <div className="p-5 relative z-10 space-y-4">
-        {/* Header com times */}
-        <div className="flex items-center justify-between gap-3">
-          <div className="flex items-center gap-2.5 flex-1 min-w-0">
-            <TeamLogo src={palpite.homeTeamLogo} name={palpite.homeTeam} size={36} />
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-bold text-white truncate">{palpite.homeTeam}</p>
-              <p className="text-xs text-slate-400 truncate">{palpite.leagueName}</p>
-            </div>
-          </div>
-          <div className="text-center flex-shrink-0">
-            <p className="text-xs text-slate-500 mb-1 font-medium">vs</p>
-            <p className="text-sm font-bold text-slate-300">{palpite.matchTime}</p>
-          </div>
-          <div className="flex items-center gap-2.5 flex-1 min-w-0 justify-end">
-            <div className="flex-1 min-w-0 text-right">
-              <p className="text-sm font-bold text-white truncate">{palpite.awayTeam}</p>
-              <p className="text-xs text-slate-400 truncate">{palpite.countryFlag}</p>
-            </div>
-            <TeamLogo src={palpite.awayTeamLogo} name={palpite.awayTeam} size={36} />
-          </div>
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center gap-2">
+          <img src={palpite.homeTeamLogo} alt="" className="w-5 h-5" />
+          <span className="text-xs font-semibold text-slate-300">{palpite.homeTeam}</span>
         </div>
-
-        {/* Divisor */}
-        <div className="h-px bg-gradient-to-r from-transparent via-slate-700/40 to-transparent" />
-
-        {/* Palpite em destaque */}
-        <div className={`p-4 rounded-lg border ${cores.badge} bg-opacity-40 backdrop-blur-sm`}>
-          <p className="text-xs font-semibold text-slate-400 mb-2 uppercase tracking-wide">Palpite</p>
-          <p className={`text-base font-bold ${cores.text}`}>{palpite.palpite}</p>
+        <span className="text-xs text-slate-500">vs</span>
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-semibold text-slate-300">{palpite.awayTeam}</span>
+          <img src={palpite.awayTeamLogo} alt="" className="w-5 h-5" />
         </div>
+      </div>
 
-        {/* Probabilidade e Motivo */}
-        <div className="space-y-2">
-          <div className="flex items-center justify-between">
-            <span className="text-xs text-slate-500">Probabilidade</span>
-            <span className={`text-sm font-bold ${cores.text}`}>{palpite.probabilidade}%</span>
-          </div>
-          <p className="text-xs text-slate-500 leading-relaxed line-clamp-2">{palpite.motivo}</p>
-        </div>
+      <div className="flex items-center justify-between mb-2">
+        <span className="text-xs text-slate-500">{palpite.matchTime}</span>
+        <span className="text-xs text-slate-500">{palpite.leagueName}</span>
+      </div>
 
-        {/* Footer com Badge e CTA */}
-        <div className="flex items-center justify-between pt-2 border-t border-slate-700/30">
-          <Badge className={`${cores.badge} border font-semibold text-xs`}>
-            {palpite.confianca === "Alta" && <Zap className="w-3 h-3 mr-1.5" />}
-            {palpite.confianca === "Media" && <Target className="w-3 h-3 mr-1.5" />}
-            {palpite.confianca === "Baixa" && <AlertTriangle className="w-3 h-3 mr-1.5" />}
-            {palpite.confianca}
-          </Badge>
-          <div className="text-xs text-slate-500 flex items-center gap-1 group-hover:text-slate-400 transition-colors">
-            <BarChart3 className="w-3 h-3" />
-            Análise
-          </div>
+      <div className="border-t border-slate-700/50 pt-3 mb-3">
+        <div className="flex items-center justify-between mb-2">
+          <span className="text-sm font-semibold text-slate-300">PALPITE</span>
+          <span className="text-lg font-bold text-green-400">{palpite.palpite}</span>
         </div>
+        <div className="flex items-center justify-between">
+          <span className="text-xs text-slate-500">Probabilidade</span>
+          <span className={`text-sm font-bold ${palpite.probabilidade >= 80 ? "text-green-400" : palpite.probabilidade >= 60 ? "text-yellow-400" : "text-red-400"}`}>
+            {palpite.probabilidade}%
+          </span>
+        </div>
+      </div>
+
+      <div className="flex items-center justify-between">
+        <Badge className={confColor}>{palpite.confianca}</Badge>
+        <button className="text-slate-400 hover:text-slate-200 transition-colors">
+          <ChevronRight className="w-4 h-4" />
+        </button>
       </div>
     </button>
   );
 }
 
-// ─── Modal de Análise Detalhada ───────────────────────────────────────────────
+function ArtilheiroCard({ artilheiro, tipo }: { artilheiro: ArtilheiroAvancado; tipo: "artilheiro" | "indisciplinado" }) {
+  const confColor = artilheiro.confianca === "Alta" ? "bg-green-500/20 text-green-400" : artilheiro.confianca === "Media" ? "bg-yellow-500/20 text-yellow-400" : "bg-red-500/20 text-red-400";
+  const borderColor = artilheiro.confianca === "Alta" ? "border-green-500/50" : artilheiro.confianca === "Media" ? "border-yellow-500/50" : "border-red-500/50";
+  const lineColor = artilheiro.confianca === "Alta" ? "bg-green-500" : artilheiro.confianca === "Media" ? "bg-yellow-500" : "bg-red-500";
 
-function AnaliseModal({ palpite, open, onOpenChange }: { palpite: PalpiteAvancado | null; open: boolean; onOpenChange: (open: boolean) => void }) {
+  return (
+    <div className={`group relative bg-slate-900/50 border ${borderColor} rounded-xl p-4 hover:-translate-y-2 transition-all duration-300 hover:shadow-2xl hover:shadow-green-500/20 backdrop-blur-sm`}>
+      <div className={`absolute top-0 left-0 h-1 w-full ${lineColor} rounded-t-xl`} />
+
+      <div className="flex items-start gap-3 mb-3">
+        <img src={artilheiro.playerPhoto} alt="" className="w-12 h-12 rounded-full border border-slate-700/50" />
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 mb-1">
+            <h3 className="font-semibold text-slate-200 truncate">{artilheiro.playerName}</h3>
+            {artilheiro.posicaoRanking <= 3 && (
+              <Trophy className={`w-4 h-4 ${artilheiro.posicaoRanking === 1 ? "text-yellow-400" : artilheiro.posicaoRanking === 2 ? "text-gray-400" : "text-orange-400"}`} />
+            )}
+          </div>
+          <div className="flex items-center gap-2 text-xs text-slate-400">
+            <img src={artilheiro.teamLogo} alt="" className="w-4 h-4" />
+            <span>{artilheiro.teamName}</span>
+          </div>
+        </div>
+      </div>
+
+      <div className="flex items-center justify-between mb-2 text-xs">
+        <span className="text-slate-500">{artilheiro.matchTime}</span>
+        <span className="text-slate-500">vs {artilheiro.opponent}</span>
+      </div>
+
+      <div className="border-t border-slate-700/50 pt-3 mb-3">
+        {tipo === "artilheiro" ? (
+          <>
+            <div className="grid grid-cols-2 gap-2 mb-2">
+              <div>
+                <span className="text-xs text-slate-500">Gols</span>
+                <div className="text-lg font-bold text-green-400">{artilheiro.totalGols}</div>
+              </div>
+              <div>
+                <span className="text-xs text-slate-500">Assistências</span>
+                <div className="text-lg font-bold text-blue-400">{artilheiro.totalAssistencias}</div>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <span className="text-xs text-slate-500">Média/Jogo</span>
+                <div className="text-sm font-semibold text-slate-300">{artilheiro.mediaGolsPorJogo.toFixed(2)}</div>
+              </div>
+              <div>
+                <span className="text-xs text-slate-500">Chutes a Gol</span>
+                <div className="text-sm font-semibold text-slate-300">{artilheiro.totalChutesGol}</div>
+              </div>
+            </div>
+          </>
+        ) : (
+          <>
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <span className="text-xs text-slate-500">Cartões</span>
+                <div className="text-lg font-bold text-red-400">{artilheiro.totalCartoes}</div>
+              </div>
+              <div>
+                <span className="text-xs text-slate-500">Média/Jogo</span>
+                <div className="text-sm font-semibold text-slate-300">{artilheiro.mediaCartoesPorJogo.toFixed(2)}</div>
+              </div>
+            </div>
+          </>
+        )}
+      </div>
+
+      <div className="flex items-center justify-between">
+        <Badge className={confColor}>{artilheiro.confianca}</Badge>
+        <span className="text-xs text-slate-500">#{artilheiro.posicaoRanking}</span>
+      </div>
+    </div>
+  );
+}
+
+function AnaliseModal({ palpite, open, onOpenChange }: { palpite: PalpiteAvancado | null; open: boolean; onOpenChange: (v: boolean) => void }) {
   if (!palpite) return null;
-
-  const analise = palpite.analiseDetalhada;
-  const homeStats = analise.homeTeamStats;
-  const awayStats = analise.awayTeamStats;
-  const h2h = analise.h2h;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto bg-slate-950 border-slate-800">
+      <DialogContent className="max-w-3xl bg-slate-900 border border-slate-700/50 max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle className="text-2xl font-bold text-white flex items-center gap-2">
-            <BarChart3 className="w-6 h-6 text-primary" />
+          <DialogTitle className="text-xl text-slate-200">
             Análise Detalhada: {palpite.homeTeam} vs {palpite.awayTeam}
           </DialogTitle>
           <DialogDescription className="text-slate-400">
@@ -231,154 +292,100 @@ function AnaliseModal({ palpite, open, onOpenChange }: { palpite: PalpiteAvancad
 
         <div className="space-y-6">
           {/* Palpite Principal */}
-          <div className="bg-slate-900/50 border border-slate-800 rounded-lg p-4">
+          <div className="bg-slate-800/50 border border-slate-700/50 rounded-lg p-4">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-slate-400">Palpite</span>
+              <Badge className="bg-green-500/20 text-green-400">{palpite.confianca}</Badge>
+            </div>
             <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-slate-400 mb-1">Palpite</p>
-                <p className="text-2xl font-bold text-white">{palpite.palpite}</p>
-              </div>
-              <div className="text-right">
-                <p className="text-sm text-slate-400 mb-1">Probabilidade</p>
-                <p className="text-3xl font-bold text-emerald-400">{palpite.probabilidade}%</p>
-              </div>
-              <Badge className="bg-emerald-500/20 border-emerald-500/60 text-emerald-200">
-                <Zap className="w-3 h-3 mr-1.5" />
-                {palpite.confianca}
-              </Badge>
+              <span className="text-2xl font-bold text-slate-200">{palpite.palpite}</span>
+              <span className="text-3xl font-bold text-green-400">{palpite.probabilidade}%</span>
             </div>
           </div>
 
           {/* Estatísticas dos Times */}
           <div className="grid grid-cols-2 gap-4">
-            {/* Home Team */}
-            <div className="bg-slate-900/50 border border-slate-800 rounded-lg p-4">
-              <h3 className="font-bold text-white mb-3 flex items-center gap-2">
-                <TeamLogo src={palpite.homeTeamLogo} name={palpite.homeTeam} size={24} />
+            <div className="bg-slate-800/50 border border-slate-700/50 rounded-lg p-4">
+              <h3 className="font-semibold text-slate-200 mb-3 flex items-center gap-2">
+                <img src={palpite.homeTeamLogo} alt="" className="w-5 h-5" />
                 {palpite.homeTeam}
               </h3>
               <div className="space-y-2 text-sm">
                 <div className="flex justify-between">
-                  <span className="text-slate-400">Média de Gols</span>
-                  <span className="text-white font-bold">{homeStats.mediaGolsForaEmCasa.toFixed(2)}</span>
+                  <span className="text-slate-500">Média de Gols</span>
+                  <span className="text-slate-200 font-semibold">{palpite.analiseDetalhada.homeTeamStats.mediaGols.toFixed(2)}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-slate-400">Gols Sofridos</span>
-                  <span className="text-white font-bold">{homeStats.mediaGolsSofridos.toFixed(2)}</span>
+                  <span className="text-slate-500">Gols Sofridos</span>
+                  <span className="text-slate-200 font-semibold">{palpite.analiseDetalhada.homeTeamStats.mediaGolsSofridos.toFixed(2)}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-slate-400">Forma</span>
-                  <span className="text-white font-bold">{homeStats.forma}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-400">Aproveitamento</span>
-                  <span className="text-white font-bold">{homeStats.aproveitamento}%</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-400">Registro</span>
-                  <span className="text-white font-bold">{homeStats.vitorias}V {homeStats.empates}E {homeStats.derrotas}D</span>
+                  <span className="text-slate-500">Aproveitamento</span>
+                  <span className="text-slate-200 font-semibold">{palpite.analiseDetalhada.homeTeamStats.aproveitamento}%</span>
                 </div>
               </div>
             </div>
 
-            {/* Away Team */}
-            <div className="bg-slate-900/50 border border-slate-800 rounded-lg p-4">
-              <h3 className="font-bold text-white mb-3 flex items-center gap-2">
-                <TeamLogo src={palpite.awayTeamLogo} name={palpite.awayTeam} size={24} />
+            <div className="bg-slate-800/50 border border-slate-700/50 rounded-lg p-4">
+              <h3 className="font-semibold text-slate-200 mb-3 flex items-center gap-2">
+                <img src={palpite.awayTeamLogo} alt="" className="w-5 h-5" />
                 {palpite.awayTeam}
               </h3>
               <div className="space-y-2 text-sm">
                 <div className="flex justify-between">
-                  <span className="text-slate-400">Média de Gols</span>
-                  <span className="text-white font-bold">{awayStats.mediaGolsForaEmCasa.toFixed(2)}</span>
+                  <span className="text-slate-500">Média de Gols</span>
+                  <span className="text-slate-200 font-semibold">{palpite.analiseDetalhada.awayTeamStats.mediaGols.toFixed(2)}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-slate-400">Gols Sofridos</span>
-                  <span className="text-white font-bold">{awayStats.mediaGolsSofridos.toFixed(2)}</span>
+                  <span className="text-slate-500">Gols Sofridos</span>
+                  <span className="text-slate-200 font-semibold">{palpite.analiseDetalhada.awayTeamStats.mediaGolsSofridos.toFixed(2)}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-slate-400">Forma</span>
-                  <span className="text-white font-bold">{awayStats.forma}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-400">Aproveitamento</span>
-                  <span className="text-white font-bold">{awayStats.aproveitamento}%</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-400">Registro</span>
-                  <span className="text-white font-bold">{awayStats.vitorias}V {awayStats.empates}E {awayStats.derrotas}D</span>
+                  <span className="text-slate-500">Aproveitamento</span>
+                  <span className="text-slate-200 font-semibold">{palpite.analiseDetalhada.awayTeamStats.aproveitamento}%</span>
                 </div>
               </div>
             </div>
           </div>
 
-          {/* H2H */}
-          {h2h.ultimosJogos.length > 0 && (
-            <div className="bg-slate-900/50 border border-slate-800 rounded-lg p-4">
-              <h3 className="font-bold text-white mb-3">Confrontos Diretos (Últimos 5)</h3>
-              <div className="space-y-2">
-                {h2h.ultimosJogos.map((jogo, idx) => (
-                  <div key={idx} className="flex items-center justify-between text-sm">
-                    <span className="text-slate-400">{jogo.data}</span>
-                    <span className="text-white font-bold">{jogo.placar}</span>
-                    <Badge variant="outline" className="text-xs">
-                      {jogo.resultado === "V" ? "Vitória" : jogo.resultado === "D" ? "Derrota" : "Empate"}
-                    </Badge>
-                  </div>
-                ))}
-              </div>
-              <div className="grid grid-cols-3 gap-2 mt-4 text-xs">
-                <div className="text-center">
-                  <p className="text-slate-400">Vitórias</p>
-                  <p className="text-white font-bold">{h2h.estatisticas.vitoriasHome}</p>
-                </div>
-                <div className="text-center">
-                  <p className="text-slate-400">Empates</p>
-                  <p className="text-white font-bold">{h2h.estatisticas.empates}</p>
-                </div>
-                <div className="text-center">
-                  <p className="text-slate-400">Derrotas</p>
-                  <p className="text-white font-bold">{h2h.estatisticas.vitoriasAway}</p>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Fatores de Influência */}
-          {analise.fatoresInfluencia.length > 0 && (
-            <div className="bg-slate-900/50 border border-slate-800 rounded-lg p-4">
-              <h3 className="font-bold text-white mb-3">Fatores de Influência</h3>
-              <div className="space-y-2">
-                {analise.fatoresInfluencia.map((fator, idx) => (
-                  <div key={idx} className="flex items-center justify-between text-sm">
-                    <div>
-                      <p className="text-slate-400">{fator.fator}</p>
-                      <p className="text-slate-300">{fator.impacto}</p>
-                    </div>
-                    <Badge variant="outline" className="text-xs">
-                      +{(fator.peso * 100 - 100).toFixed(0)}%
-                    </Badge>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Modelo Poisson */}
-          <div className="bg-slate-900/50 border border-slate-800 rounded-lg p-4">
-            <h3 className="font-bold text-white mb-3 flex items-center gap-2">
+          {/* Modelo de Projeção */}
+          <div className="bg-slate-800/50 border border-slate-700/50 rounded-lg p-4">
+            <h3 className="font-semibold text-slate-200 mb-3 flex items-center gap-2">
               <LineChart className="w-4 h-4" />
               Modelo de Projeção (Poisson)
             </h3>
-            <div className="grid grid-cols-2 gap-4 text-sm">
+            <div className="grid grid-cols-2 gap-4">
               <div>
-                <p className="text-slate-400 mb-2">Probabilidade BTTS</p>
-                <p className="text-2xl font-bold text-emerald-400">{(analise.modeloPoisson.probabilidadeBTTS * 100).toFixed(1)}%</p>
+                <span className="text-xs text-slate-500">Probabilidade BTTS</span>
+                <div className="text-2xl font-bold text-green-400">{(palpite.analiseDetalhada.modeloPoisson.probabilidadeBTTS * 100).toFixed(1)}%</div>
               </div>
               <div>
-                <p className="text-slate-400 mb-2">Probabilidade Over 2.5</p>
-                <p className="text-2xl font-bold text-blue-400">{(analise.modeloPoisson.probabilidadeOver25 * 100).toFixed(1)}%</p>
+                <span className="text-xs text-slate-500">Probabilidade Over 2.5</span>
+                <div className="text-2xl font-bold text-blue-400">{(palpite.analiseDetalhada.modeloPoisson.probabilidadeOver25 * 100).toFixed(1)}%</div>
               </div>
             </div>
+          </div>
+
+          {/* Fatores de Influência */}
+          <div className="bg-slate-800/50 border border-slate-700/50 rounded-lg p-4">
+            <h3 className="font-semibold text-slate-200 mb-3 flex items-center gap-2">
+              <Zap className="w-4 h-4" />
+              Fatores de Influência
+            </h3>
+            <div className="space-y-2">
+              {palpite.analiseDetalhada.fatoresInfluencia.map((f, i) => (
+                <div key={i} className="flex items-center justify-between text-sm">
+                  <span className="text-slate-400">{f.fator}</span>
+                  <span className="text-green-400 font-semibold">{f.impacto}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Motivo */}
+          <div className="bg-slate-800/50 border border-slate-700/50 rounded-lg p-4">
+            <h3 className="font-semibold text-slate-200 mb-2">Motivo</h3>
+            <p className="text-sm text-slate-300">{palpite.motivo}</p>
           </div>
         </div>
       </DialogContent>
@@ -389,78 +396,90 @@ function AnaliseModal({ palpite, open, onOpenChange }: { palpite: PalpiteAvancad
 // ─── Componente Principal ─────────────────────────────────────────────────────
 
 export default function Destaques() {
-  const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
-  const [selectedLeague, setSelectedLeague] = useState<number | null>(null);
-  const [selectedPalpite, setSelectedPalpite] = useState<PalpiteAvancado | null>(null);
-  const [showAnaliseModal, setShowAnaliseModal] = useState(false);
+  const [selectedDate, setSelectedDate] = React.useState(() => new Date().toISOString().slice(0, 10));
+  const [selectedLiga, setSelectedLiga] = React.useState<string | null>(null);
+  const [selectedPalpite, setSelectedPalpite] = React.useState<PalpiteAvancado | null>(null);
+  const [showAnaliseModal, setShowAnaliseModal] = React.useState(false);
+  const [selectedArtilheiro, setSelectedArtilheiro] = React.useState<ArtilheiroAvancado | null>(null);
+  const [showArtilheiroModal, setShowArtilheiroModal] = React.useState(false);
 
-  const destaquesQuery = trpc.destaques.avancado.useQuery({ date });
-  const data = destaquesQuery.data as any | undefined;
+  const { data: destaquesData, isLoading } = trpc.destaques.avancado.useQuery({ date: selectedDate });
+  const { data: artilheirosData } = trpc.destaques.artilheiros.useQuery({ date: selectedDate });
+
+  // Filtrar palpites por liga
+  const palpitesFiltrados = React.useMemo(() => {
+    const palpites = (destaquesData as any)?.palpites || [];
+    if (!palpites || palpites.length === 0) return { btts: [], gols: [], escanteios: [], cartoes: [] };
+
+    let filtered = palpites;
+    if (selectedLiga && selectedLiga !== "todas") {
+      filtered = palpites.filter((p: PalpiteAvancado) => p.leagueName === selectedLiga);
+    }
+
+    return {
+      btts: filtered.filter((p: PalpiteAvancado) => p.mercado === "BTTS"),
+      gols: filtered.filter((p: PalpiteAvancado) => p.mercado === "Gols"),
+      escanteios: filtered.filter((p: PalpiteAvancado) => p.mercado === "Escanteios"),
+      cartoes: filtered.filter((p: PalpiteAvancado) => p.mercado === "Cartões"),
+    };
+  }, [destaquesData, selectedLiga]);
 
   // Extrair ligas únicas
-  const uniqueLeagues = useMemo(() => {
-    if (!data) return [];
-    const ligas = new Set<string>();
-    [...data.palpitesBTTS, ...data.palpitesGols, ...data.palpitesEscanteios, ...data.palpitesCartoes].forEach((p: any) => {
-      ligas.add(p.leagueName);
-    });
-    return Array.from(ligas).sort();
-  }, [data]);
-
-  // Filtrar palpites
-  const palpitesFiltrados = useMemo(() => {
-    if (!data) return { btts: [], gols: [], escanteios: [], cartoes: [] };
-    const filtrar = (arr: any[]) =>
-      selectedLeague === null ? arr : arr.filter(p => p.leagueName === uniqueLeagues[selectedLeague]);
-    return {
-      btts: filtrar(data.palpitesBTTS),
-      gols: filtrar(data.palpitesGols),
-      escanteios: filtrar(data.palpitesEscanteios),
-      cartoes: filtrar(data.palpitesCartoes),
-    };
-  }, [data, selectedLeague, uniqueLeagues]);
-
-  const isLoading = destaquesQuery.isLoading;
+  const ligas = React.useMemo(() => {
+    if (!destaquesData) return [];
+    const palpites = (destaquesData as any).palpites || [];
+    const uniqueLigas = new Set(palpites.map((p: PalpiteAvancado) => p.leagueName));
+    return Array.from(uniqueLigas).sort() as string[];
+  }, [destaquesData]);
 
   return (
-    <RaphaLayout title="Destaques">
-      <div className="space-y-5">
+    <RaphaLayout>
+      <div className="space-y-6">
         {/* Header */}
-        <div className="space-y-3">
-          <div className="flex items-center justify-between">
-            <h1 className="text-2xl font-bold text-white flex items-center gap-2">
-              <Sparkles className="w-6 h-6 text-primary" />
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold text-slate-200 flex items-center gap-2">
+              <Sparkles className="w-8 h-8 text-green-400" />
               Destaques do Dia
             </h1>
-            <div className="text-sm text-slate-400">
-              {data?.totalJogos || 0} jogos · {data?.totalLigas || 0} ligas
-            </div>
+            <p className="text-slate-500 mt-1">
+              {destaquesData?.totalJogos || 0} jogos · {destaquesData?.totalLigas || 0} ligas
+            </p>
           </div>
+          <RefreshCw className="w-6 h-6 text-slate-500 cursor-pointer hover:text-slate-300 transition-colors" />
+        </div>
 
-          {/* Date Picker */}
-          <DatePicker value={date} onChange={setDate} />
+        {/* Date Picker */}
+        <div>
+          <label className="text-sm font-semibold text-slate-400 mb-2 block">Selecione a Data</label>
+          <DatePicker value={selectedDate} onChange={setSelectedDate} />
+        </div>
 
-          {/* Liga Filter */}
-          <div className="flex items-center gap-2 overflow-x-auto pb-2">
-            <Filter className="w-4 h-4 text-slate-500 flex-shrink-0" />
+        {/* Liga Filter */}
+        <div>
+          <label className="text-sm font-semibold text-slate-400 mb-2 block flex items-center gap-2">
+            <Filter className="w-4 h-4" />
+            Filtrar por Liga
+          </label>
+          <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
             <button
-              onClick={() => setSelectedLeague(null)}
-              className={`flex-shrink-0 px-3 py-1.5 rounded-lg text-xs font-medium transition-all border ${
-                selectedLeague === null
-                  ? "bg-primary text-white border-primary shadow-lg shadow-primary/20"
-                  : "bg-slate-800 text-slate-400 border-slate-700 hover:border-slate-500"
+              onClick={() => setSelectedLiga(null)}
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-all whitespace-nowrap ${
+                selectedLiga === null
+                  ? "bg-green-500/30 text-green-400 border border-green-500/50"
+                  : "bg-slate-800/50 text-slate-400 border border-slate-700/50 hover:border-slate-600/50"
               }`}
             >
               Todas as Ligas
             </button>
-            {uniqueLeagues.map((liga, idx) => (
+            {(ligas as string[]).map((liga) => (
               <button
                 key={liga}
-                onClick={() => setSelectedLeague(idx)}
-                className={`flex-shrink-0 px-3 py-1.5 rounded-lg text-xs font-medium transition-all border whitespace-nowrap ${
-                  selectedLeague === idx
-                    ? "bg-primary text-white border-primary shadow-lg shadow-primary/20"
-                    : "bg-slate-800 text-slate-400 border-slate-700 hover:border-slate-500"
+                onClick={() => setSelectedLiga(liga)}
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition-all whitespace-nowrap ${
+                  selectedLiga === liga
+                    ? "bg-green-500/30 text-green-400 border border-green-500/50"
+                    : "bg-slate-800/50 text-slate-400 border border-slate-700/50 hover:border-slate-600/50"
                 }`}
               >
                 {liga}
@@ -469,118 +488,175 @@ export default function Destaques() {
           </div>
         </div>
 
-        {/* Tabs */}
-        {isLoading ? (
-          <div className="text-center py-12 text-slate-500">
-            <RefreshCw className="w-8 h-8 mx-auto mb-2 animate-spin" />
-            Carregando análises avançadas...
+        {/* Palpites */}
+        <div>
+          <h2 className="text-xl font-bold text-slate-200 mb-4 flex items-center gap-2">
+            <Target className="w-5 h-5 text-green-400" />
+            Palpites Automáticos da IA
+          </h2>
+
+          {isLoading ? (
+            <div className="text-center py-12 text-slate-500">
+              <RefreshCw className="w-8 h-8 mx-auto mb-2 animate-spin" />
+              Carregando análises avançadas...
+            </div>
+          ) : (
+            <Tabs defaultValue="btts" className="w-full">
+              <TabsList className="grid w-full grid-cols-4 bg-slate-800/50 border border-slate-700/50 p-1 rounded-xl">
+                <TabsTrigger value="btts" className="text-xs">
+                  🎯 BTTS ({palpitesFiltrados.btts.length})
+                </TabsTrigger>
+                <TabsTrigger value="gols" className="text-xs">
+                  ⚽ Gols ({palpitesFiltrados.gols.length})
+                </TabsTrigger>
+                <TabsTrigger value="escanteios" className="text-xs">
+                  🚩 Escanteios ({palpitesFiltrados.escanteios.length})
+                </TabsTrigger>
+                <TabsTrigger value="cartoes" className="text-xs">
+                  🟨 Cartões ({palpitesFiltrados.cartoes.length})
+                </TabsTrigger>
+              </TabsList>
+
+              <TabsContent value="btts" className="mt-4">
+                {palpitesFiltrados.btts.length === 0 ? (
+                  <div className="text-center py-12 text-slate-500">
+                    <Sparkles className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                    Nenhum palpite disponível
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {palpitesFiltrados.btts.map((p: PalpiteAvancado) => (
+                      <PalpiteCard
+                        key={p.fixtureId}
+                        palpite={p}
+                        onClickDetalhes={(palpite) => {
+                          setSelectedPalpite(palpite);
+                          setShowAnaliseModal(true);
+                        }}
+                      />
+                    ))}
+                  </div>
+                )}
+              </TabsContent>
+
+              <TabsContent value="gols" className="mt-4">
+                {palpitesFiltrados.gols.length === 0 ? (
+                  <div className="text-center py-12 text-slate-500">
+                    <Sparkles className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                    Nenhum palpite disponível
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {palpitesFiltrados.gols.map((p: PalpiteAvancado) => (
+                      <PalpiteCard
+                        key={p.fixtureId}
+                        palpite={p}
+                        onClickDetalhes={(palpite) => {
+                          setSelectedPalpite(palpite);
+                          setShowAnaliseModal(true);
+                        }}
+                      />
+                    ))}
+                  </div>
+                )}
+              </TabsContent>
+
+              <TabsContent value="escanteios" className="mt-4">
+                {palpitesFiltrados.escanteios.length === 0 ? (
+                  <div className="text-center py-12 text-slate-500">
+                    <Sparkles className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                    Nenhum palpite disponível
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {palpitesFiltrados.escanteios.map((p: PalpiteAvancado) => (
+                      <PalpiteCard
+                        key={p.fixtureId}
+                        palpite={p}
+                        onClickDetalhes={(palpite) => {
+                          setSelectedPalpite(palpite);
+                          setShowAnaliseModal(true);
+                        }}
+                      />
+                    ))}
+                  </div>
+                )}
+              </TabsContent>
+
+              <TabsContent value="cartoes" className="mt-4">
+                {palpitesFiltrados.cartoes.length === 0 ? (
+                  <div className="text-center py-12 text-slate-500">
+                    <Sparkles className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                    Nenhum palpite disponível
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {palpitesFiltrados.cartoes.map((p: PalpiteAvancado) => (
+                      <PalpiteCard
+                        key={p.fixtureId}
+                        palpite={p}
+                        onClickDetalhes={(palpite) => {
+                          setSelectedPalpite(palpite);
+                          setShowAnaliseModal(true);
+                        }}
+                      />
+                    ))}
+                  </div>
+                )}
+              </TabsContent>
+            </Tabs>
+          )}
+        </div>
+
+        {/* Artilheiros */}
+        {artilheirosData && (artilheirosData.artilheiros.length > 0 || artilheirosData.indisciplinados.length > 0) && (
+          <div>
+            <h2 className="text-xl font-bold text-slate-200 mb-4 flex items-center gap-2">
+              <Users className="w-5 h-5 text-green-400" />
+              Artilheiros e Indisciplinados
+            </h2>
+
+            <Tabs defaultValue="artilheiros" className="w-full">
+              <TabsList className="grid w-full grid-cols-2 bg-slate-800/50 border border-slate-700/50 p-1 rounded-xl">
+                <TabsTrigger value="artilheiros" className="text-xs">
+                  ⚽ Artilheiros ({artilheirosData.artilheiros.length})
+                </TabsTrigger>
+                <TabsTrigger value="indisciplinados" className="text-xs">
+                  🟨 Indisciplinados ({artilheirosData.indisciplinados.length})
+                </TabsTrigger>
+              </TabsList>
+
+              <TabsContent value="artilheiros" className="mt-4">
+                {artilheirosData.artilheiros.length === 0 ? (
+                  <div className="text-center py-12 text-slate-500">
+                    <AlertCircle className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                    Nenhum artilheiro disponível
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {artilheirosData.artilheiros.map(a => (
+                      <ArtilheiroCard key={a.playerId} artilheiro={a} tipo="artilheiro" />
+                    ))}
+                  </div>
+                )}
+              </TabsContent>
+
+              <TabsContent value="indisciplinados" className="mt-4">
+                {artilheirosData.indisciplinados.length === 0 ? (
+                  <div className="text-center py-12 text-slate-500">
+                    <AlertCircle className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                    Nenhum indisciplinado disponível
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {artilheirosData.indisciplinados.map(a => (
+                      <ArtilheiroCard key={a.playerId} artilheiro={a} tipo="indisciplinado" />
+                    ))}
+                  </div>
+                )}
+              </TabsContent>
+            </Tabs>
           </div>
-        ) : (
-          <Tabs defaultValue="btts" className="w-full">
-            <TabsList className="grid w-full grid-cols-4 bg-slate-800/50 border border-slate-700/50 p-1 rounded-xl">
-              <TabsTrigger value="btts" className="text-xs">
-                🎯 BTTS ({palpitesFiltrados.btts.length})
-              </TabsTrigger>
-              <TabsTrigger value="gols" className="text-xs">
-                ⚽ Gols ({palpitesFiltrados.gols.length})
-              </TabsTrigger>
-              <TabsTrigger value="escanteios" className="text-xs">
-                🚩 Escanteios ({palpitesFiltrados.escanteios.length})
-              </TabsTrigger>
-              <TabsTrigger value="cartoes" className="text-xs">
-                🟨 Cartões ({palpitesFiltrados.cartoes.length})
-              </TabsTrigger>
-            </TabsList>
-
-            {/* Grid de Cards */}
-            <TabsContent value="btts" className="mt-4">
-              {palpitesFiltrados.btts.length === 0 ? (
-                <div className="text-center py-12 text-slate-500">
-                  <Sparkles className="w-8 h-8 mx-auto mb-2 opacity-50" />
-                  Nenhum palpite disponível
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {palpitesFiltrados.btts.map(p => (
-                    <PalpiteCard
-                      key={p.fixtureId}
-                      palpite={p}
-                      onClickDetalhes={(palpite) => {
-                        setSelectedPalpite(palpite);
-                        setShowAnaliseModal(true);
-                      }}
-                    />
-                  ))}
-                </div>
-              )}
-            </TabsContent>
-
-            <TabsContent value="gols" className="mt-4">
-              {palpitesFiltrados.gols.length === 0 ? (
-                <div className="text-center py-12 text-slate-500">
-                  <Sparkles className="w-8 h-8 mx-auto mb-2 opacity-50" />
-                  Nenhum palpite disponível
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {palpitesFiltrados.gols.map(p => (
-                    <PalpiteCard
-                      key={p.fixtureId}
-                      palpite={p}
-                      onClickDetalhes={(palpite) => {
-                        setSelectedPalpite(palpite);
-                        setShowAnaliseModal(true);
-                      }}
-                    />
-                  ))}
-                </div>
-              )}
-            </TabsContent>
-
-            <TabsContent value="escanteios" className="mt-4">
-              {palpitesFiltrados.escanteios.length === 0 ? (
-                <div className="text-center py-12 text-slate-500">
-                  <Sparkles className="w-8 h-8 mx-auto mb-2 opacity-50" />
-                  Nenhum palpite disponível
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {palpitesFiltrados.escanteios.map(p => (
-                    <PalpiteCard
-                      key={p.fixtureId}
-                      palpite={p}
-                      onClickDetalhes={(palpite) => {
-                        setSelectedPalpite(palpite);
-                        setShowAnaliseModal(true);
-                      }}
-                    />
-                  ))}
-                </div>
-              )}
-            </TabsContent>
-
-            <TabsContent value="cartoes" className="mt-4">
-              {palpitesFiltrados.cartoes.length === 0 ? (
-                <div className="text-center py-12 text-slate-500">
-                  <Sparkles className="w-8 h-8 mx-auto mb-2 opacity-50" />
-                  Nenhum palpite disponível
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {palpitesFiltrados.cartoes.map(p => (
-                    <PalpiteCard
-                      key={p.fixtureId}
-                      palpite={p}
-                      onClickDetalhes={(palpite) => {
-                        setSelectedPalpite(palpite);
-                        setShowAnaliseModal(true);
-                      }}
-                    />
-                  ))}
-                </div>
-              )}
-            </TabsContent>
-          </Tabs>
         )}
       </div>
 

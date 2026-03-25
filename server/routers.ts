@@ -48,6 +48,7 @@ import {
   getApiUsage,
   getDestaquesHoje,
 } from "./football";
+import { getArtilheirosAvancado, type ResultadoArtilheiros } from "./artilheiros-avancado";
 import { getDestaquesAvancado } from "./palpites-avancado";
 
 export const appRouter = router({
@@ -989,6 +990,13 @@ export const appRouter = router({
     avancado: publicProcedure
       .input(z.object({ date: z.string().optional() }).optional())
       .query(({ input }) => getDestaquesAvancado(input?.date)),
+    /** Artilheiros avancados com analise completa */
+    artilheiros: publicProcedure
+      .input(z.object({ date: z.string().optional() }).optional())
+      .query(async ({ input }) => {
+        const fixtures = await getTodayFixtures(input?.date);
+        return getArtilheirosAvancado(fixtures);
+      }),
   }),
 
   // ── HISTÓRICO DE JOGOS AO VIVO ─────────────────────────────────────────────────────────────────────

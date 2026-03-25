@@ -431,3 +431,20 @@
 - [x] Integrar no tRPC como endpoint /destaques/avancado
 - [x] Criar modal de análise detalhada com estatísticas completas
 - [x] Testar motor avançado no navegador — 35 BTTS, 38 Gols, análise perfeita
+
+## Fase 37 — Busca Avançada de Artilheiros (TOP)
+- [ ] Refatorar busca para cobrir TODAS as ligas com jogos hoje (não apenas hardcoded)
+- [ ] Implementar tentativa automática de múltiplas temporadas (2025, 2024, 2026, 2023)
+- [ ] Criar análise avançada com estatísticas de artilheiros (gols, assistências, média)
+- [ ] Adicionar comparação entre artilheiros de times rivais
+- [ ] Melhorar visual da seção de artilheiros com cards premium
+- [ ] Testar busca em todas as ligas com jogos hoje
+
+
+## Fase 37 — Busca Avançada de Artilheiros
+- [x] Refatorar busca de artilheiros para cobrir TODAS as ligas com jogos hoje
+- [x] Implementar tentativa automática de múltiplas temporadas (2025, 2024, 2026, 2023)
+- [x] Criar análise avançada de artilheiros com estatísticas e comparações
+- [x] Melhorar visual da seção de artilheiros na página Destaques
+- [x] Corrigir import do axios no artilheiros-avancado.ts
+- [x] Corrigir problema de cookies em produção (secure: true)
