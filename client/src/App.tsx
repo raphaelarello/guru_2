@@ -57,6 +57,7 @@ function Router() {
       <Route path="/recomendacoes" component={Recomendacoes} />
       <Route path="/monitoramento" component={Monitoramento} />
       <Route path="/simulador-gols" component={SimuladorGols} />
+      <Route path="/leaderboard-animado" component={LeaderboardAnimado} />
       <Route path="/leaderboard" component={LeaderboardAnimado} />
       <Route path="/dashboard-vitorias" component={DashboardVitorias} />
       <Route path="/celebracao-epica" component={CelebracaoEpica} />
@@ -68,6 +69,7 @@ function Router() {
       <Route path="/notificacoes" component={DashboardNotificacoes} />
       <Route path="/relatorio-performance" component={RelatorioPerfomance} />
       <Route path="/financeiro" component={DashboardFinanceiro} />
+      <Route path="/admin" component={AdminPanel} />
       <Route path="/historico-ao-vivo" component={HistoricoAoVivo} />
       <Route path="/configuracoes" component={Configuracoes} />
       <Route path="/404" component={NotFound} />
