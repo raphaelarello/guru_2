@@ -362,3 +362,19 @@
 - [ ] Cards de jogadores em forma e mais indisciplinados
 - [ ] Corrigir textos internos Kelly Tracker → Apostas
 - [ ] Badge de notificações no sino do header
+
+## Fase 31 — Visual Premium da Página Destaques
+- [x] Reescrever página Destaques com design premium superior ao scoretabs.com.br
+- [x] Cards premium com gradientes e shadows melhorados
+- [x] Animações de entrada e hover effects suaves
+- [x] Top 3 times destacados com emojis de medalhas animadas
+- [x] Indicadores visuais melhorados com ícones coloridos
+- [x] Badges premium com backgrounds e borders
+- [x] Layout refinado com espaçamento melhor
+- [x] Tipografia mais elegante e hierarquia visual clara
+- [x] Seção de Palpites com tabs e cards premium
+- [x] Seção de Rankings com cards top 3 com destaque visual
+- [x] Seção de Jogadores com cards premium
+- [x] Fallback de artilheiros para múltiplas temporadas (2025, 2024, 2026)
+- [x] Header premium com gradiente e seletor de datas
+- [x] Componentes de UI reutilizáveis (RankBadge, IndicadorBar, TeamLogo, PlayerPhoto, CountryFlag)

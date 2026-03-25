@@ -1156,7 +1156,7 @@ export interface DestaquesPartida {
   motivo: string;
 }
 
-/** Busca dados de destaques do dia: rankings de times e jogadores */
+/** Busca dados de destaques do dia usando estatísticas da temporada dos times que jogam hoje */
 export async function getDestaquesHoje(date?: string): Promise<{
   timesEscanteios: DestaquesTime[];
   timesGols: DestaquesTime[];
@@ -1170,7 +1170,7 @@ export async function getDestaquesHoje(date?: string): Promise<{
   totalJogos: number;
   totalLigas: number;
 }> {
-  const cacheKey = `destaques_hoje_${date ?? "today"}`;
+  const cacheKey = `destaques_hoje_v2_${date ?? "today"}`;
   type DestaquesResult = {
     timesEscanteios: DestaquesTime[];
     timesGols: DestaquesTime[];
@@ -1197,19 +1197,23 @@ export async function getDestaquesHoje(date?: string): Promise<{
     };
   }
 
+  const season = new Date().getFullYear();
   const timesEscanteiosMap = new Map<number, DestaquesTime>();
   const timesGolsMap = new Map<number, DestaquesTime>();
   const timesChutesMap = new Map<number, DestaquesTime>();
   const timesCartoesMap = new Map<number, DestaquesTime>();
-  const jogadoresMap = new Map<number, DestaquesJogador>();
+  const jogadoresMap = new Map<string, DestaquesJogador>();
   const palpitesBTTS: DestaquesPartida[] = [];
   const palpitesEscanteios: DestaquesPartida[] = [];
   const palpitesGols: DestaquesPartida[] = [];
 
-  // Processar apenas jogos que já começaram (com estatísticas disponíveis)
-  const fixturesToProcess = fixtures
-    .filter(f => f.fixture.status.short !== "NS" && f.fixture.status.short !== "TBD")
-    .slice(0, 25);
+  // Pegar jogos únicos das principais ligas (máximo 30 para não exceder rate limit)
+  // Priorizar ligas conhecidas e com mais dados
+  const priorityLeagues = new Set([71, 72, 39, 140, 135, 78, 61, 2, 3, 848, 253, 262, 128, 88, 94, 203, 144, 197]);
+  const allFixtures = fixtures.filter(f => f.fixture.status.short !== "TBD");
+  const priorityFixtures = allFixtures.filter(f => priorityLeagues.has(f.league.id));
+  const otherFixtures = allFixtures.filter(f => !priorityLeagues.has(f.league.id));
+  const fixturesToProcess = [...priorityFixtures, ...otherFixtures].slice(0, 30);
 
   for (const fixture of fixturesToProcess) {
     const fixtureId = fixture.fixture.id;
@@ -1220,37 +1224,43 @@ export async function getDestaquesHoje(date?: string): Promise<{
       hour: "2-digit", minute: "2-digit", timeZone: "America/Sao_Paulo"
     });
     const countryFlag = league.flag || "";
-    const placar = `${fixture.goals.home ?? 0}-${fixture.goals.away ?? 0}`;
+    const isLive = fixture.fixture.status.short !== "NS";
+    const placar = isLive ? `${fixture.goals.home ?? 0}-${fixture.goals.away ?? 0}` : "";
+    const status = isLive ? fixture.fixture.status.long : "Não Iniciado";
 
-    let stats: TeamStatistics[] = [];
-    try {
-      stats = await getFixtureStatistics(fixtureId);
-    } catch { /* sem stats */ }
+    // Processar cada time do jogo com estatísticas da temporada
+    for (const [team, opponent] of [[homeTeam, awayTeam], [awayTeam, homeTeam]] as const) {
+      let seasonStats: TeamSeasonStats | null = null;
+      try {
+        seasonStats = await getTeamSeasonStats(team.id, league.id, season);
+      } catch { /* sem stats */ }
 
-    let players: Array<{ team: Team; players: PlayerFixtureStats[] }> = [];
-    try {
-      players = await getFixturePlayers(fixtureId);
-    } catch { /* sem jogadores */ }
+      if (!seasonStats) continue;
 
-    const getStat = (teamStats: FixtureStatistic[], type: string): number => {
-      const s = teamStats.find(x => x.type === type);
-      if (!s || s.value === null) return 0;
-      if (typeof s.value === "string") return parseFloat(s.value.replace("%", "")) || 0;
-      return typeof s.value === "number" ? s.value : 0;
-    };
+      const jogados = seasonStats.fixtures.played.total;
+      if (jogados < 3) continue; // Ignorar times com poucos jogos
 
-    for (const teamStats of stats) {
-      const team = teamStats.team;
-      const opponent = team.id === homeTeam.id ? awayTeam : homeTeam;
-      const escanteios = getStat(teamStats.statistics, "Corner Kicks");
-      const gols = (team.id === homeTeam.id ? fixture.goals.home : fixture.goals.away) || 0;
-      const chutesTotais = getStat(teamStats.statistics, "Total Shots");
-      const chutesGol = getStat(teamStats.statistics, "Shots on Goal");
-      const cartoesAmarelos = getStat(teamStats.statistics, "Yellow Cards");
-      const cartoesVermelhos = getStat(teamStats.statistics, "Red Cards");
-      const totalCartoes = cartoesAmarelos + cartoesVermelhos;
+      // Calcular médias por jogo
+      const mediaGols = parseFloat(seasonStats.goals.for.average.total) || 0;
+      // Escanteios não estão disponíveis em /teams/statistics, usar média estimada baseada em chutes
+      // Usar dados de cartões disponíveis
+      const totalCartoesAmarelos = Object.values(seasonStats.cards.yellow)
+        .reduce((sum, v) => sum + (v?.total || 0), 0);
+      const totalCartoesVermelhos = Object.values(seasonStats.cards.red)
+        .reduce((sum, v) => sum + (v?.total || 0), 0);
+      const totalCartoes = totalCartoesAmarelos + totalCartoesVermelhos;
+      const mediaCartoes = jogados > 0 ? totalCartoes / jogados : 0;
 
-      const base = {
+      // Forma recente (últimos 5 jogos da string de forma)
+      const forma = seasonStats.form || "";
+      const formaRecente = forma.slice(-5).split("");
+      const sequencia = formaRecente.map(r => r === "W" ? "V" : r === "L" ? "D" : "E");
+
+      // Vitórias consecutivas
+      const vitorias = seasonStats.fixtures.wins.total;
+      const aproveitamento = jogados > 0 ? Math.round((vitorias / jogados) * 100) : 0;
+
+      const base: DestaquesTime = {
         teamId: team.id,
         teamName: team.name,
         teamLogo: team.logo,
@@ -1263,173 +1273,274 @@ export async function getDestaquesHoje(date?: string): Promise<{
         opponentLogo: opponent.logo,
         matchTime,
         placar,
-        status: fixture.fixture.status.long,
-        minuto: fixture.fixture.status.elapsed || undefined,
-        mediaGols: gols,
-        mediaEscanteios: escanteios,
-        mediaChutes: chutesTotais,
-        mediaChutesGol: chutesGol,
-        mediaCartoes: totalCartoes,
-        forma: fixture.teams.home.winner === true ? "V" : fixture.teams.home.winner === false ? "D" : "E",
-        sequencia: ["V", "V", "D", "E", "V"],
+        status,
+        minuto: isLive ? (fixture.fixture.status.elapsed || undefined) : undefined,
+        mediaGols,
+        mediaEscanteios: 0, // Será preenchido abaixo se disponível
+        mediaChutes: 0,
+        mediaChutesGol: 0,
+        mediaCartoes,
+        forma: formaRecente[formaRecente.length - 1] || "E",
+        sequencia,
+        indicador: 0,
+        tipo: "gols",
       };
 
-      if (escanteios > 0) {
-        const existing = timesEscanteiosMap.get(team.id);
-        if (!existing || escanteios > existing.indicador) {
-          timesEscanteiosMap.set(team.id, { ...base, indicador: escanteios, tipo: "escanteios" });
-        }
-      }
-      if (gols > 0) {
+      // Ranking de gols (média por jogo)
+      if (mediaGols > 0) {
         const existing = timesGolsMap.get(team.id);
-        if (!existing || gols > existing.indicador) {
-          timesGolsMap.set(team.id, { ...base, indicador: gols, tipo: "gols" });
+        if (!existing || mediaGols > existing.indicador) {
+          timesGolsMap.set(team.id, { ...base, indicador: mediaGols, tipo: "gols" });
         }
       }
-      if (chutesTotais > 0) {
-        const existing = timesChutesMap.get(team.id);
-        if (!existing || chutesTotais > existing.indicador) {
-          timesChutesMap.set(team.id, { ...base, indicador: chutesTotais, tipo: "chutes" });
-        }
-      }
-      if (totalCartoes > 0) {
+
+      // Ranking de cartões (média por jogo)
+      if (mediaCartoes > 0) {
         const existing = timesCartoesMap.get(team.id);
-        if (!existing || totalCartoes > existing.indicador) {
-          timesCartoesMap.set(team.id, { ...base, indicador: totalCartoes, tipo: "cartoes" });
+        if (!existing || mediaCartoes > existing.indicador) {
+          timesCartoesMap.set(team.id, { ...base, indicador: mediaCartoes, tipo: "cartoes",
+            mediaCartoes });
+        }
+      }
+
+      // Para escanteios e chutes, tentar buscar estatísticas do último jogo
+      // (se o jogo de hoje já começou, usar stats ao vivo)
+      if (isLive) {
+        let liveStats: TeamStatistics[] = [];
+        try { liveStats = await getFixtureStatistics(fixtureId); } catch { /* ok */ }
+        const getStat = (teamStats: FixtureStatistic[], type: string): number => {
+          const s = teamStats.find(x => x.type === type);
+          if (!s || s.value === null) return 0;
+          if (typeof s.value === "string") return parseFloat(s.value.replace("%", "")) || 0;
+          return typeof s.value === "number" ? s.value : 0;
+        };
+        const myStats = liveStats.find(s => s.team.id === team.id);
+        if (myStats) {
+          const escanteios = getStat(myStats.statistics, "Corner Kicks");
+          const chutes = getStat(myStats.statistics, "Total Shots");
+          const chutesGol = getStat(myStats.statistics, "Shots on Goal");
+          if (escanteios > 0) {
+            const existing = timesEscanteiosMap.get(team.id);
+            if (!existing || escanteios > existing.indicador) {
+              timesEscanteiosMap.set(team.id, { ...base, indicador: escanteios, tipo: "escanteios",
+                mediaEscanteios: escanteios, mediaChutes: chutes, mediaChutesGol: chutesGol });
+            }
+          }
+          if (chutes > 0) {
+            const existing = timesChutesMap.get(team.id);
+            if (!existing || chutes > existing.indicador) {
+              timesChutesMap.set(team.id, { ...base, indicador: chutes, tipo: "chutes",
+                mediaChutes: chutes, mediaChutesGol: chutesGol });
+            }
+          }
+        }
+      }
+
+      // Palpites pré-jogo baseados em estatísticas da temporada
+      if (team.id === homeTeam.id && palpitesBTTS.length < 8) {
+        const mediaGolsHome = parseFloat(seasonStats.goals.for.average.home) || 0;
+        const mediaGolsAway = parseFloat(seasonStats.goals.for.average.away) || 0;
+        // BTTS: se time marca em média > 1 gol em casa e adversário marca em média > 1 gol fora
+        let awaySeasonStats: TeamSeasonStats | null = null;
+        try { awaySeasonStats = await getTeamSeasonStats(awayTeam.id, league.id, season); } catch { /* ok */ }
+        if (awaySeasonStats) {
+          const awayMediaGolsAway = parseFloat(awaySeasonStats.goals.for.average.away) || 0;
+          const homeMediaGolsHome = mediaGolsHome;
+          const bttsScore = homeMediaGolsHome + awayMediaGolsAway;
+          if (bttsScore >= 1.8 && palpitesBTTS.length < 8) {
+            palpitesBTTS.push({
+              fixtureId,
+              homeTeam: homeTeam.name,
+              homeTeamLogo: homeTeam.logo,
+              awayTeam: awayTeam.name,
+              awayTeamLogo: awayTeam.logo,
+              leagueName: league.name,
+              leagueLogo: league.logo,
+              countryFlag,
+              matchTime,
+              mercado: "Ambas Marcam",
+              palpite: "Sim",
+              confianca: bttsScore >= 2.5 ? "Alta" : "Media",
+              motivo: `${homeTeam.name} marca ${homeMediaGolsHome.toFixed(1)} gols/jogo em casa, ${awayTeam.name} marca ${awayMediaGolsAway.toFixed(1)} fora`,
+            });
+          }
+          const totalMediaGols = mediaGols + (parseFloat(awaySeasonStats.goals.for.average.total) || 0);
+          if (totalMediaGols >= 2.5 && palpitesGols.length < 8) {
+            palpitesGols.push({
+              fixtureId,
+              homeTeam: homeTeam.name,
+              homeTeamLogo: homeTeam.logo,
+              awayTeam: awayTeam.name,
+              awayTeamLogo: awayTeam.logo,
+              leagueName: league.name,
+              leagueLogo: league.logo,
+              countryFlag,
+              matchTime,
+              mercado: "Gols",
+              palpite: `Over ${totalMediaGols >= 3.5 ? "2.5" : "1.5"} Gols`,
+              confianca: totalMediaGols >= 3.5 ? "Alta" : "Media",
+              motivo: `Média combinada de ${totalMediaGols.toFixed(1)} gols/jogo na temporada`,
+            });
+          }
         }
       }
     }
 
-    // Processar jogadores
-    for (const teamData of players) {
-      for (const playerData of teamData.players) {
-        const player = playerData.player;
-        const stat = playerData.statistics[0];
-        if (!stat) continue;
+    // Buscar artilheiros da liga para jogadores que jogam hoje
+    // Usar /players/topscorers para as principais ligas
+    if (jogadoresMap.size < 20) { // Buscar artilheiros de qualquer liga com jogos hoje
+      try {
+        const topScorers = await apiRequest<Array<{
+          player: { id: number; name: string; photo: string };
+          statistics: Array<{
+            team: { id: number; name: string; logo: string };
+            goals: { total: number | null; assists: number | null };
+            cards: { yellow: number; red: number };
+            shots: { on: number | null };
+          }>;
+        }>>("players/topscorers", { league: String(league.id), season: String(season) });
+        // Se não retornar dados, tentar a temporada anterior (algumas ligas ainda usam 2025)
+        let scorersToProcess = topScorers || [];
+        if (scorersToProcess.length === 0) {
+          try {
+            const prevScorers = await apiRequest<typeof scorersToProcess>("players/topscorers", { league: String(league.id), season: String(season - 1) });
+            scorersToProcess = prevScorers || [];
+          } catch { /* sem dados da temporada anterior */ }
+        }
+        for (const scorer of scorersToProcess.slice(0, 10)) {
+          const stat = scorer.statistics[0];
+          if (!stat) continue;
+          // Verificar se o time do jogador joga hoje
+          const playsToday = fixturesToProcess.some(
+            f => f.teams.home.id === stat.team.id || f.teams.away.id === stat.team.id
+          );
+          if (!playsToday) continue;
 
-        const gols = stat.goals.total || 0;
-        const assistencias = stat.goals.assists || 0;
-        const chutesGol = stat.shots.on || 0;
-        const cartoesAmarelos = stat.cards.yellow || 0;
-        const cartoesVermelhos = stat.cards.red || 0;
-        const totalCartoes = cartoesAmarelos + cartoesVermelhos;
+          const myFixture = fixturesToProcess.find(
+            f => f.teams.home.id === stat.team.id || f.teams.away.id === stat.team.id
+          )!;
+          const myLeague = myFixture.league;
+          const myOpponent = myFixture.teams.home.id === stat.team.id
+            ? myFixture.teams.away.name
+            : myFixture.teams.home.name;
+          const myMatchTime = new Date(myFixture.fixture.date).toLocaleTimeString("pt-BR", {
+            hour: "2-digit", minute: "2-digit", timeZone: "America/Sao_Paulo"
+          });
 
-        if (gols > 0 || assistencias > 0) {
+          const gols = stat.goals.total || 0;
+          const assistencias = stat.goals.assists || 0;
+          const totalCartoes = stat.cards.yellow + stat.cards.red;
           const indicador = gols + assistencias * 0.5;
-          const existing = jogadoresMap.get(player.id);
-          if (!existing || indicador > existing.indicador) {
-            jogadoresMap.set(player.id, {
-              playerId: player.id,
-              playerName: player.name,
-              playerPhoto: player.photo,
-              teamName: teamData.team.name,
-              teamLogo: teamData.team.logo,
-              leagueName: league.name,
-              countryFlag,
-              fixtureId,
-              matchTime,
-              opponent: teamData.team.id === homeTeam.id ? awayTeam.name : homeTeam.name,
-              mediaGols: gols,
-              mediaAssistencias: assistencias,
-              mediaChutesGol: chutesGol,
-              mediaCartoes: totalCartoes,
-              totalGols: gols,
-              totalCartoes,
-              sequenciaGols: [gols],
-              tipo: gols > 0 ? "artilheiro" : "assistencias",
-              indicador,
-            });
-          }
-        }
 
-        if (totalCartoes > 0) {
-          const key = player.id * -1;
-          const existing = jogadoresMap.get(key);
-          if (!existing || totalCartoes > existing.indicador) {
-            jogadoresMap.set(key, {
-              playerId: player.id,
-              playerName: player.name,
-              playerPhoto: player.photo,
-              teamName: teamData.team.name,
-              teamLogo: teamData.team.logo,
-              leagueName: league.name,
-              countryFlag,
-              fixtureId,
-              matchTime,
-              opponent: teamData.team.id === homeTeam.id ? awayTeam.name : homeTeam.name,
-              mediaGols: gols,
-              mediaAssistencias: assistencias,
-              mediaChutesGol: chutesGol,
-              mediaCartoes: totalCartoes,
-              totalGols: gols,
-              totalCartoes,
-              sequenciaGols: [gols],
-              tipo: "indisciplinado",
-              indicador: totalCartoes,
-            });
+          if (gols > 0) {
+            const key = `scorer_${scorer.player.id}`;
+            const existing = jogadoresMap.get(key);
+            if (!existing || indicador > existing.indicador) {
+              jogadoresMap.set(key, {
+                playerId: scorer.player.id,
+                playerName: scorer.player.name,
+                playerPhoto: scorer.player.photo,
+                teamName: stat.team.name,
+                teamLogo: stat.team.logo,
+                leagueName: myLeague.name,
+                countryFlag: myLeague.flag || "",
+                fixtureId: myFixture.fixture.id,
+                matchTime: myMatchTime,
+                opponent: myOpponent,
+                mediaGols: gols,
+                mediaAssistencias: assistencias,
+                mediaChutesGol: stat.shots.on || 0,
+                mediaCartoes: totalCartoes,
+                totalGols: gols,
+                totalCartoes,
+                sequenciaGols: [],
+                tipo: "artilheiro",
+                indicador,
+              });
+            }
+          }
+
+          if (totalCartoes > 0) {
+            const key = `indisciplined_${scorer.player.id}`;
+            const existing = jogadoresMap.get(key);
+            if (!existing || totalCartoes > existing.indicador) {
+              jogadoresMap.set(key, {
+                playerId: scorer.player.id,
+                playerName: scorer.player.name,
+                playerPhoto: scorer.player.photo,
+                teamName: stat.team.name,
+                teamLogo: stat.team.logo,
+                leagueName: myLeague.name,
+                countryFlag: myLeague.flag || "",
+                fixtureId: myFixture.fixture.id,
+                matchTime: myMatchTime,
+                opponent: myOpponent,
+                mediaGols: gols,
+                mediaAssistencias: assistencias,
+                mediaChutesGol: stat.shots.on || 0,
+                mediaCartoes: totalCartoes,
+                totalGols: gols,
+                totalCartoes,
+                sequenciaGols: [],
+                tipo: "indisciplinado",
+                indicador: totalCartoes,
+              });
+            }
           }
         }
-      }
+      } catch { /* sem artilheiros */ }
     }
+  }
 
-    // Palpites automáticos
-    if (stats.length >= 2) {
-      const getStat0 = (type: string) => getStat(stats[0].statistics, type);
-      const getStat1 = (type: string) => getStat(stats[1].statistics, type);
-      const totalEscanteios = getStat0("Corner Kicks") + getStat1("Corner Kicks");
-      const totalChutes = getStat0("Total Shots") + getStat1("Total Shots");
-      const totalGols = (fixture.goals.home || 0) + (fixture.goals.away || 0);
-      const ambosGolaram = (fixture.goals.home || 0) > 0 && (fixture.goals.away || 0) > 0;
+  // Se não tiver escanteios/chutes (jogos ainda não iniciados), usar estimativa baseada em gols
+  // Os times com mais gols tendem a ter mais escanteios e chutes
+  if (timesEscanteiosMap.size === 0) {
+    Array.from(timesGolsMap.entries()).forEach(([teamId, timeData]) => {
+      const estimativaEscanteios = timeData.mediaGols * 3.5;
+      timesEscanteiosMap.set(teamId, {
+        ...timeData,
+        indicador: estimativaEscanteios,
+        tipo: "escanteios",
+        mediaEscanteios: estimativaEscanteios,
+      });
+    });
+  }
+  if (timesChutesMap.size === 0) {
+    Array.from(timesGolsMap.entries()).forEach(([teamId, timeData]) => {
+      const estimativaChutes = timeData.mediaGols * 8;
+      timesChutesMap.set(teamId, {
+        ...timeData,
+        indicador: estimativaChutes,
+        tipo: "chutes",
+        mediaChutes: estimativaChutes,
+      });
+    });
+  }
 
-      if (ambosGolaram && palpitesBTTS.length < 8) {
-        palpitesBTTS.push({
-          fixtureId,
-          homeTeam: homeTeam.name,
-          homeTeamLogo: homeTeam.logo,
-          awayTeam: awayTeam.name,
-          awayTeamLogo: awayTeam.logo,
-          leagueName: league.name,
-          leagueLogo: league.logo,
-          countryFlag,
-          matchTime,
-          mercado: "Ambas Marcam",
-          palpite: "Sim",
-          confianca: "Alta",
-          motivo: `Ambos já marcaram (${fixture.goals.home}-${fixture.goals.away})`,
-        });
-      }
-      if (totalEscanteios >= 6 && palpitesEscanteios.length < 8) {
+  // Palpites de escanteios baseados em médias de gols (proxy)
+  for (const fixture of fixturesToProcess.slice(0, 8)) {
+    if (palpitesEscanteios.length >= 8) break;
+    const homeStats = timesGolsMap.get(fixture.teams.home.id);
+    const awayStats = timesGolsMap.get(fixture.teams.away.id);
+    if (homeStats && awayStats) {
+      const estimativaEscanteios = (homeStats.mediaGols + awayStats.mediaGols) * 3.5;
+      if (estimativaEscanteios >= 7) {
         palpitesEscanteios.push({
-          fixtureId,
-          homeTeam: homeTeam.name,
-          homeTeamLogo: homeTeam.logo,
-          awayTeam: awayTeam.name,
-          awayTeamLogo: awayTeam.logo,
-          leagueName: league.name,
-          leagueLogo: league.logo,
-          countryFlag,
-          matchTime,
+          fixtureId: fixture.fixture.id,
+          homeTeam: fixture.teams.home.name,
+          homeTeamLogo: fixture.teams.home.logo,
+          awayTeam: fixture.teams.away.name,
+          awayTeamLogo: fixture.teams.away.logo,
+          leagueName: fixture.league.name,
+          leagueLogo: fixture.league.logo,
+          countryFlag: fixture.league.flag || "",
+          matchTime: new Date(fixture.fixture.date).toLocaleTimeString("pt-BR", {
+            hour: "2-digit", minute: "2-digit", timeZone: "America/Sao_Paulo"
+          }),
           mercado: "Escanteios",
-          palpite: `Over ${totalEscanteios >= 8 ? "7.5" : "5.5"} Escanteios`,
-          confianca: totalEscanteios >= 10 ? "Alta" : "Media",
-          motivo: `${totalEscanteios} escanteios até o momento`,
-        });
-      }
-      if (totalGols >= 2 && palpitesGols.length < 8) {
-        palpitesGols.push({
-          fixtureId,
-          homeTeam: homeTeam.name,
-          homeTeamLogo: homeTeam.logo,
-          awayTeam: awayTeam.name,
-          awayTeamLogo: awayTeam.logo,
-          leagueName: league.name,
-          leagueLogo: league.logo,
-          countryFlag,
-          matchTime,
-          mercado: "Gols",
-          palpite: `Over ${totalGols >= 3 ? "2.5" : "1.5"} Gols`,
-          confianca: totalGols >= 3 ? "Alta" : "Media",
-          motivo: `${totalGols} gols marcados, ${totalChutes} chutes totais`,
+          palpite: `Over ${estimativaEscanteios >= 9 ? "8.5" : "6.5"} Escanteios`,
+          confianca: estimativaEscanteios >= 10 ? "Alta" : "Media",
+          motivo: `Times com alta média de gols na temporada (${homeStats.mediaGols.toFixed(1)} + ${awayStats.mediaGols.toFixed(1)} gols/jogo)`,
         });
       }
     }
@@ -1444,7 +1555,7 @@ export async function getDestaquesHoje(date?: string): Promise<{
     timesChutes: sortByIndicador(Array.from(timesChutesMap.values())),
     timesCartoes: sortByIndicador(Array.from(timesCartoesMap.values())),
     jogadoresArtilheiros: Array.from(jogadoresMap.values())
-      .filter(j => j.tipo === "artilheiro" || j.tipo === "assistencias")
+      .filter(j => j.tipo === "artilheiro")
       .sort((a, b) => b.indicador - a.indicador)
       .slice(0, 10),
     jogadoresIndisciplinados: Array.from(jogadoresMap.values())
@@ -1458,6 +1569,6 @@ export async function getDestaquesHoje(date?: string): Promise<{
     totalLigas: new Set(fixtures.map(f => f.league.id)).size,
   };
 
-  setCached(cacheKey, result, 5 * 60 * 1000);
+  setCached(cacheKey, result, 10 * 60 * 1000); // Cache de 10 minutos
   return result;
 }
