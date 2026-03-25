@@ -49,9 +49,11 @@ import {
   getDestaquesHoje,
 } from "./football";
 import { getArtilheirosAvancado } from "./artilheiros-premium";
+import { matchesRouter } from "./routers/matches";
 
 export const appRouter = router({
   system: systemRouter,
+  matches: matchesRouter,
   auth: router({
     me: publicProcedure.query(opts => opts.ctx.user),
     logout: publicProcedure.mutation(({ ctx }) => {

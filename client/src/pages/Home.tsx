@@ -1,23 +1,24 @@
 import { useState, useMemo, useEffect } from "react";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { Button } from "@/components/ui/button";
-import { ChevronLeft, ChevronRight, X, Heart } from "lucide-react";
-import { useWebSocket } from "@/hooks/useWebSocket";
+import { ChevronLeft, ChevronRight, Heart } from "lucide-react";
+import { EventNotification } from "@/components/EventNotification";
+import { MatchAnalysisTabs } from "@/components/MatchAnalysisTabs";
 
-// Dados com logos reais e informações completas
+// Dados com logos que funcionam e informações completas
 const MOCK_GAMES = [
   {
     id: 1,
     league: "UEFA Champions League",
     leagueId: "cl",
     leagueFlag: "🇪🇺",
-    leagueLogo: "https://media.api-sports.io/leagues/2.png",
+    leagueLogo: "⚽",
     homeTeam: "Manchester United",
     awayTeam: "Bayern Munich",
     homeTeamId: 33,
     awayTeamId: 25,
-    homeTeamLogo: "https://media.api-sports.io/teams/33.png",
-    awayTeamLogo: "https://media.api-sports.io/teams/25.png",
+    homeTeamLogo: "🔴",
+    awayTeamLogo: "🔵",
     homeScore: 2,
     awayScore: 1,
     status: "live",
@@ -42,13 +43,13 @@ const MOCK_GAMES = [
     league: "La Liga",
     leagueId: "la",
     leagueFlag: "🇪🇸",
-    leagueLogo: "https://media.api-sports.io/leagues/39.png",
+    leagueLogo: "⚽",
     homeTeam: "Real Madrid",
     awayTeam: "FC Barcelona",
     homeTeamId: 541,
     awayTeamId: 529,
-    homeTeamLogo: "https://media.api-sports.io/teams/541.png",
-    awayTeamLogo: "https://media.api-sports.io/teams/529.png",
+    homeTeamLogo: "⚪",
+    awayTeamLogo: "🔵",
     homeScore: 3,
     awayScore: 2,
     status: "finished",
@@ -72,13 +73,13 @@ const MOCK_GAMES = [
     league: "Premier League",
     leagueId: "pl",
     leagueFlag: "🇬🇧",
-    leagueLogo: "https://media.api-sports.io/leagues/39.png",
+    leagueLogo: "⚽",
     homeTeam: "Liverpool",
     awayTeam: "Arsenal",
     homeTeamId: 40,
     awayTeamId: 42,
-    homeTeamLogo: "https://media.api-sports.io/teams/40.png",
-    awayTeamLogo: "https://media.api-sports.io/teams/42.png",
+    homeTeamLogo: "🔴",
+    awayTeamLogo: "🔴",
     homeScore: 0,
     awayScore: 0,
     status: "upcoming",
@@ -96,13 +97,13 @@ const MOCK_GAMES = [
     league: "Série A",
     leagueId: "sa",
     leagueFlag: "🇧🇷",
-    leagueLogo: "https://media.api-sports.io/leagues/71.png",
+    leagueLogo: "⚽",
     homeTeam: "Flamengo",
     awayTeam: "Vasco da Gama",
     homeTeamId: 64,
     awayTeamId: 71,
-    homeTeamLogo: "https://media.api-sports.io/teams/64.png",
-    awayTeamLogo: "https://media.api-sports.io/teams/71.png",
+    homeTeamLogo: "🔴",
+    awayTeamLogo: "⚪",
     homeScore: 1,
     awayScore: 1,
     status: "live",
@@ -134,7 +135,6 @@ const STATUS_LABELS = {
 
 export default function Home() {
   const { user, loading } = useAuth();
-  const { isConnected } = useWebSocket();
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [selectedLeague, setSelectedLeague] = useState("all");
   const [selectedGame, setSelectedGame] = useState<typeof MOCK_GAMES[0] | null>(MOCK_GAMES[0]);
@@ -208,32 +208,40 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950">
-      {/* TICKER DE NOTÍCIAS */}
-      <div className="bg-gradient-to-r from-red-600 to-red-700 text-white py-2 overflow-hidden">
+      <EventNotification />
+      {/* BREAKING NEWS - TICKER */}
+      <div className="w-full bg-gradient-to-r from-red-600 to-red-700 text-white py-3 overflow-hidden border-b-4 border-red-900 sticky top-0 z-50">
         <div className="flex items-center gap-4 px-4">
-          <div className="flex items-center gap-2 flex-shrink-0">
-            <div className="w-2 h-2 bg-white rounded-full animate-pulse"></div>
-            <span className="font-bold text-xs">AO VIVO</span>
+          <div className="flex items-center gap-2 flex-shrink-0 animate-pulse">
+            <div className="w-3 h-3 bg-white rounded-full"></div>
+            <span className="font-bold text-sm uppercase">🔴 BREAKING NEWS</span>
           </div>
           <div className="flex-1 overflow-hidden">
-            <div className="animate-marquee whitespace-nowrap text-sm">
-              {currentTickerGame && (
+          <div className="flex gap-8 animate-marquee whitespace-nowrap text-base font-semibold">
+            {currentTickerGame && (
+              <>
                 <span>
-                  <strong>{currentTickerGame.homeTeam}</strong> {currentTickerGame.homeScore} x{" "}
+                  ⚽ <strong>{currentTickerGame.homeTeam}</strong> {currentTickerGame.homeScore} x{" "}
                   {currentTickerGame.awayScore} <strong>{currentTickerGame.awayTeam}</strong> -{" "}
-                  {currentTickerGame.league} ({currentTickerGame.minute.toFixed(0)}')
+                  {currentTickerGame.league} | Minuto {currentTickerGame.minute.toFixed(0)}'
                 </span>
-              )}
-            </div>
+                <span>
+                  ⚽ <strong>{currentTickerGame.homeTeam}</strong> {currentTickerGame.homeScore} x{" "}
+                  {currentTickerGame.awayScore} <strong>{currentTickerGame.awayTeam}</strong> -{" "}
+                  {currentTickerGame.league} | Minuto {currentTickerGame.minute.toFixed(0)}'
+                </span>
+              </>
+            )}
+          </div>
           </div>
         </div>
       </div>
 
       {/* HEADER COM FILTROS */}
-      <div className="bg-slate-900/50 border-b border-slate-800 sticky top-0 z-40">
+      <div className="bg-slate-900/50 border-b border-slate-800 sticky top-[60px] z-40">
         <div className="max-w-7xl mx-auto px-4 py-3">
           <div className="flex items-center justify-between gap-4 mb-3">
-            <h1 className="text-xl font-bold text-white">RaphaGuru</h1>
+            <h1 className="text-2xl font-bold text-white">⚽ RaphaGuru</h1>
             <div className="flex items-center gap-2">
               <Button
                 variant="outline"
@@ -243,7 +251,7 @@ export default function Home() {
               >
                 <ChevronLeft className="w-3 h-3" />
               </Button>
-              <span className="text-xs text-slate-400 min-w-[100px] text-center">
+              <span className="text-xs text-slate-400 min-w-[100px] text-center font-semibold">
                 {selectedDate.toLocaleDateString("pt-BR")}
               </span>
               <Button
@@ -269,7 +277,7 @@ export default function Home() {
                   : "border-slate-700 text-slate-300 h-7 text-xs"
               }
             >
-              Todas
+              Todas as Ligas
             </Button>
             {["UEFA Champions League", "Premier League", "La Liga", "Série A"].map((league) => {
               const leagueId = MOCK_GAMES.find((g) => g.league === league)?.leagueId || "";
@@ -298,13 +306,15 @@ export default function Home() {
         {/* SIDEBAR ESQUERDO - JOGOS COMPACTOS */}
         <div className="lg:col-span-1 space-y-2">
           <h2 className="text-xs font-bold text-slate-400 uppercase tracking-wider px-1">
-            Jogos ({filteredGames.length})
+            📋 Jogos ({filteredGames.length})
           </h2>
 
-          <div className="space-y-1 max-h-[calc(100vh-250px)] overflow-y-auto">
+          <div className="space-y-1 max-h-[calc(100vh-300px)] overflow-y-auto">
             {Object.entries(gamesByLeague).map(([league, leagueGames]) => (
               <div key={league} className="space-y-1">
-                <div className="text-xs font-semibold text-slate-600 px-2 py-1">{league.split(",")[0]}</div>
+                <div className="text-xs font-semibold text-slate-600 px-2 py-1">
+                  {leagueGames[0]?.leagueFlag} {league.split(",")[0]}
+                </div>
                 {leagueGames.map((game) => (
                   <button
                     key={game.id}
@@ -325,15 +335,7 @@ export default function Home() {
                     </div>
 
                     <div className="flex items-center gap-1 mb-1">
-                      <img
-                        src={game.homeTeamLogo}
-                        alt={game.homeTeam}
-                        className="w-4 h-4 rounded-full"
-                        onError={(e) => {
-                          (e.target as HTMLImageElement).src =
-                            "https://via.placeholder.com/16?text=H";
-                        }}
-                      />
+                      <span className="text-lg">{game.homeTeamLogo}</span>
                       <span className="text-xs font-semibold text-white flex-1 truncate">
                         {game.homeTeam.split(" ")[0]}
                       </span>
@@ -341,15 +343,7 @@ export default function Home() {
                     </div>
 
                     <div className="flex items-center gap-1">
-                      <img
-                        src={game.awayTeamLogo}
-                        alt={game.awayTeam}
-                        className="w-4 h-4 rounded-full"
-                        onError={(e) => {
-                          (e.target as HTMLImageElement).src =
-                            "https://via.placeholder.com/16?text=A";
-                        }}
-                      />
+                      <span className="text-lg">{game.awayTeamLogo}</span>
                       <span className="text-xs font-semibold text-white flex-1 truncate">
                         {game.awayTeam.split(" ")[0]}
                       </span>
@@ -381,21 +375,13 @@ export default function Home() {
         {/* CARD EXPANDIDO */}
         <div className="lg:col-span-4">
           {selectedGame ? (
-            <div className="bg-gradient-to-br from-slate-800 to-slate-900 border border-slate-700 rounded-xl p-4 shadow-2xl max-h-[calc(100vh-200px)] overflow-y-auto">
+            <div className="bg-gradient-to-br from-slate-800 to-slate-900 border border-slate-700 rounded-xl p-4 shadow-2xl max-h-[calc(100vh-250px)] overflow-y-auto">
               {/* HEADER DO JOGO */}
               <div className="flex items-start justify-between mb-4">
                 <div className="flex-1">
                   <div className="flex items-center gap-2 mb-2">
-                    <img
-                      src={selectedGame.leagueLogo}
-                      alt={selectedGame.league}
-                      className="w-5 h-5 rounded-full"
-                      onError={(e) => {
-                        (e.target as HTMLImageElement).src =
-                          "https://via.placeholder.com/20?text=L";
-                      }}
-                    />
-                    <span className="text-xs text-slate-400">{selectedGame.league}</span>
+                    <span className="text-2xl">{selectedGame.leagueFlag}</span>
+                    <span className="text-sm text-slate-400 font-semibold">{selectedGame.league}</span>
                     <span
                       className={`text-xs font-bold px-2 py-1 rounded-full border ${STATUS_COLORS[selectedGame.status as keyof typeof STATUS_COLORS]}`}
                     >
@@ -403,7 +389,7 @@ export default function Home() {
                       {selectedGame.status === "live" && ` ${selectedGame.minute.toFixed(0)}'`}
                     </span>
                   </div>
-                  <div className="text-xs text-slate-500">📍 {selectedGame.stadium}</div>
+                  <div className="text-xs text-slate-500 font-semibold">📍 {selectedGame.stadium}</div>
                 </div>
                 <button
                   onClick={() => toggleFavorite(selectedGame.id)}
@@ -423,41 +409,25 @@ export default function Home() {
               <div className="bg-slate-900/50 rounded-lg p-4 mb-4 border border-slate-700">
                 <div className="flex items-center justify-between">
                   <div className="text-center flex-1">
-                    <img
-                      src={selectedGame.homeTeamLogo}
-                      alt={selectedGame.homeTeam}
-                      className="w-12 h-12 rounded-full mx-auto mb-2"
-                      onError={(e) => {
-                        (e.target as HTMLImageElement).src =
-                          "https://via.placeholder.com/48?text=H";
-                      }}
-                    />
-                    <div className="font-bold text-white text-xs">{selectedGame.homeTeam}</div>
+                    <div className="text-3xl font-bold mb-1">{selectedGame.homeTeamLogo}</div>
+                    <div className="font-bold text-white text-sm">{selectedGame.homeTeam}</div>
                   </div>
 
                   <div className="text-center px-4">
-                    <div className="text-4xl font-bold text-white mb-1">
+                    <div className="text-5xl font-bold text-white mb-1">
                       {selectedGame.homeScore}{" "}
-                      <span className="text-slate-500 text-xl">x</span> {selectedGame.awayScore}
+                      <span className="text-slate-500 text-2xl">x</span> {selectedGame.awayScore}
                     </div>
                     {selectedGame.status === "live" && (
-                      <div className="text-xs text-red-400 font-semibold">
-                        Minuto {selectedGame.minute.toFixed(0)}'
+                      <div className="text-xs text-red-400 font-semibold animate-pulse">
+                        ⏱ Minuto {selectedGame.minute.toFixed(0)}'
                       </div>
                     )}
                   </div>
 
                   <div className="text-center flex-1">
-                    <img
-                      src={selectedGame.awayTeamLogo}
-                      alt={selectedGame.awayTeam}
-                      className="w-12 h-12 rounded-full mx-auto mb-2"
-                      onError={(e) => {
-                        (e.target as HTMLImageElement).src =
-                          "https://via.placeholder.com/48?text=A";
-                      }}
-                    />
-                    <div className="font-bold text-white text-xs">{selectedGame.awayTeam}</div>
+                    <div className="text-3xl font-bold mb-1">{selectedGame.awayTeamLogo}</div>
+                    <div className="font-bold text-white text-sm">{selectedGame.awayTeam}</div>
                   </div>
                 </div>
               </div>
@@ -465,19 +435,19 @@ export default function Home() {
               {/* GOLS MARCADOS */}
               {selectedGame.goals.length > 0 && (
                 <div className="bg-slate-900/50 rounded-lg p-3 mb-4 border border-slate-700">
-                  <div className="text-xs font-bold text-slate-300 mb-2">⚽ GOLS MARCADOS</div>
+                  <div className="text-sm font-bold text-slate-300 mb-2">⚽ GOLS MARCADOS</div>
                   <div className="space-y-1">
                     {selectedGame.goals.map((goal, idx) => (
                       <div
                         key={idx}
-                        className={`flex items-center justify-between p-2 rounded text-xs ${
+                        className={`flex items-center justify-between p-2 rounded text-sm font-semibold ${
                           goal.team === "home"
-                            ? "bg-green-500/10 border-l-2 border-green-500"
-                            : "bg-blue-500/10 border-l-2 border-blue-500"
+                            ? "bg-green-500/20 border-l-4 border-green-500 text-green-300"
+                            : "bg-blue-500/20 border-l-4 border-blue-500 text-blue-300"
                         }`}
                       >
-                        <span className="font-semibold text-white">{goal.player}</span>
-                        <span className="text-slate-400">{goal.minute}'</span>
+                        <span>{goal.player}</span>
+                        <span className="text-xs text-slate-400">{goal.minute}'</span>
                       </div>
                     ))}
                   </div>
@@ -487,37 +457,52 @@ export default function Home() {
               {/* ESTATÍSTICAS EM GRADE */}
               <div className="grid grid-cols-3 gap-3 mb-4">
                 <div className="bg-slate-900/50 rounded-lg p-3 border border-slate-700">
-                  <div className="text-xs text-slate-400 mb-2 font-bold">CARTÕES</div>
+                  <div className="text-xs text-slate-400 mb-2 font-bold">🟨 CARTÕES</div>
                   <div className="flex items-center justify-between">
-                    <span className="text-xl font-bold text-yellow-400">{selectedGame.cards.home}</span>
+                    <span className="text-2xl font-bold text-yellow-400">{selectedGame.cards.home}</span>
                     <span className="text-xs text-slate-500">vs</span>
-                    <span className="text-xl font-bold text-yellow-400">{selectedGame.cards.away}</span>
+                    <span className="text-2xl font-bold text-yellow-400">{selectedGame.cards.away}</span>
                   </div>
                 </div>
 
                 <div className="bg-slate-900/50 rounded-lg p-3 border border-slate-700">
-                  <div className="text-xs text-slate-400 mb-2 font-bold">ESCANTEIOS</div>
+                  <div className="text-xs text-slate-400 mb-2 font-bold">🚩 ESCANTEIOS</div>
                   <div className="flex items-center justify-between">
-                    <span className="text-xl font-bold text-blue-400">{selectedGame.corners.home}</span>
+                    <span className="text-2xl font-bold text-blue-400">{selectedGame.corners.home}</span>
                     <span className="text-xs text-slate-500">vs</span>
-                    <span className="text-xl font-bold text-blue-400">{selectedGame.corners.away}</span>
+                    <span className="text-2xl font-bold text-blue-400">{selectedGame.corners.away}</span>
                   </div>
                 </div>
 
                 <div className="bg-slate-900/50 rounded-lg p-3 border border-slate-700">
-                  <div className="text-xs text-slate-400 mb-2 font-bold">CHUTES</div>
+                  <div className="text-xs text-slate-400 mb-2 font-bold">🎯 CHUTES</div>
                   <div className="flex items-center justify-between">
-                    <span className="text-xl font-bold text-green-400">{selectedGame.shots.home}</span>
+                    <span className="text-2xl font-bold text-green-400">{selectedGame.shots.home}</span>
                     <span className="text-xs text-slate-500">vs</span>
-                    <span className="text-xl font-bold text-green-400">{selectedGame.shots.away}</span>
+                    <span className="text-2xl font-bold text-green-400">{selectedGame.shots.away}</span>
                   </div>
                 </div>
+              </div>
+
+              {/* ABAS DE ANÁLISE */}
+              <div className="mb-4">
+                <MatchAnalysisTabs
+                  homeTeam={selectedGame.homeTeam}
+                  awayTeam={selectedGame.awayTeam}
+                  homeScore={selectedGame.homeScore}
+                  awayScore={selectedGame.awayScore}
+                  possession={selectedGame.possession}
+                  shots={selectedGame.shots}
+                  corners={selectedGame.corners}
+                  cards={selectedGame.cards}
+                  minute={selectedGame.minute}
+                />
               </div>
 
               {/* POSSE E ODDS */}
               <div className="grid grid-cols-2 gap-3">
                 <div className="bg-slate-900/50 rounded-lg p-3 border border-slate-700">
-                  <div className="text-xs text-slate-400 mb-2 font-bold">POSSE DE BOLA</div>
+                  <div className="text-xs text-slate-400 mb-2 font-bold">🎮 POSSE DE BOLA</div>
                   <div className="space-y-2">
                     <div className="flex items-center gap-2">
                       <span className="text-xs text-slate-400 w-16">{selectedGame.homeTeam.split(" ")[0]}</span>
@@ -547,7 +532,7 @@ export default function Home() {
                 </div>
 
                 <div className="bg-slate-900/50 rounded-lg p-3 border border-slate-700">
-                  <div className="text-xs text-slate-400 mb-2 font-bold">ODDS (1X2)</div>
+                  <div className="text-xs text-slate-400 mb-2 font-bold">💰 ODDS (1X2)</div>
                   <div className="space-y-1">
                     <div className="flex justify-between items-center">
                       <span className="text-xs text-slate-300">{selectedGame.homeTeam.split(" ")[0]}</span>
@@ -567,9 +552,7 @@ export default function Home() {
             </div>
           ) : (
             <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-12 text-center">
-              <div className="text-slate-400 text-sm">
-                Selecione um jogo para ver os detalhes completos
-              </div>
+              <div className="text-slate-400 text-sm">Selecione um jogo para ver os detalhes completos</div>
             </div>
           )}
         </div>
