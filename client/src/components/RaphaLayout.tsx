@@ -18,30 +18,26 @@ import { useSSE } from "@/hooks/useSSE";
 const bottomNavItems = [
   {
     path: "/bots",
-    label: "Bots",
+    label: "Bots IA",
     icon: () => (
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-6 h-6">
-        <rect x="3" y="11" width="18" height="10" rx="2" />
-        <circle cx="12" cy="5" r="2" />
-        <path d="M12 7v4" />
-        <line x1="8" y1="16" x2="8" y2="16" />
-        <line x1="16" y1="16" x2="16" y2="16" />
-        <circle cx="8" cy="16" r="1" fill="currentColor" stroke="none" />
-        <circle cx="16" cy="16" r="1" fill="currentColor" stroke="none" />
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="w-6 h-6">
+        <circle cx="12" cy="12" r="1" fill="currentColor" />
+        <path d="M12 1v6m0 6v6" />
+        <path d="M4.22 4.22l4.24 4.24m5.08 5.08l4.24 4.24" />
+        <path d="M1 12h6m6 0h6" />
+        <path d="M4.22 19.78l4.24-4.24m5.08-5.08l4.24-4.24" />
+        <circle cx="12" cy="12" r="9" />
       </svg>
     ),
     badge: "PRO",
   },
   {
     path: "/ao-vivo",
-    label: "Radar Esportivo",
+    label: "Ao Vivo",
     icon: () => (
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-6 h-6">
-        <path d="M5.636 18.364a9 9 0 0 1 0-12.728" />
-        <path d="M18.364 5.636a9 9 0 0 1 0 12.728" />
-        <path d="M8.464 15.536a5 5 0 0 1 0-7.072" />
-        <path d="M15.536 8.464a5 5 0 0 1 0 7.072" />
-        <circle cx="12" cy="12" r="1" fill="currentColor" stroke="none" />
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="w-6 h-6">
+        <polygon points="23 7 16 12 23 17 23 7" />
+        <rect x="1" y="5" width="15" height="14" rx="2" ry="2" />
       </svg>
     ),
     badge: "LIVE",
@@ -50,10 +46,9 @@ const bottomNavItems = [
     path: "/pitacos",
     label: "Pitacos",
     icon: () => (
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-6 h-6">
-        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-        <line x1="9" y1="10" x2="15" y2="10" />
-        <line x1="9" y1="14" x2="13" y2="14" />
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="w-6 h-6">
+        <path d="M9 11l3 3L22 4" />
+        <path d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
       </svg>
     ),
     badge: null,
@@ -62,8 +57,11 @@ const bottomNavItems = [
     path: "/destaques",
     label: "Destaques",
     icon: () => (
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-6 h-6">
-        <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="w-6 h-6">
+        <path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z" />
+        <polyline points="13 2 13 9 20 9" />
+        <line x1="9" y1="15" x2="15" y2="15" />
+        <line x1="9" y1="11" x2="15" y2="11" />
       </svg>
     ),
     badge: null,
@@ -348,57 +346,12 @@ export default function RaphaLayout({ children, title }: RaphaLayoutProps) {
       {/* ─── MENU MOBILE OVERLAY (todos os itens) ────────────────────────── */}
       {mobileMenuOpen && (
         <div className="fixed inset-0 z-50 md:hidden">
-          <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={() => setMobileMenuOpen(false)} />
-          <div className="absolute right-0 top-0 bottom-0 w-72 bg-card border-l border-border flex flex-col">
-            {/* Header do menu */}
-            <div className="flex items-center justify-between p-4 border-b border-border">
-              <div className="flex items-center gap-2">
-                <Zap className="w-5 h-5 text-primary" />
-                <span className="font-bold text-primary">Menu</span>
-              </div>
-              <Button variant="ghost" size="icon" className="w-8 h-8" onClick={() => setMobileMenuOpen(false)}>
-                <X className="w-4 h-4" />
-              </Button>
-            </div>
-
-            {/* Itens de navegação */}
-            <nav className="flex-1 overflow-y-auto p-3 space-y-1">
-              {/* Seção principal */}
-              <p className="text-[10px] text-muted-foreground uppercase tracking-wider px-3 py-1 font-semibold">Principal</p>
-              {bottomNavItems.map(item => {
-                const Icon = item.icon;
-                const isActive = location === item.path;
-                return (
-                  <Link key={item.path} href={item.path}>
-                    <div
-                      onClick={() => setMobileMenuOpen(false)}
-                      className={`flex items-center gap-3 px-3 py-2.5 rounded-xl cursor-pointer transition-all ${
-                        isActive
-                          ? "bg-primary/15 text-primary border border-primary/30"
-                          : "text-muted-foreground hover:bg-accent hover:text-foreground"
-                      }`}
-                    >
-                      <Icon />
-                      <span className="font-medium text-sm">{item.label}</span>
-                      {item.badge === "LIVE" && (
-                        <span className="ml-auto bg-red-500 text-white text-[9px] px-1.5 py-0.5 rounded-full font-bold pulse-live">LIVE</span>
-                      )}
-                      {item.badge === "PRO" && (
-                        <span className="ml-auto bg-primary/20 text-primary border border-primary/30 text-[9px] px-1.5 py-0.5 rounded-full font-bold">PRO</span>
-                      )}
-                      {item.badge === "EM BREVE" && (
-                        <span className="ml-auto bg-yellow-500/20 text-yellow-400 text-[9px] px-1.5 py-0.5 rounded-full font-bold">EM BREVE</span>
-                      )}
-                    </div>
-                  </Link>
-                );
-              })}
-
-              {/* Seção ferramentas */}
-              <p className="text-[10px] text-muted-foreground uppercase tracking-wider px-3 py-1 font-semibold mt-3">Ferramentas</p>
+          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setMobileMenuOpen(false)} />
+          <div className="absolute left-0 top-14 bottom-0 w-64 bg-card border-r border-border overflow-y-auto">
+            <nav className="p-4 space-y-1">
               {allNavItems.map(item => {
                 const Icon = item.icon;
-                const isActive = location === item.path || (item.path === "/apostas" && location === "/kelly");
+                const isActive = location === item.path;
                 return (
                   <Link key={item.path} href={item.path}>
                     <div
@@ -456,55 +409,82 @@ export default function RaphaLayout({ children, title }: RaphaLayoutProps) {
         </div>
       </main>
 
-      {/* ─── BARRA INFERIOR FIXA (estilo scoretabs) ──────────────────────── */}
+      {/* ─── BARRA INFERIOR FIXA COM EFEITOS PREMIUM ─────────────────────── */}
       <nav
         className="fixed bottom-0 left-0 right-0 z-50 flex items-stretch"
         style={{
-          background: "linear-gradient(to top, #0d0d1a 0%, #111122 100%)",
-          borderTop: "1px solid rgba(255,255,255,0.07)",
+          background: "linear-gradient(to top, rgba(13,13,26,0.98) 0%, rgba(17,17,34,0.95) 100%)",
+          backdropFilter: "blur(12px)",
+          borderTop: "1px solid rgba(0,255,136,0.12)",
           height: "64px",
+          boxShadow: "0 -8px 32px rgba(0,255,136,0.08), inset 0 1px 0 rgba(255,255,255,0.05)",
         }}
       >
         {bottomNavItems.map(item => {
           const Icon = item.icon;
           const isActive = location === item.path || (item.path === "/ao-vivo" && location.startsWith("/ao-vivo"));
-          const isComingSoon = item.badge === "EM BREVE";
 
           return (
-            <Link key={item.path} href={isComingSoon ? "#" : item.path}>
-              <button
-                className="relative flex-1 flex flex-col items-center justify-center gap-1 h-full w-full px-2 transition-all duration-200 group"
-                style={{ minWidth: "calc(100vw / 4)" }}
-                onClick={isComingSoon ? (e) => { e.preventDefault(); } : undefined}
+            <Link key={item.path} href={item.path} className="flex-1 flex items-center justify-center">
+              <div
+                className="relative flex flex-col items-center justify-center gap-1 h-full w-full px-2 transition-all duration-300 cursor-pointer group"
+                style={{
+                  background: isActive ? "rgba(0,255,136,0.06)" : "transparent",
+                }}
               >
-                {/* Linha indicadora no topo (ativa) */}
+                {/* Fundo com glow ao hover */}
+                {isActive && (
+                  <div
+                    className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300"
+                    style={{
+                      background: "radial-gradient(circle at center, rgba(0,255,136,0.12) 0%, transparent 70%)",
+                    }}
+                  />
+                )}
+
+                {/* Linha indicadora no topo com glow intenso */}
                 <div
-                  className="absolute top-0 left-1/2 -translate-x-1/2 h-[2px] rounded-b-full transition-all duration-300"
+                  className="absolute top-0 left-1/2 -translate-x-1/2 h-[3px] rounded-b-full transition-all duration-300"
                   style={{
-                    width: isActive ? "60%" : "0%",
-                    background: "linear-gradient(90deg, #00ff88, #00cc66)",
-                    boxShadow: isActive ? "0 0 8px #00ff8880" : "none",
+                    width: isActive ? "48%" : "0%",
+                    background: isActive ? "linear-gradient(90deg, #00ff88 0%, #00cc66 100%)" : "transparent",
+                    boxShadow: isActive ? "0 0 16px #00ff8899, 0 0 32px #00ff8855, inset 0 0 8px rgba(255,255,255,0.3)" : "none",
                   }}
                 />
 
-                {/* Ícone */}
+                {/* Ícone com efeitos premium */}
                 <div
-                  className="transition-all duration-200"
+                  className="relative transition-all duration-300 group-hover:scale-115"
                   style={{
-                    color: isActive ? "#00ff88" : "rgba(255,255,255,0.45)",
-                    transform: isActive ? "scale(1.1)" : "scale(1)",
-                    filter: isActive ? "drop-shadow(0 0 6px #00ff8860)" : "none",
+                    color: isActive ? "#00ff88" : "rgba(255,255,255,0.5)",
+                    transform: isActive ? "scale(1.2) translateY(-3px)" : "scale(1) translateY(0)",
+                    filter: isActive ? "drop-shadow(0 0 10px #00ff8877)" : "drop-shadow(0 0 3px rgba(0,0,0,0.4))",
+                    textShadow: isActive ? "0 0 12px #00ff8855" : "none",
                   }}
                 >
                   <Icon />
+                  {/* Aura ao redor do ícone */}
+                  {isActive && (
+                    <div
+                      className="absolute inset-0 rounded-full opacity-40 group-hover:opacity-60 transition-opacity duration-300"
+                      style={{
+                        background: "radial-gradient(circle, rgba(0,255,136,0.5) 0%, transparent 70%)",
+                        filter: "blur(6px)",
+                        transform: "scale(1.4)",
+                      }}
+                    />
+                  )}
                 </div>
 
-                {/* Label */}
+                {/* Label com efeito */}
                 <span
-                  className="text-[10px] font-semibold leading-none transition-all duration-200 truncate max-w-full px-1"
+                  className="text-[10px] font-bold leading-none transition-all duration-300 truncate max-w-full px-1 relative z-10"
                   style={{
-                    color: isActive ? "#00ff88" : "rgba(255,255,255,0.4)",
-                    letterSpacing: "0.02em",
+                    color: isActive ? "#00ff88" : "rgba(255,255,255,0.45)",
+                    letterSpacing: "0.04em",
+                    textTransform: "uppercase",
+                    fontSize: isActive ? "10px" : "9px",
+                    fontWeight: isActive ? "800" : "700",
                   }}
                 >
                   {item.label}
@@ -512,19 +492,31 @@ export default function RaphaLayout({ children, title }: RaphaLayoutProps) {
 
                 {/* Badge LIVE pulsante */}
                 {item.badge === "LIVE" && !isActive && (
-                  <span className="absolute top-1.5 right-[20%] w-1.5 h-1.5 bg-red-500 rounded-full pulse-live" />
+                  <span
+                    className="absolute top-2 right-[14%] w-2.5 h-2.5 bg-red-500 rounded-full animate-pulse"
+                    style={{
+                      boxShadow: "0 0 12px rgba(239,68,68,0.9), inset 0 0 4px rgba(255,255,255,0.4)",
+                    }}
+                  />
                 )}
 
-                {/* Badge EM BREVE */}
-                {isComingSoon && (
+                {/* Badge PRO */}
+                {item.badge === "PRO" && (
                   <span
-                    className="absolute top-1 right-[10%] text-[8px] font-bold px-1 py-0.5 rounded-full"
-                    style={{ background: "rgba(234,179,8,0.2)", color: "#eab308", border: "1px solid rgba(234,179,8,0.3)" }}
+                    className="absolute top-1.5 right-[12%] text-[7px] font-bold px-1.5 py-0.5 rounded-full"
+                    style={{
+                      background: "linear-gradient(135deg, rgba(0,255,136,0.35) 0%, rgba(0,204,102,0.25) 100%)",
+                      color: "#00ff88",
+                      border: "1px solid rgba(0,255,136,0.5)",
+                      boxShadow: "0 0 8px rgba(0,255,136,0.4), inset 0 0 4px rgba(255,255,255,0.2)",
+                      textTransform: "uppercase",
+                      letterSpacing: "0.02em",
+                    }}
                   >
-                    BREVE
+                    Pro
                   </span>
                 )}
-              </button>
+              </div>
             </Link>
           );
         })}

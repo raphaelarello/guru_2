@@ -383,3 +383,10 @@
 - [x] Fallback de artilheiros para múltiplas temporadas (2025, 2024, 2026)
 - [x] Header premium com gradiente e seletor de datas
 - [x] Componentes de UI reutilizáveis (RankBadge, IndicadorBar, TeamLogo, PlayerPhoto, CountryFlag)
+
+## Fase 33 — Correção de Navegação e Redesign da Barra Inferior
+- [x] Investigar por que botão Destaques não navega (problema de roteamento ou Link)
+- [x] Redesenhar 4 botões da barra inferior com ícones premium e efeitos interativos
+- [x] Adicionar animações de hover, pulse, glow aos botões
+- [x] Melhorar ícones: Bots IA, Ao Vivo, Pitacos, Destaques
+- [x] Testar navegação em desenvolvimento — funcionando perfeitamente
