@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
-import { TrendingUp, TrendingDown, DollarSign, Target, Calculator, Plus, CheckCircle, XCircle, Clock, Settings, BarChart3 } from "lucide-react";
+import { TrendingUp, TrendingDown, DollarSign, Target, Calculator, Plus, CheckCircle, XCircle, Clock, Settings, BarChart3, Search, Download } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
@@ -25,6 +25,8 @@ export default function KellyTracker() {
   const [aba, setAba] = useState("calculadora");
   const [modalBanca, setModalBanca] = useState(false);
   const [modalAposta, setModalAposta] = useState(false);
+  const [buscaAposta, setBuscaAposta] = useState("");
+  const [filtroResultadoAposta, setFiltroResultadoAposta] = useState("todos");
 
   // Calculadora
   const [calcOdd, setCalcOdd] = useState("2.00");
@@ -58,6 +60,14 @@ export default function KellyTracker() {
 
   const banca = bancaQuery.data;
   const apostas = apostasQuery.data ?? [];
+
+  const apostasFiltradas = useMemo(() => {
+    return apostas.filter(a => {
+      const matchBusca = buscaAposta === "" || a.jogo.toLowerCase().includes(buscaAposta.toLowerCase()) || (a.mercado ?? "").toLowerCase().includes(buscaAposta.toLowerCase());
+      const matchResultado = filtroResultadoAposta === "todos" || a.resultado === filtroResultadoAposta;
+      return matchBusca && matchResultado;
+    });
+  }, [apostas, buscaAposta, filtroResultadoAposta]);
 
   // Cálculo Kelly
   const kellyResult = useMemo(() => {
@@ -277,16 +287,50 @@ export default function KellyTracker() {
             ))}
           </div>
 
-          {apostas.length === 0 ? (
+          {/* Filtros */}
+          <div className="flex flex-col sm:flex-row gap-2 mb-4">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <Input placeholder="Buscar jogo ou mercado..." value={buscaAposta} onChange={e => setBuscaAposta(e.target.value)} className="pl-9 bg-card border-border" />
+            </div>
+            <Select value={filtroResultadoAposta} onValueChange={setFiltroResultadoAposta}>
+              <SelectTrigger className="w-full sm:w-44 bg-card border-border">
+                <SelectValue placeholder="Resultado" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="todos">Todos</SelectItem>
+                <SelectItem value="pendente">⏳ Pendentes</SelectItem>
+                <SelectItem value="green">✅ Greens</SelectItem>
+                <SelectItem value="red">❌ Reds</SelectItem>
+                <SelectItem value="void">⚪ Void</SelectItem>
+              </SelectContent>
+            </Select>
+            <Button variant="outline" className="border-border" onClick={() => {
+              const header = "Jogo,Mercado,Odd,Stake,Lucro,ROI,Resultado,Data";
+              const linhas = apostasFiltradas.map(a => `"${a.jogo}","${a.mercado ?? ""}","${a.odd ?? ""}","${a.stake ?? ""}","${a.lucro ?? ""}","${a.roi ?? ""}","${a.resultado ?? "pendente"}","${new Date(a.createdAt).toLocaleString("pt-BR")}"`);
+              const csv = [header, ...linhas].join("\n");
+              const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+              const url = URL.createObjectURL(blob);
+              const link = document.createElement("a");
+              link.href = url; link.download = `kelly-apostas-${new Date().toISOString().slice(0,10)}.csv`;
+              link.click(); URL.revokeObjectURL(url);
+              toast.success("CSV exportado!");
+            }}>
+              <Download className="w-4 h-4 mr-2" />
+              Exportar
+            </Button>
+          </div>
+
+          {apostasFiltradas.length === 0 ? (
             <Card className="bg-card border-border">
               <CardContent className="p-10 text-center">
                 <BarChart3 className="w-12 h-12 text-muted-foreground mx-auto mb-3" />
-                <p className="text-muted-foreground">Nenhuma aposta registrada ainda</p>
+                <p className="text-muted-foreground">{apostas.length === 0 ? "Nenhuma aposta registrada ainda" : "Nenhuma aposta encontrada com os filtros aplicados"}</p>
               </CardContent>
             </Card>
           ) : (
             <div className="space-y-2">
-              {apostas.map(aposta => (
+              {apostasFiltradas.map(aposta => (
                 <Card key={aposta.id} className="bg-card border-border">
                   <CardContent className="p-4 flex items-center justify-between">
                     <div className="flex-1">

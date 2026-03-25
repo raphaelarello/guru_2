@@ -101,7 +101,22 @@
 - [x] Endpoints cronIniciar, cronParar, cronExecutarAgora, cronStatus no router
 
 ## Bugs Fase 17
-- [ ] Estatísticas em inglês no modal Ao Vivo (Ball Possession, Total Shots, etc.)
-- [ ] Estatísticas zeradas para ligas menores (Amapaense, etc.)
-- [ ] Mercados em inglês (Over, Under, BTTS, etc.) em todo o sistema
-- [ ] Atualização ao vivo muito lenta (30s) — reduzir para 10s
+- [x] Estatísticas em inglês no modal Ao Vivo — CORRIGIDO (mapa de tradução PT-BR)
+- [x] Estatísticas zeradas para ligas menores — CORRIGIDO (mensagem "não disponível")
+- [x] Mercados em inglês — CORRIGIDO (Acima, Ambas Marcam, etc.)
+- [x] Atualização ao vivo lenta — CORRIGIDO (reduzido para 10s)
+
+## Fase 18 — Filtros Avançados, Ligas em PT-BR e Interatividade Máxima
+- [x] Dicionário completo de ligas em português com emoji de bandeira e país (200+ ligas)
+- [x] Componente FiltroLigas reutilizável com multi-seleção e "Selecionar Todas"
+- [x] Componente FiltroAvancado com mercado, urgência, confiança, odds mínima/máxima
+- [x] Filtros avançados na página Ao Vivo: liga, mercado, urgência, confiança mínima
+- [x] Filtros avançados em Jogos de Hoje: liga, horário, odds mínima/máxima
+- [x] Filtros avançados nos Bots (Fila de Sinais): liga, mercado, confiança
+- [x] Filtros avançados na Auditoria: liga, resultado, mercado, período + exportar CSV
+- [x] Filtros avançados no Kelly Tracker: busca, resultado, exportar CSV
+- [x] Bandeiras e nomes PT-BR em todos os cards de jogos
+- [x] Templates de bots com ativação 1 clique + filtro por categoria (Gols, BTTS, Resultado, Tempo, Especiais)
+- [x] Badge "Já ativado" nos templates que já foram criados
+- [x] Botão de configuração avançada ao lado do 1 clique nos templates
+- [x] Cron automático com controles na aba Central dos Bots

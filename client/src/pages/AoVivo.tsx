@@ -1,4 +1,6 @@
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useMemo } from "react";
+import { FiltroAvancado, FILTROS_PADRAO, type FiltrosState } from "@/components/FiltroAvancado";
+import { getInfoLiga } from "@shared/ligas";
 import { trpc } from "@/lib/trpc";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -313,14 +315,12 @@ function ModalJogo({ fixtureId, open, onClose }: { fixtureId: number | null; ope
   );
 }
 
-// ─── Página principal ─────────────────────────────────────────────────────────
+// ─── Página principal ─────────────────────────────────────────────────────────────────────────────
 export default function AoVivo() {
   const [jogoSelecionado, setJogoSelecionado] = useState<number | null>(null);
-  const [filtroLiga, setFiltroLiga] = useState("todas");
-  const [apenasComSinal, setApenasComSinal] = useState(false);
+  const [filtros, setFiltros] = useState<FiltrosState>(FILTROS_PADRAO);
   const [autoRefresh, setAutoRefresh] = useState(true);
   const [ultimaAtt, setUltimaAtt] = useState(new Date());
-
   const { data: dashboard, isLoading, refetch, error } = trpc.football.dashboardAoVivo.useQuery(undefined, {
     refetchInterval: autoRefresh ? 10_000 : false,
   });
@@ -336,15 +336,35 @@ export default function AoVivo() {
     toast.success("Dados atualizados!");
   }, [refetch]);
 
-  const ligas = dashboard?.jogos
-    ? Array.from(new Set(dashboard.jogos.map(j => j.fixture.league.name))).sort()
-    : [];
+  // IDs das ligas disponíveis nos dados atuais
+  const ligasDisponiveis = useMemo(() =>
+    dashboard?.jogos ? Array.from(new Set(dashboard.jogos.map(j => j.fixture.league.id))) : [],
+  [dashboard?.jogos]);
 
-  const jogosFiltrados = (dashboard?.jogos || []).filter(j => {
-    if (filtroLiga !== "todas" && j.fixture.league.name !== filtroLiga) return false;
-    if (apenasComSinal && j.totalOportunidades === 0) return false;
-    return true;
-  });
+  const jogosFiltrados = useMemo(() => {
+    return (dashboard?.jogos || []).filter(j => {
+      // Filtro de ligas
+      if (filtros.ligas.length > 0 && !filtros.ligas.includes(j.fixture.league.id)) return false;
+      // Só com sinal
+      if (filtros.soComSinal && j.totalOportunidades === 0) return false;
+      // Confiança mínima
+      if (filtros.confiancaMin > 0) {
+        const maxConf = Math.max(...(j.oportunidades || []).map((o: {confianca: number}) => o.confianca), 0);
+        if (maxConf < filtros.confiancaMin) return false;
+      }
+      // Mercados
+      if (filtros.mercados.length > 0) {
+        const temMercado = (j.oportunidades || []).some((o: {tipo: string}) => filtros.mercados.includes(o.tipo));
+        if (!temMercado) return false;
+      }
+      // Urgência
+      if (filtros.urgencia.length > 0) {
+        const temUrgencia = (j.oportunidades || []).some((o: {urgencia: string}) => filtros.urgencia.includes(o.urgencia));
+        if (!temUrgencia) return false;
+      }
+      return true;
+    });
+  }, [dashboard?.jogos, filtros]);
 
   return (
     <div className="p-4 space-y-4">
@@ -411,26 +431,17 @@ export default function AoVivo() {
         ))}
       </div>
 
-      {/* Filtros */}
-      <div className="flex flex-wrap items-center gap-2">
-        <Button
-          size="sm"
-          variant={apenasComSinal ? "default" : "outline"}
-          onClick={() => setApenasComSinal(!apenasComSinal)}
-          className={`h-7 text-xs ${apenasComSinal ? "bg-green-500 text-black hover:bg-green-400" : "border-gray-600 text-gray-300"}`}
-        >
-          <Zap className="w-3 h-3 mr-1" />
-          Só com sinais
-        </Button>
-        <select
-          value={filtroLiga}
-          onChange={e => setFiltroLiga(e.target.value)}
-          className="bg-gray-800 border border-gray-600 text-gray-300 text-xs rounded px-2 py-1 h-7"
-        >
-          <option value="todas">Todas as ligas</option>
-          {ligas.map(l => <option key={l} value={l}>{l}</option>)}
-        </select>
-        <span className="text-xs text-gray-500">{jogosFiltrados.length} jogo(s)</span>
+      {/* Filtros Avançados */}
+      <div className="space-y-2">
+        <FiltroAvancado
+          filtros={filtros}
+          onChange={setFiltros}
+          ligasDisponiveis={ligasDisponiveis}
+          mostrarMercados
+          mostrarUrgencia
+          mostrarSoComSinal
+        />
+        <p className="text-xs text-gray-500">{jogosFiltrados.length} jogo(s) encontrado(s)</p>
       </div>
 
       {/* Erro */}

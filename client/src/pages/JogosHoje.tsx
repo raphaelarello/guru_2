@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { trpc } from "@/lib/trpc";
 import RaphaLayout from "@/components/RaphaLayout";
 import { Badge } from "@/components/ui/badge";
@@ -6,12 +6,13 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
-  Calendar, Clock, Trophy, TrendingUp, Target, ChevronDown, ChevronUp,
+  Calendar, Clock, Trophy, Target, ChevronDown, ChevronUp,
   RefreshCw, Loader2, AlertCircle, BarChart2, Zap
 } from "lucide-react";
 import type { PreMatchOdd } from "../../../server/football";
+import { FiltroAvancado, FILTROS_PADRAO, type FiltrosState } from "@/components/FiltroAvancado";
+import { getInfoLiga } from "@shared/ligas";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -225,6 +226,7 @@ function JogoCard({
   const away1x2 = getOddPrincipal(odds, "Match Winner", "Away");
   const over25 = getOddPrincipal(odds, "Goals Over/Under", "Over 2.5");
   const btts = getOddPrincipal(odds, "Both Teams Score", "Yes");
+  const ligaInfo = getInfoLiga(fixture.league.id, fixture.league.name);
 
   return (
     <div
@@ -234,7 +236,8 @@ function JogoCard({
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2">
           <img src={fixture.league.logo} alt={fixture.league.name} className="w-5 h-5 object-contain" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
-          <span className="text-xs text-gray-400 truncate max-w-[140px]">{fixture.league.name}</span>
+          <span className="text-base leading-none">{ligaInfo.bandeira}</span>
+          <span className="text-xs text-gray-400 truncate max-w-[140px]">{ligaInfo.nome}</span>
         </div>
         <div className="flex items-center gap-2">
           <StatusBadge status={fixture.fixture.status} />
@@ -273,8 +276,8 @@ function JogoCard({
             { label: "1", val: home1x2, color: "#00ff88" },
             { label: "X", val: draw1x2, color: "#fbbf24" },
             { label: "2", val: away1x2, color: "#60a5fa" },
-            { label: "O2.5", val: over25, color: "#a78bfa" },
-            { label: "BTTS", val: btts, color: "#f472b6" },
+            { label: "A2.5", val: over25, color: "#a78bfa" },
+            { label: "AM", val: btts, color: "#f472b6" },
           ].map(({ label, val, color }) => (
             <div key={label} className="bg-[#0f1117] rounded p-1.5 border border-[#2a3040] group-hover:border-[#00ff88]/20 transition-colors">
               <p className="text-gray-500 text-[10px] mb-0.5">{label}</p>
@@ -300,7 +303,7 @@ function JogoCard({
 // ─── Página principal ─────────────────────────────────────────────────────────
 
 export default function JogosHoje() {
-  const [ligaFiltro, setLigaFiltro] = useState<string>("todas");
+  const [filtros, setFiltros] = useState<FiltrosState>(FILTROS_PADRAO);
   const [ligasExpandidas, setLigasExpandidas] = useState<Set<number>>(new Set());
   const [jogoSelecionado, setJogoSelecionado] = useState<{ id: number; titulo: string } | null>(null);
 
@@ -310,9 +313,27 @@ export default function JogosHoje() {
   );
 
   const todasLigas = data?.ligas ?? [];
-  const ligasFiltradas = ligaFiltro === "todas"
-    ? todasLigas
-    : todasLigas.filter((l) => String(l.liga.id) === ligaFiltro);
+
+  // IDs de ligas disponíveis
+  const ligasDisponiveis = useMemo(() => todasLigas.map(l => l.liga.id), [todasLigas]);
+
+  // Filtrar ligas com base nos filtros avançados
+  const ligasFiltradas = useMemo(() => {
+    return todasLigas.filter(({ liga, jogos }) => {
+      if (filtros.ligas.length > 0 && !filtros.ligas.includes(liga.id)) return false;
+      // Filtro de odds mínimas
+      if (filtros.oddsMin > 1.0 || filtros.oddsMax < 50.0) {
+        const temOdd = jogos.some(j => {
+          const odds = data?.oddsMap?.[j.fixture.id];
+          if (!odds) return false;
+          const home = parseFloat(getOddPrincipal(odds, "Match Winner", "Home"));
+          return !isNaN(home) && home >= filtros.oddsMin && home <= filtros.oddsMax;
+        });
+        if (!temOdd) return false;
+      }
+      return true;
+    });
+  }, [todasLigas, filtros, data?.oddsMap]);
 
   const toggleLiga = (id: number) => {
     setLigasExpandidas((prev) => {
@@ -342,21 +363,6 @@ export default function JogosHoje() {
           </p>
         </div>
         <div className="flex items-center gap-3">
-          {todasLigas.length > 0 && (
-            <Select value={ligaFiltro} onValueChange={setLigaFiltro}>
-              <SelectTrigger className="w-48 bg-[#1a1f2e] border-[#2a3040] text-white">
-                <SelectValue placeholder="Todas as ligas" />
-              </SelectTrigger>
-              <SelectContent className="bg-[#1a1f2e] border-[#2a3040]">
-                <SelectItem value="todas" className="text-white">Todas as ligas</SelectItem>
-                {todasLigas.map((l) => (
-                  <SelectItem key={l.liga.id} value={String(l.liga.id)} className="text-white">
-                    {l.liga.name} ({l.jogos.length})
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          )}
           <Button
             variant="outline"
             size="sm"
@@ -369,6 +375,19 @@ export default function JogosHoje() {
           </Button>
         </div>
       </div>
+
+      {/* Filtros Avançados */}
+      {todasLigas.length > 0 && (
+        <div className="mb-4">
+          <FiltroAvancado
+            filtros={filtros}
+            onChange={setFiltros}
+            ligasDisponiveis={ligasDisponiveis}
+            mostrarOdds
+          />
+          <p className="text-xs text-gray-500 mt-1">{ligasFiltradas.reduce((acc, l) => acc + l.jogos.length, 0)} jogo(s) encontrado(s) em {ligasFiltradas.length} liga(s)</p>
+        </div>
+      )}
 
       {/* Métricas */}
       {data && (

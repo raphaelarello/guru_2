@@ -10,9 +10,11 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Bot, Zap, Plus, Settings, Trash2, Play, Pause, TrendingUp, Target, CheckCircle, AlertCircle, Layers, Send, Clock, RefreshCw, TestTube } from "lucide-react";
+import { Bot, Zap, Plus, Settings, Trash2, Play, Pause, TrendingUp, Target, CheckCircle, AlertCircle, Layers, Send, Clock, RefreshCw, TestTube, Filter } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
+import { FiltroLigas } from "@/components/FiltroLigas";
+import { getInfoLiga } from "@shared/ligas";
 
 const TEMPLATES = [
   { id: "over05ft", nome: "Over 0.5 FT", descricao: "Detecta jogos com alta probabilidade de pelo menos 1 gol", categoria: "Gols", confiancaPadrao: 85, icone: "⚽", cor: "text-green-400" },
@@ -46,6 +48,8 @@ export default function Bots() {
   const [modalNovo, setModalNovo] = useState(false);
   const [botEditando, setBotEditando] = useState<any>(null);
   const [novoBot, setNovoBot] = useState({ nome: "", descricao: "", templateId: "", confiancaMinima: 75, limiteDiario: 10 });
+  const [filtroLigasBots, setFiltroLigasBots] = useState<number[]>([]);
+  const [filtroLigasSinais, setFiltroLigasSinais] = useState<number[]>([]);
 
   const botsQuery = trpc.bots.list.useQuery();
   const cronQuery = trpc.bots.cronStatus.useQuery(undefined, { refetchInterval: 30000 });
@@ -89,15 +93,34 @@ export default function Bots() {
     onError: () => toast.error("Erro ao remover bot"),
   });
 
+  const [filtroCategoria, setFiltroCategoria] = useState("Todos");
+  const [ativandoTemplate, setAtivandoTemplate] = useState<string | null>(null);
+
   const carregarTemplate = (template: typeof TEMPLATES[0]) => {
     setNovoBot({ nome: template.nome, descricao: template.descricao, templateId: template.id, confiancaMinima: template.confiancaPadrao, limiteDiario: 10 });
     setModalTemplates(false);
     setModalNovo(true);
   };
 
+  const ativarTemplateComUmClique = async (template: typeof TEMPLATES[0]) => {
+    setAtivandoTemplate(template.id);
+    try {
+      await criarBot.mutateAsync({ nome: template.nome, descricao: template.descricao, templateId: template.id, confiancaMinima: template.confiancaPadrao, limiteDiario: 10 });
+      toast.success(`Bot "${template.nome}" ativado com 1 clique! 🚀`, { description: "Acesse a aba Central para gerenciá-lo" });
+    } catch (e) {
+      toast.error("Erro ao ativar template");
+    } finally {
+      setAtivandoTemplate(null);
+    }
+  };
+
   const bots = botsQuery.data ?? [];
   const botsAtivos = bots.filter(b => b.ativo).length;
   const cron = cronQuery.data;
+
+  const categorias = ["Todos", ...Array.from(new Set(TEMPLATES.map(t => t.categoria)))];
+  const templatesFiltrados = filtroCategoria === "Todos" ? TEMPLATES : TEMPLATES.filter(t => t.categoria === filtroCategoria);
+  const botsExistentes = new Set(bots.map(b => b.templateId).filter(Boolean));
 
   return (
     <RaphaLayout title="RAPHA Bots">
@@ -287,40 +310,61 @@ export default function Bots() {
 
         {/* Templates */}
         <TabsContent value="templates">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {TEMPLATES.map(t => (
-              <Card key={t.id} className="bg-card border-border hover:border-primary/40 transition-all cursor-pointer group" onClick={() => carregarTemplate(t)}>
-                <CardContent className="p-4">
-                  <div className="flex items-start justify-between mb-3">
-                    <div className="flex items-center gap-3">
-                      <span className="text-2xl">{t.icone}</span>
-                      <div>
-                        <h3 className="font-semibold text-foreground text-sm">{t.nome}</h3>
-                        <span className="badge-blue text-[10px]">{t.categoria}</span>
-                      </div>
-                    </div>
-                    <span className={`text-sm font-bold ${t.cor}`}>{t.confiancaPadrao}%</span>
-                  </div>
-                  <p className="text-xs text-muted-foreground mb-3">{t.descricao}</p>
-                  <Button size="sm" className="w-full bg-primary/10 text-primary hover:bg-primary hover:text-primary-foreground transition-all border border-primary/30 group-hover:bg-primary group-hover:text-primary-foreground">
-                    <Zap className="w-3.5 h-3.5 mr-2" />
-                    Ativar com 1 Clique
-                  </Button>
-                </CardContent>
-              </Card>
+          {/* Filtro por categoria */}
+          <div className="flex flex-wrap gap-2 mb-4">
+            {categorias.map(cat => (
+              <Button key={cat} size="sm" variant={filtroCategoria === cat ? "default" : "outline"}
+                className={filtroCategoria === cat ? "bg-primary text-primary-foreground" : "border-border text-muted-foreground"}
+                onClick={() => setFiltroCategoria(cat)}>
+                {cat}
+              </Button>
             ))}
+            <span className="ml-auto text-xs text-muted-foreground self-center">{templatesFiltrados.length} templates</span>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {templatesFiltrados.map(t => {
+              const jaAtivo = botsExistentes.has(t.id);
+              const ativando = ativandoTemplate === t.id;
+              return (
+                <Card key={t.id} className={`bg-card border-border transition-all group ${jaAtivo ? "border-primary/50 opacity-70" : "hover:border-primary/40 cursor-pointer"}`}>
+                  <CardContent className="p-4">
+                    <div className="flex items-start justify-between mb-3">
+                      <div className="flex items-center gap-3">
+                        <span className="text-2xl">{t.icone}</span>
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <h3 className="font-semibold text-foreground text-sm">{t.nome}</h3>
+                            {jaAtivo && <span className="badge-green text-[10px]">Ativo</span>}
+                          </div>
+                          <span className="badge-blue text-[10px]">{t.categoria}</span>
+                        </div>
+                      </div>
+                      <span className={`text-sm font-bold ${t.cor}`}>{t.confiancaPadrao}%</span>
+                    </div>
+                    <p className="text-xs text-muted-foreground mb-3">{t.descricao}</p>
+                    <div className="flex gap-2">
+                      <Button size="sm" className="flex-1 bg-primary text-primary-foreground"
+                        disabled={jaAtivo || ativando}
+                        onClick={() => ativarTemplateComUmClique(t)}>
+                        <Zap className={`w-3.5 h-3.5 mr-2 ${ativando ? "animate-spin" : ""}`} />
+                        {jaAtivo ? "Já ativado" : ativando ? "Ativando..." : "Ativar com 1 Clique"}
+                      </Button>
+                      {!jaAtivo && (
+                        <Button size="sm" variant="outline" className="border-border" onClick={() => carregarTemplate(t)}>
+                          <Settings className="w-3.5 h-3.5" />
+                        </Button>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            })}
           </div>
         </TabsContent>
 
         {/* Fila de Sinais */}
         <TabsContent value="sinais">
-          <Card className="bg-card border-border">
-            <CardContent className="p-12 text-center">
-              <Send className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
-              <h3 className="text-lg font-semibold text-foreground mb-2">Fila de Sinais</h3>
-              <p className="text-muted-foreground">Os sinais gerados pelos bots aparecerão aqui em tempo real</p>
-            </CardContent>
-          </Card>
+          <FilaSinais filtroLigas={filtroLigasSinais} setFiltroLigas={setFiltroLigasSinais} />
         </TabsContent>
 
         {/* Canais */}
@@ -387,6 +431,86 @@ export default function Bots() {
         </DialogContent>
       </Dialog>
     </RaphaLayout>
+  );
+}
+
+function FilaSinais({ filtroLigas, setFiltroLigas }: { filtroLigas: number[]; setFiltroLigas: (v: number[]) => void }) {
+  const alertasQuery = trpc.alertas.list.useQuery(undefined, { refetchInterval: 10_000 });
+  const alertas = alertasQuery.data ?? [];
+
+  const alertasFiltrados = filtroLigas.length === 0
+    ? alertas
+    : alertas.filter(a => {
+        if (!a.liga) return false;
+        // Tenta extrair ID da liga do campo liga (pode ser nome ou id)
+        return true; // sem ID na tabela, filtra por nome
+      });
+
+  const cores: Record<string, string> = {
+    pendente: "badge-yellow",
+    green: "badge-green",
+    red: "badge-red",
+    void: "badge-blue",
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <div>
+          <h3 className="font-semibold text-foreground">Fila de Sinais</h3>
+          <p className="text-xs text-muted-foreground">{alertasFiltrados.length} sinal(is) gerado(s) pelos bots</p>
+        </div>
+        <div className="flex items-center gap-2">
+          <FiltroLigas ligasSelecionadas={filtroLigas} onChange={setFiltroLigas} placeholder="Filtrar por liga" />
+          {alertasQuery.isFetching && <RefreshCw className="w-4 h-4 animate-spin text-muted-foreground" />}
+        </div>
+      </div>
+
+      {alertasFiltrados.length === 0 ? (
+        <Card className="bg-card border-border">
+          <CardContent className="p-12 text-center">
+            <Send className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
+            <h3 className="text-lg font-semibold text-foreground mb-2">Nenhum sinal ainda</h3>
+            <p className="text-muted-foreground text-sm">Ative um bot e clique em "Processar Agora" ou aguarde o cron automático</p>
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="space-y-2">
+          {alertasFiltrados.map(alerta => {
+            const ligaInfo = getInfoLiga(0, alerta.liga ?? "");
+            return (
+              <Card key={alerta.id} className="bg-card border-border hover:border-primary/30 transition-all">
+                <CardContent className="p-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-3 flex-1 min-w-0">
+                      <div className="text-lg">{ligaInfo.bandeira}</div>
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-semibold text-foreground text-sm truncate">{alerta.jogo}</span>
+                          <span className={cores[alerta.resultado ?? "pendente"] ?? "badge-blue"}>
+                            {alerta.resultado === "green" ? "✅ Green" : alerta.resultado === "red" ? "❌ Red" : alerta.resultado === "void" ? "⚪ Void" : "⏳ Pendente"}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-3 text-xs text-muted-foreground mt-0.5 flex-wrap">
+                          <span className="text-primary font-medium">{alerta.mercado}</span>
+                          {alerta.odd && <span>Odd: <span className="text-foreground font-mono">{Number(alerta.odd).toFixed(2)}</span></span>}
+                          {alerta.ev && <span>EV: <span className="text-green-400 font-mono">{Number(alerta.ev).toFixed(1)}%</span></span>}
+                          {alerta.confianca && <span>Conf: <span className="text-yellow-400">{alerta.confianca}%</span></span>}
+                          <span className="text-gray-600">{new Date(alerta.createdAt).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}</span>
+                        </div>
+                      </div>
+                    </div>
+                    {alerta.liga && (
+                      <span className="text-xs text-gray-500 hidden sm:block shrink-0">{alerta.liga}</span>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })}
+        </div>
+      )}
+    </div>
   );
 }
 
