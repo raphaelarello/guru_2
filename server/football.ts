@@ -245,7 +245,10 @@ export interface LiveOdd {
   };
   league: League;
   teams: { home: Team; away: Team };
-  bets: OddBet[];
+  /** A API retorna o campo como 'odds' (não 'bets') */
+  odds: OddBet[];
+  /** Alias para compatibilidade */
+  bets?: OddBet[];
 }
 
 export interface PreMatchOdd {
@@ -729,9 +732,11 @@ export function analisarOportunidades(
   const totalFouls = foulsHome + foulsAway;
 
   // Extrair odds ao vivo relevantes
+  // A API retorna o campo como 'odds' (não 'bets')
   const getOdd = (betName: string, value: string): number => {
     if (!odds) return 0;
-    const bet = odds.bets.find((b) => b.name.toLowerCase().includes(betName.toLowerCase()));
+    const betsArray = odds.odds ?? odds.bets ?? [];
+    const bet = betsArray.find((b) => b.name.toLowerCase().includes(betName.toLowerCase()));
     if (!bet) return 0;
     const v = bet.values.find((x) => x.value.toLowerCase().includes(value.toLowerCase()) && !x.suspended);
     return v ? parseFloat(v.odd) : 0;

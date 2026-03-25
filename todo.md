@@ -82,3 +82,6 @@
 - [x] Modal de detalhes: Sinais, Estatísticas, Eventos, Predição (API Football)
 - [x] Botão Processar Agora nos Bots para gerar alertas reais
 - [x] Motor de análise: Over 0.5/1.5/2.5, BTTS, Goleada, Escanteios, Cartões, EV+
+
+## Bugs
+- [x] Erro "Cannot read properties of undefined (reading 'find')" na página Ao Vivo — CORRIGIDO (campo odds vs bets na interface LiveOdd)
