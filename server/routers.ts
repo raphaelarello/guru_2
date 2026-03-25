@@ -84,18 +84,18 @@ auth: router({
 
 superadmin: router({
   me: publicProcedure.query(({ ctx }) => {
-    const parsed = superAdminAuth.parseSessionCookieValue(getSuperAdminCookie(ctx.req));
-    if (!parsed) {
+    const sessionId = getSuperAdminCookie(ctx.req);
+    if (!sessionId) {
       return { autenticado: false, sessionId: null, stats: null } as const;
     }
-    const validacao = superAdminAuth.validarSessao(parsed.sessionId, parsed.token);
-    if (!validacao.valida) {
+    const validacao = superAdminAuth.validarSessao(sessionId);
+    if (!validacao.valid) {
       ctx.res.clearCookie(SUPERADMIN_COOKIE_NAME, { ...getSessionCookieOptions(ctx.req), maxAge: -1 });
       return { autenticado: false, sessionId: null, stats: null } as const;
     }
     return {
       autenticado: true,
-      sessionId: parsed.sessionId,
+      sessionId: sessionId,
       stats: superAdminAuth.obterEstatisticas(),
     } as const;
   }),
@@ -103,11 +103,10 @@ superadmin: router({
   login: publicProcedure
     .input(z.object({ senha: z.string().min(1) }))
     .mutation(({ input, ctx }) => {
-      return superAdminAuth.autenticar(
-        input.senha,
-        getClientIp(ctx.req as unknown as { headers: Record<string, unknown>; socket?: { remoteAddress?: string } }),
-        String(ctx.req.headers["user-agent"] || "unknown"),
-      );
+      return superAdminAuth.login({
+        username: "superadmin",
+        password: input.senha,
+      });
     }),
 
   verify2FA: publicProcedure
