@@ -565,3 +565,24 @@
 - [x] Implementar cache inteligente para não exceder limite de 7500 req/dia
 - [x] Gerenciar requisições entre 1h e 7h da manhã (horário Brasil)
 - [x] Testar todas as 3 funcionalidades
+
+
+### Fase 43 — Página Pitacos Funcional com Análise de Precisão
+- [x] Criar página Pitacos com formulário de análise manual
+- [x] Implementar campos: mercado, odd, valor apostado, resultado
+- [x] Adicionar modal de resultados com análise de precisão
+- [x] Implementar gráfico radar (ROI, taxa acerto, evolução)
+- [x] Adicionar histórico de palpites com estatísticas
+
+### Fase 44 — WebSocket para Sincronização em Tempo Real
+- [x] Implementar servidor WebSocket para artilheiros/indisciplinados
+- [x] Substituir polling por WebSocket na página Artilheiros
+- [x] Implementar reconexão automática em caso de desconexão
+- [x] Otimizar transmissão de dados (apenas mudanças)
+
+### Fase 45 — Notificações de Atualização
+- [x] Implementar sistema de toast notifications
+- [x] Notificar quando artilheiros entram no top 5
+- [x] Notificar quando indisciplinados recebem cartões
+- [x] Adicionar som e animação nas notificações
+- [x] Testar todas as 3 melhorias completas

@@ -17,6 +17,7 @@ import HistoricoAoVivo from "./pages/HistoricoAoVivo";
 import Configuracoes from "./pages/Configuracoes";
 import Destaques from "./pages/Destaques";
 import Artilheiros from "./pages/Artilheiros";
+import NotificationCenter from "./components/NotificationCenter";
 
 function Router() {
   return (
@@ -48,6 +49,7 @@ function App() {
       <ThemeProvider defaultTheme="dark">
         <TooltipProvider>
           <Toaster richColors position="top-right" />
+          <NotificationCenter />
           <Router />
         </TooltipProvider>
       </ThemeProvider>
