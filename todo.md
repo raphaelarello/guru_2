@@ -586,3 +586,27 @@
 - [x] Notificar quando indisciplinados recebem cartões
 - [x] Adicionar som e animação nas notificações
 - [x] Testar todas as 3 melhorias completas
+
+
+### Fase 46 — Integração Telegram Bot
+- [x] Configurar token Telegram Bot
+- [x] Criar endpoint para enviar alertas de artilheiros via Telegram
+- [x] Criar endpoint para enviar alertas de indisciplinados via Telegram
+- [x] Adicionar botão "Enviar para Telegram" na página Artilheiros
+- [x] Testar envio de notificações em tempo real
+
+### Fase 47 — Dashboard de Estatísticas Avançadas
+- [x] Criar página Estatísticas com gráficos de evolução
+- [x] Implementar line chart de evolução de gols (últimos 30 dias)
+- [x] Implementar line chart de evolução de cartões (últimos 30 dias)
+- [x] Adicionar comparação com média histórica (linha de referência)
+- [x] Implementar previsões (próximos 5 jogos)
+- [x] Adicionar filtros por liga e período
+- [x] Exportar relatório de estatísticas em PDF
+
+### Fase 48 — Sincronização com Bots de Apostas
+- [x] Conectar dados de artilheiros aos bots existentes
+- [x] Criar lógica de detecção de forma (últimos 3 jogos)
+- [x] Gerar alertas automáticos quando top artilheiros estão em forma
+- [x] Integrar alertas com sistema de notificações
+- [x] Testar sincronização com bots de apostas

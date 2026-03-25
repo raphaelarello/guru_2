@@ -17,6 +17,7 @@ import HistoricoAoVivo from "./pages/HistoricoAoVivo";
 import Configuracoes from "./pages/Configuracoes";
 import Destaques from "./pages/Destaques";
 import Artilheiros from "./pages/Artilheiros";
+import Estatisticas from "./pages/Estatisticas";
 import NotificationCenter from "./components/NotificationCenter";
 
 function Router() {
@@ -35,6 +36,7 @@ function Router() {
       <Route path="/times" component={Times} />
       <Route path="/ligas" component={Ligas} />
       <Route path="/artilheiros" component={Artilheiros} />
+      <Route path="/estatisticas" component={Estatisticas} />
       <Route path="/historico-ao-vivo" component={HistoricoAoVivo} />
       <Route path="/configuracoes" component={Configuracoes} />
       <Route path="/404" component={NotFound} />

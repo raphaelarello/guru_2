@@ -76,6 +76,7 @@ const allNavItems = [
   { path: "/times", label: "Estatísticas Times", icon: Users },
   { path: "/ligas", label: "Ligas", icon: Trophy },
   { path: "/artilheiros", label: "Artilheiros", icon: TrendingUp },
+  { path: "/estatisticas", label: "Estatísticas", icon: BarChart2 },
   { path: "/historico-ao-vivo", label: "Histórico Ao Vivo", icon: Thermometer },
   { path: "/configuracoes", label: "Configurações", icon: Settings },
 ];
