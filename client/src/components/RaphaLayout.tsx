@@ -51,17 +51,18 @@ export default function RaphaLayout({ children, title, subtitle }: RaphaLayoutPr
 
   const ticker = useMemo(() => alertas.slice(0, 8), [alertas]);
 
-  if (!isAuthenticated) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-[#08101c] p-4 text-white">
-        <div className="text-center">
-          <h1 className="mb-3 text-3xl font-black">RaphaGuru</h1>
-          <p className="mb-6 text-slate-400">Central esportiva inteligente</p>
-          <Button onClick={() => (window.location.href = "/api/oauth/login")}>Entrar</Button>
-        </div>
-      </div>
-    );
-  }
+  // Mostrar painel mesmo sem autenticação (dados públicos)
+  // if (!isAuthenticated) {
+  //   return (
+  //     <div className="flex min-h-screen items-center justify-center bg-[#08101c] p-4 text-white">
+  //       <div className="text-center">
+  //         <h1 className="mb-3 text-3xl font-black">RaphaGuru</h1>
+  //         <p className="mb-6 text-slate-400">Central esportiva inteligente</p>
+  //         <Button onClick={() => (window.location.href = "/api/oauth/login")}>Entrar</Button>
+  //       </div>
+  //     </div>
+  //   );
+  // }
 
   return (
     <div className="min-h-screen bg-[radial-gradient(circle_at_top,#0d1d3b_0%,#08101c_32%,#060b14_100%)] text-white">
